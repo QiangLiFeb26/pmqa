@@ -123,10 +123,11 @@ class SauceDemoExecutionProvider(ExecutionProvider):
             Interaction(
                 id="interaction.login",
                 lifecycle=_verified_lifecycle(),
-                page_id="page.login",
+                source_page_id="page.login",
                 target_element_id="element.login",
                 action="click",
-                outcome="navigated:/inventory.html",
+                expected_outcome_type="navigation",
+                expected_outcome_value="/inventory.html",
             )
         )
 

@@ -28,13 +28,20 @@ extension guidance.
 
 ## Current scope
 
-Sprint 1 provides foundational models, provider interfaces, and an executable
-no-op workflow with these stages:
+Task 1 established the reusable framework foundation: runtime and knowledge
+models, single-purpose provider interfaces, product-pack isolation, storage
+boundaries, and an executable no-op LangGraph skeleton:
 
 `initialize -> explore -> generate_tests -> patrol -> finish`
 
-There is intentionally no exploration, AI, Playwright, test generation,
-review, verification, or self-healing behavior yet.
+Task 2 adds the first product-specific vertical slice under `products/demo/`.
+It performs bounded SauceDemo exploration with Python Playwright, persists
+structured knowledge, and deterministically generates two Playwright tests
+from the stored interaction, page, element, and locator relationships.
+
+The CLI vertical slice is not yet orchestrated by the LangGraph skeleton. The
+graph remains an executable architecture boundary, not the path used by the
+Task 2 commands.
 
 ## Prerequisites
 
@@ -46,6 +53,7 @@ Python Playwright with Chromium.
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip
 python -m pip install -e '.[dev]'
 python -m playwright install chromium
 ```
@@ -74,9 +82,8 @@ Exploration writes `products/demo/artifacts/knowledge.json`. Generation writes
 tests load their selectors from the stored artifact at runtime.
 
 The public demo uses the `ReasoningProvider` boundary with a deterministic,
-rule-based implementation, and records that provenance in the artifact. An
-approved adapter boundary exists for future GitHub Copilot reasoning, but no
-Copilot or external LLM integration is configured in this task.
+rule-based implementation and records `deterministic-rule-based` provenance in
+the artifact. No GitHub Copilot or external LLM integration exists.
 
 Run all offline framework tests separately with:
 
@@ -90,6 +97,7 @@ Exploration is SauceDemo-specific, headless, capped at four known-safe steps,
 and is not a crawler. The normalizer only enforces a basic sensitive-key
 boundary; it is not an enterprise PHI scrubber. Patrol, stale detection,
 review, self-healing, and external reasoning integrations remain out of scope.
+Patrol and stale detection are reserved for Task 3.
 
 ## Future roadmap
 

@@ -59,14 +59,15 @@ class Locator:
 
 @dataclass(frozen=True)
 class Interaction:
-    """Captures an action and its observed safe outcome."""
+    """Captures a replayable action and its structured expected outcome."""
 
     id: str
     lifecycle: Lifecycle
-    page_id: str
+    source_page_id: str
     target_element_id: str
     action: str
-    outcome: str
+    expected_outcome_type: str
+    expected_outcome_value: str
 
 
 @dataclass(frozen=True)

@@ -8,7 +8,7 @@
       },
       "id": "element.username",
       "lifecycle": {
-        "last_verified": "2026-07-18T16:13:27.983478+00:00",
+        "last_verified": "2026-07-18T20:53:58.846388+00:00",
         "state": "verified"
       },
       "page_id": "page.login",
@@ -22,7 +22,7 @@
       },
       "id": "element.password",
       "lifecycle": {
-        "last_verified": "2026-07-18T16:13:27.983506+00:00",
+        "last_verified": "2026-07-18T20:53:58.846421+00:00",
         "state": "verified"
       },
       "page_id": "page.login",
@@ -36,7 +36,7 @@
       },
       "id": "element.login",
       "lifecycle": {
-        "last_verified": "2026-07-18T16:13:27.983516+00:00",
+        "last_verified": "2026-07-18T20:53:58.846431+00:00",
         "state": "verified"
       },
       "page_id": "page.login",
@@ -50,7 +50,7 @@
       },
       "id": "element.inventory_title",
       "lifecycle": {
-        "last_verified": "2026-07-18T16:13:28.075457+00:00",
+        "last_verified": "2026-07-18T20:53:58.947128+00:00",
         "state": "verified"
       },
       "page_id": "page.inventory",
@@ -61,13 +61,14 @@
   "interactions": [
     {
       "action": "click",
+      "expected_outcome_type": "navigation",
+      "expected_outcome_value": "/inventory.html",
       "id": "interaction.login",
       "lifecycle": {
-        "last_verified": "2026-07-18T16:13:28.067527+00:00",
+        "last_verified": "2026-07-18T20:53:58.937660+00:00",
         "state": "verified"
       },
-      "outcome": "navigated:/inventory.html",
-      "page_id": "page.login",
+      "source_page_id": "page.login",
       "target_element_id": "element.login"
     }
   ],
@@ -76,7 +77,7 @@
       "element_id": "element.username",
       "id": "locator.username",
       "lifecycle": {
-        "last_verified": "2026-07-18T16:13:27.983497+00:00",
+        "last_verified": "2026-07-18T20:53:58.846412+00:00",
         "state": "verified"
       },
       "priority": 1,
@@ -87,7 +88,7 @@
       "element_id": "element.password",
       "id": "locator.password",
       "lifecycle": {
-        "last_verified": "2026-07-18T16:13:27.983512+00:00",
+        "last_verified": "2026-07-18T20:53:58.846427+00:00",
         "state": "verified"
       },
       "priority": 1,
@@ -98,7 +99,7 @@
       "element_id": "element.login",
       "id": "locator.login",
       "lifecycle": {
-        "last_verified": "2026-07-18T16:13:27.983521+00:00",
+        "last_verified": "2026-07-18T20:53:58.846436+00:00",
         "state": "verified"
       },
       "priority": 1,
@@ -109,7 +110,7 @@
       "element_id": "element.inventory_title",
       "id": "locator.inventory_title",
       "lifecycle": {
-        "last_verified": "2026-07-18T16:13:28.075461+00:00",
+        "last_verified": "2026-07-18T20:53:58.947133+00:00",
         "state": "verified"
       },
       "priority": 1,
@@ -121,7 +122,7 @@
     {
       "id": "page.login",
       "lifecycle": {
-        "last_verified": "2026-07-18T16:13:27.983080+00:00",
+        "last_verified": "2026-07-18T20:53:58.845944+00:00",
         "state": "verified"
       },
       "structural_fingerprint": "d12ee931bdadd02715d415a637e55c047825cbb4f91f5d764c5bce63bb4ae876",
@@ -131,7 +132,7 @@
     {
       "id": "page.inventory",
       "lifecycle": {
-        "last_verified": "2026-07-18T16:13:28.075434+00:00",
+        "last_verified": "2026-07-18T20:53:58.947110+00:00",
         "state": "verified"
       },
       "structural_fingerprint": "c5f91d457fdf405b1e5f63e5a0d3809cfad386f9c3701230869634b1bb8541d9",
