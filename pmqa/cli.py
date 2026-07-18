@@ -8,7 +8,7 @@ from typing import Sequence
 
 from pmqa.core import RunContext, Task
 from pmqa.models import KnowledgeArtifact
-from pmqa.reasoning import ReasoningRequest
+from pmqa.reasoning import DeterministicReasoningScrubber, ScrubInput
 from pmqa.storage import JsonFileStorage
 
 
@@ -29,8 +29,8 @@ def explore(product: str) -> Path:
     context = RunContext(run_id="demo-exploration", product=product)
     task = Task("explore", "Explore the configured product within its safe bounds")
     reasoning = DeterministicDemoReasoningProvider()
-    plan = reasoning.reason(
-        ReasoningRequest(
+    scrub_result = DeterministicReasoningScrubber().scrub(
+        ScrubInput(
             request_id="demo-exploration-plan",
             workflow_id=context.run_id,
             task_type=task.task_id,
@@ -44,6 +44,7 @@ def explore(product: str) -> Path:
             },
         )
     )
+    plan = reasoning.reason(scrub_result.request)
     provider = SauceDemoExecutionProvider(
         config=config,
         actions=[decision.value["action"] for decision in plan.decisions],
