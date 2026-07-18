@@ -3,8 +3,10 @@
 import argparse
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
+from uuid import uuid4
 
 from pmqa.core import RunContext, Task
 from pmqa.models import KnowledgeArtifact
@@ -14,10 +16,15 @@ from pmqa.reasoning import (
     CopilotCliUnavailableError,
     DeterministicReasoningScrubber,
     ManualCopilotReasoningProvider,
+    ReasoningDecision,
+    ReasoningRequest,
+    ReasoningResponse,
+    ReasoningStatus,
     ScrubInput,
     TerminalManualReasoningChannel,
 )
 from pmqa.storage import JsonFileStorage
+from pmqa.trace import SQLiteTraceStore, TraceRecord
 
 
 def _root() -> Path:
@@ -178,6 +185,48 @@ def reason_copilot_cli(
     return 0
 
 
+def trace_demo(database: Path) -> int:
+    """Save and reload one provider-independent reasoning trace."""
+
+    request = ReasoningRequest(
+        request_id=f"trace-demo-request-{uuid4()}",
+        workflow_id="trace-demo",
+        task_type="contract-demonstration",
+        provider_hint=None,
+        product_id="demo",
+        artifact_version="1",
+        constraints={"offline": True},
+    )
+    response = ReasoningResponse(
+        request_id=request.request_id,
+        provider="trace-demo",
+        model="structured-example-v1",
+        status=ReasoningStatus.COMPLETED,
+        decisions=[
+            ReasoningDecision(
+                decision_type="acknowledge",
+                value={"workflow_id": request.workflow_id},
+                confidence=1.0,
+            )
+        ],
+    )
+    record = TraceRecord.from_exchange(
+        trace_id=f"trace-demo-{uuid4()}",
+        request=request,
+        response=response,
+        created_at=datetime.now(timezone.utc),
+        metadata={"purpose": "offline-demo"},
+    )
+    with SQLiteTraceStore(database) as store:
+        store.save_trace(record)
+        restored = store.get_trace(record.trace_id)
+    print(
+        f"trace_id={restored.trace_id} request_id={restored.request_id} "
+        f"provider={restored.provider} status={restored.status.value}"
+    )
+    return 0
+
+
 def main(argv: Sequence[str] = ()) -> int:
     """Parse and execute one PMQA command."""
 
@@ -191,6 +240,10 @@ def main(argv: Sequence[str] = ()) -> int:
     copilot_cli.add_argument("--copilot-executable", required=True)
     copilot_cli.add_argument("--copilot-arg", action="append", default=[])
     copilot_cli.add_argument("--timeout", type=float, default=60.0)
+    trace_parser = subparsers.add_parser("trace-demo")
+    trace_parser.add_argument(
+        "--database", type=Path, default=Path("pmqa-traces.sqlite3")
+    )
     args = parser.parse_args(list(argv) if argv else None)
     if args.command == "explore":
         print(explore(args.product))
@@ -202,6 +255,8 @@ def main(argv: Sequence[str] = ()) -> int:
         return test_generated(args.product)
     if args.command == "reason-manual":
         return reason_manual(args.product)
+    if args.command == "trace-demo":
+        return trace_demo(args.database)
     return reason_copilot_cli(
         args.product,
         args.copilot_executable,
