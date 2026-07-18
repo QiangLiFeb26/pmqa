@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pmqa.core import RunContext, Task
+from pmqa.reasoning import ReasoningDecision, ReasoningRequest
 from pmqa.models import (
     Element,
     Interaction,
@@ -25,11 +25,23 @@ def test_demo_plan_is_bounded_and_has_explicit_provenance() -> None:
     config = load_config(root)
     provider = DeterministicDemoReasoningProvider()
 
-    plan = provider.reason(Task("explore", "safe demo"), RunContext("run", "demo"))
+    plan = provider.reason(
+        ReasoningRequest(
+            request_id="request-1",
+            workflow_id="run",
+            task_type="explore",
+            provider_hint="deterministic",
+            product_id="demo",
+            artifact_version="1",
+            constraints={"maximum_steps": config.maximum_exploration_steps},
+        )
+    )
 
-    assert plan.data["provenance"] == "deterministic-rule-based"
-    assert len(plan.data["actions"]) <= config.maximum_exploration_steps
-    assert "checkout" not in plan.data["actions"]
+    actions = [decision.value["action"] for decision in plan.decisions]
+    assert plan.provider == "deterministic-rule-based"
+    assert all(isinstance(decision, ReasoningDecision) for decision in plan.decisions)
+    assert len(actions) <= config.maximum_exploration_steps
+    assert "checkout" not in actions
 
 
 def test_generator_derives_content_from_artifact_relationships(tmp_path) -> None:
