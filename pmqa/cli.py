@@ -9,6 +9,9 @@ from typing import Sequence
 from pmqa.core import RunContext, Task
 from pmqa.models import KnowledgeArtifact
 from pmqa.reasoning import (
+    CopilotCliConfig,
+    CopilotCliReasoningProvider,
+    CopilotCliUnavailableError,
     DeterministicReasoningScrubber,
     ManualCopilotReasoningProvider,
     ScrubInput,
@@ -125,6 +128,56 @@ def reason_manual(product: str) -> int:
     return 0
 
 
+def reason_copilot_cli(
+    product: str,
+    executable: str,
+    arguments: Sequence[str],
+    timeout_seconds: float,
+) -> int:
+    """Demonstrate scrubbed reasoning through an explicit Copilot CLI command."""
+
+    if product != "demo":
+        raise ValueError("Only the demo product pack is configured")
+    from products.demo.config import load_config
+
+    config = load_config(_root())
+    stored = JsonFileStorage(config.artifact_output_location).load("knowledge")
+    if stored is None:
+        raise FileNotFoundError(
+            "Run explore before reason-copilot-cli; knowledge.json is missing"
+        )
+    knowledge = KnowledgeArtifact.from_dict(stored.data)
+    scrubbed = DeterministicReasoningScrubber().scrub(
+        ScrubInput(
+            request_id="demo-copilot-cli-reasoning",
+            workflow_id="demo-copilot-cli-reasoning",
+            task_type="automated-analysis",
+            provider_hint="github-copilot-cli",
+            product_id=product,
+            artifact_version="1",
+            pages=knowledge.pages,
+            elements=knowledge.elements,
+            interactions=knowledge.interactions,
+            constraints={"return_json_only": True},
+            metadata={"reasoning_provenance": knowledge.reasoning_provenance},
+        )
+    )
+    provider = CopilotCliReasoningProvider(
+        CopilotCliConfig(
+            executable=executable,
+            arguments=list(arguments),
+            timeout_seconds=timeout_seconds,
+        )
+    )
+    if not provider.is_available():
+        raise CopilotCliUnavailableError(
+            "Configured Copilot CLI executable is unavailable"
+        )
+    response = provider.reason(scrubbed.request)
+    print(response.model_dump_json(indent=2))
+    return 0
+
+
 def main(argv: Sequence[str] = ()) -> int:
     """Parse and execute one PMQA command."""
 
@@ -133,6 +186,11 @@ def main(argv: Sequence[str] = ()) -> int:
     for name in ("explore", "generate", "test-generated", "reason-manual"):
         command = subparsers.add_parser(name)
         command.add_argument("--product", required=True)
+    copilot_cli = subparsers.add_parser("reason-copilot-cli")
+    copilot_cli.add_argument("--product", required=True)
+    copilot_cli.add_argument("--copilot-executable", required=True)
+    copilot_cli.add_argument("--copilot-arg", action="append", default=[])
+    copilot_cli.add_argument("--timeout", type=float, default=60.0)
     args = parser.parse_args(list(argv) if argv else None)
     if args.command == "explore":
         print(explore(args.product))
@@ -142,7 +200,14 @@ def main(argv: Sequence[str] = ()) -> int:
         return 0
     if args.command == "test-generated":
         return test_generated(args.product)
-    return reason_manual(args.product)
+    if args.command == "reason-manual":
+        return reason_manual(args.product)
+    return reason_copilot_cli(
+        args.product,
+        args.copilot_executable,
+        args.copilot_arg,
+        args.timeout,
+    )
 
 
 if __name__ == "__main__":
