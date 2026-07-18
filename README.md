@@ -36,19 +36,60 @@ no-op workflow with these stages:
 There is intentionally no exploration, AI, Playwright, test generation,
 review, verification, or self-healing behavior yet.
 
-## Quick start
+## Prerequisites
 
-PMQA requires Python 3.9 or later.
+PMQA requires Python 3.9 or later and network access to SauceDemo. Task 2 uses
+Python Playwright with Chromium.
+
+## Installation
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[dev]'
-python -m pmqa.workflow
-pytest
+python -m playwright install chromium
 ```
 
-The workflow command exits after running every no-op stage successfully.
+The demo supports public SauceDemo credentials strictly as explicit demo-only
+defaults. Override them without changing files when needed:
+
+```bash
+export PMQA_DEMO_USERNAME='standard_user'
+export PMQA_DEMO_PASSWORD='secret_sauce'
+```
+
+## Explore, generate, and test
+
+Run the bounded deterministic exploration, generate tests from its persisted
+knowledge, and execute the generated tests:
+
+```bash
+python -m pmqa.cli explore --product demo
+python -m pmqa.cli generate --product demo
+python -m pmqa.cli test-generated --product demo
+```
+
+Exploration writes `products/demo/artifacts/knowledge.json`. Generation writes
+`products/demo/generated_tests/test_saucedemo_generated.py`. The generated
+tests load their selectors from the stored artifact at runtime.
+
+The public demo uses the `ReasoningProvider` boundary with a deterministic,
+rule-based implementation, and records that provenance in the artifact. An
+approved adapter boundary exists for future GitHub Copilot reasoning, but no
+Copilot or external LLM integration is configured in this task.
+
+Run all offline framework tests separately with:
+
+```bash
+pytest tests
+```
+
+## Current limitations
+
+Exploration is SauceDemo-specific, headless, capped at four known-safe steps,
+and is not a crawler. The normalizer only enforces a basic sensitive-key
+boundary; it is not an enterprise PHI scrubber. Patrol, stale detection,
+review, self-healing, and external reasoning integrations remain out of scope.
 
 ## Future roadmap
 

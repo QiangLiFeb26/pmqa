@@ -5,6 +5,7 @@ from pmqa.models.knowledge import (
     Element,
     Interaction,
     KnowledgeArtifact,
+    Lifecycle,
     Locator,
     Page,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "Element",
     "Interaction",
     "KnowledgeArtifact",
+    "Lifecycle",
     "Locator",
     "Page",
 ]

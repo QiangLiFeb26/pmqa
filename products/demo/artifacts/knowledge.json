@@ -1,0 +1,144 @@
+{
+  "artifact_id": "knowledge",
+  "elements": [
+    {
+      "accessible_name": "Username",
+      "attributes": {
+        "data-test": "username"
+      },
+      "id": "element.username",
+      "lifecycle": {
+        "last_verified": "2026-07-18T16:13:27.983478+00:00",
+        "state": "verified"
+      },
+      "page_id": "page.login",
+      "role": "textbox",
+      "visible_text": null
+    },
+    {
+      "accessible_name": "Password",
+      "attributes": {
+        "data-test": "password"
+      },
+      "id": "element.password",
+      "lifecycle": {
+        "last_verified": "2026-07-18T16:13:27.983506+00:00",
+        "state": "verified"
+      },
+      "page_id": "page.login",
+      "role": "textbox",
+      "visible_text": null
+    },
+    {
+      "accessible_name": "Login",
+      "attributes": {
+        "data-test": "login-button"
+      },
+      "id": "element.login",
+      "lifecycle": {
+        "last_verified": "2026-07-18T16:13:27.983516+00:00",
+        "state": "verified"
+      },
+      "page_id": "page.login",
+      "role": "button",
+      "visible_text": "Login"
+    },
+    {
+      "accessible_name": "Products",
+      "attributes": {
+        "data-test": "title"
+      },
+      "id": "element.inventory_title",
+      "lifecycle": {
+        "last_verified": "2026-07-18T16:13:28.075457+00:00",
+        "state": "verified"
+      },
+      "page_id": "page.inventory",
+      "role": "heading",
+      "visible_text": "Products"
+    }
+  ],
+  "interactions": [
+    {
+      "action": "click",
+      "id": "interaction.login",
+      "lifecycle": {
+        "last_verified": "2026-07-18T16:13:28.067527+00:00",
+        "state": "verified"
+      },
+      "outcome": "navigated:/inventory.html",
+      "page_id": "page.login",
+      "target_element_id": "element.login"
+    }
+  ],
+  "locators": [
+    {
+      "element_id": "element.username",
+      "id": "locator.username",
+      "lifecycle": {
+        "last_verified": "2026-07-18T16:13:27.983497+00:00",
+        "state": "verified"
+      },
+      "priority": 1,
+      "strategy": "data-test",
+      "value": "username"
+    },
+    {
+      "element_id": "element.password",
+      "id": "locator.password",
+      "lifecycle": {
+        "last_verified": "2026-07-18T16:13:27.983512+00:00",
+        "state": "verified"
+      },
+      "priority": 1,
+      "strategy": "data-test",
+      "value": "password"
+    },
+    {
+      "element_id": "element.login",
+      "id": "locator.login",
+      "lifecycle": {
+        "last_verified": "2026-07-18T16:13:27.983521+00:00",
+        "state": "verified"
+      },
+      "priority": 1,
+      "strategy": "data-test",
+      "value": "login-button"
+    },
+    {
+      "element_id": "element.inventory_title",
+      "id": "locator.inventory_title",
+      "lifecycle": {
+        "last_verified": "2026-07-18T16:13:28.075461+00:00",
+        "state": "verified"
+      },
+      "priority": 1,
+      "strategy": "data-test",
+      "value": "title"
+    }
+  ],
+  "pages": [
+    {
+      "id": "page.login",
+      "lifecycle": {
+        "last_verified": "2026-07-18T16:13:27.983080+00:00",
+        "state": "verified"
+      },
+      "structural_fingerprint": "d12ee931bdadd02715d415a637e55c047825cbb4f91f5d764c5bce63bb4ae876",
+      "title": "Swag Labs",
+      "url": "https://www.saucedemo.com/"
+    },
+    {
+      "id": "page.inventory",
+      "lifecycle": {
+        "last_verified": "2026-07-18T16:13:28.075434+00:00",
+        "state": "verified"
+      },
+      "structural_fingerprint": "c5f91d457fdf405b1e5f63e5a0d3809cfad386f9c3701230869634b1bb8541d9",
+      "title": "Swag Labs",
+      "url": "https://www.saucedemo.com/inventory.html"
+    }
+  ],
+  "product_id": "demo",
+  "reasoning_provenance": "deterministic-rule-based"
+}

@@ -1,0 +1,18 @@
+{
+  "product_id": "demo",
+  "base_url": "https://www.saucedemo.com",
+  "start_path": "/",
+  "maximum_exploration_steps": 4,
+  "allowed_safe_actions": ["inspect", "fill", "click", "stop"],
+  "blocked_destructive_actions": ["checkout", "purchase", "delete", "submit_order"],
+  "artifact_output_location": "products/demo/artifacts",
+  "generated_test_output_location": "products/demo/generated_tests",
+  "credential_environment_variables": {
+    "username": "PMQA_DEMO_USERNAME",
+    "password": "PMQA_DEMO_PASSWORD"
+  },
+  "demo_only_default_credentials": {
+    "username": "standard_user",
+    "password": "secret_sauce"
+  }
+}
