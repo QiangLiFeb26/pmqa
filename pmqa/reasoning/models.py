@@ -33,6 +33,18 @@ class ReasoningRequest(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
+class ReasoningDecision(BaseModel):
+    """Provides the canonical typed envelope for one reasoning decision."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    decision_type: str = Field(min_length=1)
+    value: Dict[str, Any] = Field(default_factory=dict)
+    reason_summary: Optional[str] = None
+    evidence_ids: List[str] = Field(default_factory=list)
+    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+
+
 class ReasoningResponse(BaseModel):
     """Returns structured decisions without assuming natural-language output."""
 
@@ -42,7 +54,7 @@ class ReasoningResponse(BaseModel):
     provider: str = Field(min_length=1)
     model: str = Field(min_length=1)
     status: ReasoningStatus
-    decisions: List[Dict[str, Any]] = Field(default_factory=list)
+    decisions: List[ReasoningDecision] = Field(default_factory=list)
     confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     warnings: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)

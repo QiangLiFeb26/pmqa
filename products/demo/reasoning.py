@@ -1,6 +1,12 @@
 """Deterministic reasoning used by the SauceDemo product pack."""
 
-from pmqa.reasoning import ReasoningProvider, ReasoningRequest, ReasoningResponse, ReasoningStatus
+from pmqa.reasoning import (
+    ReasoningDecision,
+    ReasoningProvider,
+    ReasoningRequest,
+    ReasoningResponse,
+    ReasoningStatus,
+)
 
 
 class DeterministicDemoReasoningProvider(ReasoningProvider):
@@ -23,7 +29,15 @@ class DeterministicDemoReasoningProvider(ReasoningProvider):
             provider=self.provider_name,
             model=self.model_name,
             status=ReasoningStatus.COMPLETED,
-            decisions=[{"decision_type": "action", "action": action} for action in actions],
+            decisions=[
+                ReasoningDecision(
+                    decision_type="action",
+                    value={"action": action},
+                    reason_summary="Approved deterministic exploration action",
+                    confidence=1.0,
+                )
+                for action in actions
+            ],
             confidence=1.0,
             metadata={"mode": "offline"},
         )

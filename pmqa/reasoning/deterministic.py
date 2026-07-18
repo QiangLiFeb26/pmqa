@@ -1,6 +1,11 @@
 """Minimal offline implementation of the reasoning provider contract."""
 
-from pmqa.reasoning.models import ReasoningRequest, ReasoningResponse, ReasoningStatus
+from pmqa.reasoning.models import (
+    ReasoningDecision,
+    ReasoningRequest,
+    ReasoningResponse,
+    ReasoningStatus,
+)
 from pmqa.reasoning.provider import ReasoningProvider
 
 
@@ -19,11 +24,15 @@ class DeterministicReasoningProvider(ReasoningProvider):
             model=self.model_name,
             status=ReasoningStatus.COMPLETED,
             decisions=[
-                {
-                    "decision_type": "acknowledge",
-                    "task_type": request.task_type,
-                    "workflow_id": request.workflow_id,
-                }
+                ReasoningDecision(
+                    decision_type="acknowledge",
+                    value={
+                        "task_type": request.task_type,
+                        "workflow_id": request.workflow_id,
+                    },
+                    reason_summary="Deterministic offline acknowledgement",
+                    confidence=1.0,
+                )
             ],
             confidence=1.0,
             metadata={"mode": "offline"},

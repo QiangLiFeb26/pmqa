@@ -5,6 +5,7 @@ import pytest
 from pmqa.models import Element, Interaction, Lifecycle, Page
 from pmqa.reasoning import (
     DeterministicReasoningProvider,
+    ReasoningDecision,
     ReasoningProvider,
     ReasoningRequest,
     ReasoningResponse,
@@ -42,7 +43,36 @@ def test_valid_response_passes() -> None:
     response = validate_reasoning_response(_response(), expected_request_id="request-1")
 
     assert response.status is ReasoningStatus.COMPLETED
-    assert response.decisions == [{"decision_type": "stop"}]
+    assert response.decisions == [ReasoningDecision(decision_type="stop")]
+
+
+def test_valid_typed_decision_passes() -> None:
+    decision = ReasoningDecision(
+        decision_type="action",
+        value={"action": "inspect"},
+        reason_summary="Safe deterministic action",
+        evidence_ids=["element.login"],
+        confidence=0.9,
+    )
+
+    assert decision.value["action"] == "inspect"
+
+
+@pytest.mark.parametrize(
+    ("decision", "expected_error"),
+    [
+        ({"value": {}}, "decision_type"),
+        ({"decision_type": ""}, "decision_type"),
+        ({"decision_type": "stop", "unexpected": True}, "unexpected"),
+        ({"decision_type": "stop", "confidence": 1.1}, "confidence"),
+    ],
+)
+def test_invalid_decision_structures_are_rejected(decision, expected_error) -> None:
+    invalid = _response().model_dump(mode="json")
+    invalid["decisions"] = [decision]
+
+    with pytest.raises(ReasoningValidationError, match=expected_error):
+        validate_reasoning_response(invalid)
 
 
 def test_invalid_response_fails_with_meaningful_error() -> None:
@@ -58,7 +88,14 @@ def test_deterministic_provider_returns_a_valid_response() -> None:
 
     validated = validate_reasoning_response(response, expected_request_id="request-1")
     assert validated.provider == "deterministic"
-    assert validated.decisions[0]["task_type"] == "explore"
+    assert isinstance(validated.decisions[0], ReasoningDecision)
+    assert validated.decisions[0].value["task_type"] == "explore"
+
+
+def test_response_serialization_is_valid_json() -> None:
+    serialized = _response().model_dump_json()
+
+    assert '"decision_type":"stop"' in serialized
 
 
 def test_request_id_mismatch_is_rejected() -> None:
@@ -111,7 +148,7 @@ def _response() -> ReasoningResponse:
         provider="deterministic",
         model="rules-v1",
         status=ReasoningStatus.COMPLETED,
-        decisions=[{"decision_type": "stop"}],
+        decisions=[ReasoningDecision(decision_type="stop")],
         confidence=1.0,
         warnings=[],
         metadata={},

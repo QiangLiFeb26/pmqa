@@ -1,7 +1,12 @@
 """Provider-independent contracts for structured reasoning."""
 
 from pmqa.reasoning.deterministic import DeterministicReasoningProvider
-from pmqa.reasoning.models import ReasoningRequest, ReasoningResponse, ReasoningStatus
+from pmqa.reasoning.models import (
+    ReasoningDecision,
+    ReasoningRequest,
+    ReasoningResponse,
+    ReasoningStatus,
+)
 from pmqa.reasoning.provider import ReasoningProvider
 from pmqa.reasoning.validation import (
     ReasoningValidationError,
@@ -12,6 +17,7 @@ from pmqa.reasoning.validation import (
 
 __all__ = [
     "DeterministicReasoningProvider",
+    "ReasoningDecision",
     "ReasoningProvider",
     "ReasoningRequest",
     "ReasoningResponse",

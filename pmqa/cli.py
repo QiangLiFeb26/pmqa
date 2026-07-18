@@ -46,7 +46,7 @@ def explore(product: str) -> Path:
     )
     provider = SauceDemoExecutionProvider(
         config=config,
-        actions=[decision["action"] for decision in plan.decisions],
+        actions=[decision.value["action"] for decision in plan.decisions],
         provenance=plan.provider,
     )
     result = provider.execute(task, context)

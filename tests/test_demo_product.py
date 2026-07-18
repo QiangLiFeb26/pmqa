@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pmqa.reasoning import ReasoningRequest
+from pmqa.reasoning import ReasoningDecision, ReasoningRequest
 from pmqa.models import (
     Element,
     Interaction,
@@ -37,8 +37,9 @@ def test_demo_plan_is_bounded_and_has_explicit_provenance() -> None:
         )
     )
 
-    actions = [decision["action"] for decision in plan.decisions]
+    actions = [decision.value["action"] for decision in plan.decisions]
     assert plan.provider == "deterministic-rule-based"
+    assert all(isinstance(decision, ReasoningDecision) for decision in plan.decisions)
     assert len(actions) <= config.maximum_exploration_steps
     assert "checkout" not in actions
 
