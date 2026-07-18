@@ -12,3 +12,4 @@ blob-report/
 traces/
 screenshots/
 .cache/
+*.sqlite3
