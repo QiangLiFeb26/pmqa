@@ -1,5 +1,16 @@
 """Provider-independent contracts for structured reasoning."""
 
+from pmqa.reasoning.copilot_cli import (
+    CliExecutionResult,
+    CopilotCliConfig,
+    CopilotCliExecutionError,
+    CopilotCliReasoningProvider,
+    CopilotCliRunner,
+    CopilotCliTimeoutError,
+    CopilotCliUnavailableError,
+    SubprocessCopilotCliRunner,
+    build_copilot_command,
+)
 from pmqa.reasoning.deterministic import DeterministicReasoningProvider
 from pmqa.reasoning.manual import (
     ManualCopilotReasoningProvider,
@@ -34,6 +45,13 @@ from pmqa.reasoning.validation import (
 )
 
 __all__ = [
+    "CliExecutionResult",
+    "CopilotCliConfig",
+    "CopilotCliExecutionError",
+    "CopilotCliReasoningProvider",
+    "CopilotCliRunner",
+    "CopilotCliTimeoutError",
+    "CopilotCliUnavailableError",
     "DeterministicReasoningProvider",
     "DeterministicReasoningScrubber",
     "ManualCopilotReasoningProvider",
@@ -54,8 +72,10 @@ __all__ = [
     "ScrubResult",
     "ScrubStatus",
     "ScrubValidationError",
+    "SubprocessCopilotCliRunner",
     "TerminalManualReasoningChannel",
     "validate_reasoning_exchange",
     "validate_reasoning_request",
     "validate_reasoning_response",
+    "build_copilot_command",
 ]
