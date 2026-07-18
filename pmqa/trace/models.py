@@ -6,10 +6,12 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from pmqa.reasoning import (
+from pmqa.reasoning.models import (
     ReasoningRequest,
     ReasoningResponse,
     ReasoningStatus,
+)
+from pmqa.reasoning.validation import (
     validate_reasoning_exchange,
     validate_reasoning_request,
     validate_reasoning_response,

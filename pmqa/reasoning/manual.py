@@ -74,7 +74,6 @@ class ManualCopilotReasoningProvider(ReasoningProvider):
         return render_prompt_package(
             request,
             provider_name=self.provider_name,
-            model_guidance="identify the model you used.",
         )
 
     def complete(self, request: RequestInput, pasted_text: str) -> ReasoningResponse:

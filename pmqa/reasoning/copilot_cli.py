@@ -139,13 +139,18 @@ class CopilotCliReasoningProvider(ReasoningProvider):
 
         return self._runner.is_available(self.config.executable)
 
+    @property
+    def provider_name(self) -> str:
+        """Return the canonical response provider identity."""
+
+        return self.config.provider_name
+
     def prepare(self, request: RequestInput) -> ReasoningPromptPackage:
         """Build the same deterministic prompt package used by manual transport."""
 
         return render_prompt_package(
             request,
             provider_name=self.config.provider_name,
-            model_guidance=f'set model to "{self.config.model_name}".',
         )
 
     def _reason(self, request: ReasoningRequest) -> ReasoningResponse:

@@ -12,6 +12,12 @@ from pmqa.reasoning.copilot_cli import (
     build_copilot_command,
 )
 from pmqa.reasoning.deterministic import DeterministicReasoningProvider
+from pmqa.reasoning.execution import (
+    PreparedManualReasoning,
+    ReasoningExecutionError,
+    ReasoningExecutionResult,
+    ReasoningExecutionService,
+)
 from pmqa.reasoning.manual import (
     ManualCopilotReasoningProvider,
     ManualPromptPackage,
@@ -27,6 +33,11 @@ from pmqa.reasoning.models import (
     ReasoningStatus,
 )
 from pmqa.reasoning.provider import ReasoningProvider
+from pmqa.reasoning.prompting import (
+    PromptPackage,
+    PromptPackageBuilder,
+    PromptPackageError,
+)
 from pmqa.reasoning.scrubber import (
     DeterministicReasoningScrubber,
     ReasoningScrubber,
@@ -59,8 +70,15 @@ __all__ = [
     "ManualReasoningChannel",
     "ManualReasoningError",
     "ManualResponseParser",
+    "PreparedManualReasoning",
+    "PromptPackage",
+    "PromptPackageBuilder",
+    "PromptPackageError",
     "ReasoningScrubber",
     "ReasoningDecision",
+    "ReasoningExecutionError",
+    "ReasoningExecutionResult",
+    "ReasoningExecutionService",
     "ReasoningProvider",
     "ReasoningRequest",
     "ReasoningResponse",
