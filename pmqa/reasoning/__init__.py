@@ -1,6 +1,14 @@
 """Provider-independent contracts for structured reasoning."""
 
 from pmqa.reasoning.deterministic import DeterministicReasoningProvider
+from pmqa.reasoning.manual import (
+    ManualCopilotReasoningProvider,
+    ManualPromptPackage,
+    ManualReasoningChannel,
+    ManualReasoningError,
+    ManualResponseParser,
+    TerminalManualReasoningChannel,
+)
 from pmqa.reasoning.models import (
     ReasoningDecision,
     ReasoningRequest,
@@ -28,6 +36,11 @@ from pmqa.reasoning.validation import (
 __all__ = [
     "DeterministicReasoningProvider",
     "DeterministicReasoningScrubber",
+    "ManualCopilotReasoningProvider",
+    "ManualPromptPackage",
+    "ManualReasoningChannel",
+    "ManualReasoningError",
+    "ManualResponseParser",
     "ReasoningScrubber",
     "ReasoningDecision",
     "ReasoningProvider",
@@ -41,6 +54,7 @@ __all__ = [
     "ScrubResult",
     "ScrubStatus",
     "ScrubValidationError",
+    "TerminalManualReasoningChannel",
     "validate_reasoning_exchange",
     "validate_reasoning_request",
     "validate_reasoning_response",
