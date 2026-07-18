@@ -14,9 +14,11 @@ from pmqa.reasoning import (
     CopilotCliConfig,
     CopilotCliReasoningProvider,
     CopilotCliUnavailableError,
+    DeterministicReasoningProvider,
     DeterministicReasoningScrubber,
     ManualCopilotReasoningProvider,
     ReasoningDecision,
+    ReasoningExecutionService,
     ReasoningRequest,
     ReasoningResponse,
     ReasoningStatus,
@@ -227,6 +229,37 @@ def trace_demo(database: Path) -> int:
     return 0
 
 
+def task3_demo(database: Path) -> int:
+    """Run the complete Task 3 reasoning flow without external providers."""
+
+    scrub_input = ScrubInput(
+        request_id=f"task3-demo-request-{uuid4()}",
+        workflow_id="task3-demo",
+        task_type="integration-demonstration",
+        provider_hint="deterministic",
+        product_id="demo",
+        artifact_version="1",
+        constraints={"offline": True},
+        metadata={
+            "source": "task3-demo",
+            "token": "removed-before-prompting",
+        },
+    )
+    with SQLiteTraceStore(database) as store:
+        result = ReasoningExecutionService(trace_store=store).execute(
+            scrub_input=scrub_input,
+            provider=DeterministicReasoningProvider(),
+        )
+        restored = store.get_trace(result.trace.trace_id)
+    print(
+        f"package_id={result.prompt_package.package_id} "
+        f"request_id={result.request.request_id} "
+        f"trace_id={restored.trace_id} provider={restored.provider} "
+        f"status={restored.status.value}"
+    )
+    return 0
+
+
 def main(argv: Sequence[str] = ()) -> int:
     """Parse and execute one PMQA command."""
 
@@ -244,6 +277,10 @@ def main(argv: Sequence[str] = ()) -> int:
     trace_parser.add_argument(
         "--database", type=Path, default=Path("pmqa-traces.sqlite3")
     )
+    task3_parser = subparsers.add_parser("task3-demo")
+    task3_parser.add_argument(
+        "--database", type=Path, default=Path("pmqa-traces.sqlite3")
+    )
     args = parser.parse_args(list(argv) if argv else None)
     if args.command == "explore":
         print(explore(args.product))
@@ -257,6 +294,8 @@ def main(argv: Sequence[str] = ()) -> int:
         return reason_manual(args.product)
     if args.command == "trace-demo":
         return trace_demo(args.database)
+    if args.command == "task3-demo":
+        return task3_demo(args.database)
     return reason_copilot_cli(
         args.product,
         args.copilot_executable,

@@ -7,7 +7,10 @@ from typing import Any, List, Mapping, Union
 
 from pydantic import ValidationError
 
-from pmqa.reasoning import ReasoningValidationError, validate_reasoning_exchange
+from pmqa.reasoning.validation import (
+    ReasoningValidationError,
+    validate_reasoning_exchange,
+)
 from pmqa.trace.models import TraceRecord
 from pmqa.trace.store import (
     TraceDataError,

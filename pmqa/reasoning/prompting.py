@@ -1,27 +1,98 @@
-"""Shared deterministic prompt rendering and structured response parsing."""
+"""Canonical prompt packages and structured response parsing."""
 
 import json
 import re
-from typing import Type
+from typing import Any, Dict, Type
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from pmqa.reasoning.models import ReasoningResponse
-from pmqa.reasoning.validation import RequestInput, validate_reasoning_request, validate_reasoning_response
-from pmqa.utils.hashing import canonical_json_sha256
+from pmqa.reasoning.models import ReasoningRequest, ReasoningResponse
+from pmqa.reasoning.validation import (
+    RequestInput,
+    validate_reasoning_request,
+    validate_reasoning_response,
+)
+from pmqa.utils.hashing import canonical_json, canonical_json_sha256
 
 
-class ReasoningPromptPackage(BaseModel):
-    """Contains a deterministic prompt and canonical contract guidance."""
+class PromptPackage(BaseModel):
+    """Carries one deterministic, persist-safe reasoning prompt contract."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    package_id: str = Field(pattern=r"^[0-9a-f]{64}$")
     request_id: str = Field(min_length=1)
     provider: str = Field(min_length=1)
+    request_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    prompt_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     prompt_text: str = Field(min_length=1)
     request_json: str = Field(min_length=1)
     response_schema_json: str = Field(min_length=1)
-    request_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+ReasoningPromptPackage = PromptPackage
+
+
+class PromptPackageError(ValueError):
+    """Reports an invalid or inconsistent prompt package."""
+
+
+class PromptPackageBuilder:
+    """Builds deterministic prompt packages from validated safe requests."""
+
+    _format = "pmqa-reasoning-prompt-v1"
+
+    def build(self, *, request: RequestInput, provider: str) -> PromptPackage:
+        """Build a provider-aware package using shared canonical rendering."""
+
+        if not provider:
+            raise PromptPackageError("provider must not be empty")
+        valid_request = validate_reasoning_request(request)
+        request_payload = valid_request.model_dump(mode="json")
+        request_json = canonical_json(request_payload)
+        response_schema_json = canonical_json(ReasoningResponse.model_json_schema())
+        prompt_text = _render_prompt(
+            request_json,
+            response_schema_json,
+            provider,
+            "identify the model you used.",
+        )
+        request_hash = canonical_json_sha256(request_payload)
+        prompt_hash = canonical_json_sha256(prompt_text)
+        identity = {
+            "format": self._format,
+            "provider": provider,
+            "request_hash": request_hash,
+            "prompt_hash": prompt_hash,
+        }
+        return PromptPackage(
+            package_id=canonical_json_sha256(identity),
+            request_id=valid_request.request_id,
+            provider=provider,
+            request_hash=request_hash,
+            prompt_hash=prompt_hash,
+            prompt_text=prompt_text,
+            request_json=request_json,
+            response_schema_json=response_schema_json,
+            metadata={"format": self._format},
+        )
+
+    def validate(
+        self,
+        package: PromptPackage,
+        *,
+        request: ReasoningRequest,
+        provider: str,
+    ) -> PromptPackage:
+        """Enforce package, request, provider, and hash correlation."""
+
+        expected = self.build(request=request, provider=provider)
+        if package != expected:
+            raise PromptPackageError(
+                "Prompt package does not match its request and provider"
+            )
+        return package
 
 
 class ReasoningOutputError(ValueError):
@@ -81,39 +152,10 @@ def render_prompt_package(
     request: RequestInput,
     *,
     provider_name: str,
-    model_guidance: str,
-) -> ReasoningPromptPackage:
-    """Build the shared deterministic prompt package for a safe request."""
+) -> PromptPackage:
+    """Build the canonical package; retained for existing provider callers."""
 
-    valid_request = validate_reasoning_request(request)
-    request_payload = valid_request.model_dump(mode="json")
-    request_json = canonical_json(request_payload)
-    schema_json = canonical_json(ReasoningResponse.model_json_schema())
-    return ReasoningPromptPackage(
-        request_id=valid_request.request_id,
-        provider=provider_name,
-        prompt_text=_render_prompt(
-            request_json,
-            schema_json,
-            provider_name,
-            model_guidance,
-        ),
-        request_json=request_json,
-        response_schema_json=schema_json,
-        request_hash=canonical_json_sha256(request_payload),
-    )
-
-
-def canonical_json(value) -> str:
-    """Serialize a value as compact canonical JSON for prompt transport."""
-
-    return json.dumps(
-        value,
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
+    return PromptPackageBuilder().build(request=request, provider=provider_name)
 
 
 def _render_prompt(

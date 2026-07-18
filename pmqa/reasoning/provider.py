@@ -13,6 +13,8 @@ from pmqa.reasoning.validation import (
 class ReasoningProvider(ABC):
     """Validates one structured request and returns one structured response."""
 
+    provider_name: str = ""
+
     def reason(self, request: RequestInput) -> ReasoningResponse:
         """Validate, reason, and validate the correlated provider response."""
 
