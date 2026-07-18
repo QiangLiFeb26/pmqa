@@ -8,6 +8,7 @@ from typing import Sequence
 
 from pmqa.core import RunContext, Task
 from pmqa.models import KnowledgeArtifact
+from pmqa.reasoning import ReasoningRequest
 from pmqa.storage import JsonFileStorage
 
 
@@ -28,11 +29,25 @@ def explore(product: str) -> Path:
     context = RunContext(run_id="demo-exploration", product=product)
     task = Task("explore", "Explore the configured product within its safe bounds")
     reasoning = DeterministicDemoReasoningProvider()
-    plan = reasoning.reason(task, context)
+    plan = reasoning.reason(
+        ReasoningRequest(
+            request_id="demo-exploration-plan",
+            workflow_id=context.run_id,
+            task_type=task.task_id,
+            provider_hint="deterministic",
+            product_id=product,
+            artifact_version="1",
+            constraints={
+                "maximum_steps": config.maximum_exploration_steps,
+                "allowed_safe_actions": config.allowed_safe_actions,
+                "blocked_destructive_actions": config.blocked_destructive_actions,
+            },
+        )
+    )
     provider = SauceDemoExecutionProvider(
         config=config,
-        actions=plan.data["actions"],
-        provenance=plan.data["provenance"],
+        actions=[decision["action"] for decision in plan.decisions],
+        provenance=plan.provider,
     )
     result = provider.execute(task, context)
     if not result.succeeded or result.artifact is None:

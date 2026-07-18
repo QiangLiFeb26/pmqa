@@ -1,35 +1,29 @@
-"""Reasoning providers supported by the demo product pack."""
+"""Deterministic reasoning used by the SauceDemo product pack."""
 
-from pmqa.core import Artifact, RunContext, Task
-from pmqa.providers import ReasoningProvider
+from pmqa.reasoning import ReasoningProvider, ReasoningRequest, ReasoningResponse, ReasoningStatus
 
 
 class DeterministicDemoReasoningProvider(ReasoningProvider):
-    """Returns a bounded, auditable safe plan without an external AI service."""
+    """Returns the bounded SauceDemo plan through the canonical contract."""
 
-    provenance = "deterministic-rule-based"
+    provider_name = "deterministic-rule-based"
+    model_name = "saucedemo-safe-plan-v1"
 
-    def reason(self, task: Task, context: RunContext) -> Artifact:
-        """Produce the fixed public-demo plan through the provider contract."""
+    def _reason(self, request: ReasoningRequest) -> ReasoningResponse:
+        """Produce a fixed safe plan for the public demo product pack."""
 
-        return Artifact(
-            artifact_id="exploration-plan",
-            data={
-                "provenance": self.provenance,
-                "actions": [
-                    "inspect_login_page",
-                    "login",
-                    "verify_inventory_page",
-                    "inspect_inventory_item",
-                ],
-            },
+        actions = [
+            "inspect_login_page",
+            "login",
+            "verify_inventory_page",
+            "inspect_inventory_item",
+        ]
+        return ReasoningResponse(
+            request_id=request.request_id,
+            provider=self.provider_name,
+            model=self.model_name,
+            status=ReasoningStatus.COMPLETED,
+            decisions=[{"decision_type": "action", "action": action} for action in actions],
+            confidence=1.0,
+            metadata={"mode": "offline"},
         )
-
-
-class ApprovedReasoningProviderAdapter(ReasoningProvider):
-    """Marks the approved extension point for a future Copilot integration."""
-
-    def reason(self, task: Task, context: RunContext) -> Artifact:
-        """Reject use until an approved integration is supplied."""
-
-        raise NotImplementedError("No approved Copilot reasoning integration is configured")

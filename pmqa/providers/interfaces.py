@@ -6,14 +6,6 @@ from typing import Optional
 from pmqa.core.models import Artifact, ExecutionResult, RunContext, Task
 
 
-class ReasoningProvider(ABC):
-    """Produces an artifact for a task using a run context."""
-
-    @abstractmethod
-    def reason(self, task: Task, context: RunContext) -> Artifact:
-        """Produce a reasoning artifact for the supplied task."""
-
-
 class ExecutionProvider(ABC):
     """Executes one task against an external system."""
 
