@@ -48,7 +48,8 @@ def test_complete_knowledge_artifact_round_trips_through_json() -> None:
                 "page.login",
                 "element.login",
                 "click",
-                "navigated:/inventory.html",
+                "navigation",
+                "/inventory.html",
             )
         ],
     )
