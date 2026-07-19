@@ -113,6 +113,23 @@ in `pmqa/models/`. Its lifecycle and persistence are future concerns. Keeping
 the models independent from storage allows local, database, or enterprise
 storage implementations to be introduced without changing workflow contracts.
 
+Exploration evidence is distinct from verified product knowledge. Evidence is
+an immutable, runtime-free record of what an external capture tool observed;
+it does not carry `Lifecycle` verification state and is not a
+`KnowledgeArtifact`. The intended flow is:
+
+```text
+external capture tool
+    -> immutable exploration evidence
+    -> serialized WorkflowState evidence payload
+    -> Knowledge agent
+    -> existing Page, Element, Locator, Interaction, and KnowledgeArtifact models
+```
+
+Task 5.1 defines only the evidence contracts and their explicit workflow
+serialization boundary. It does not yet provide the capture tool, Knowledge
+agent, other real agents, or end-to-end composition.
+
 ## Dependency direction
 
 Dependencies point inward toward shared models and contracts:
@@ -133,6 +150,7 @@ miscellaneous helpers without a concrete shared use case.
 | --- | --- |
 | Runtime coordination data | `pmqa/core/` |
 | Product-knowledge schema | `pmqa/models/` |
+| Structured exploration-evidence schema | `pmqa/models/exploration.py` |
 | External capability contract | `pmqa/providers/` |
 | Reasoning trust boundary and execution | `pmqa/reasoning/` |
 | Shared serializable-boundary policy | `pmqa/security/` |
