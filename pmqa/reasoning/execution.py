@@ -17,7 +17,8 @@ from pmqa.reasoning.scrubber import (
     ScrubReport,
 )
 from pmqa.reasoning.validation import validate_reasoning_response
-from pmqa.trace import TraceRecord, TraceStore
+from pmqa.trace.models import TraceRecord
+from pmqa.trace.store import TraceStore
 
 
 class ReasoningExecutionError(ValueError):
