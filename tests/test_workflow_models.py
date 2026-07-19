@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import ValidationError
 
+from pmqa.security.boundary_policy import WORKFLOW_STATE_PROHIBITED_KEY_EXTENSIONS
 from pmqa.workflow import (
     AgentInvocation,
     AgentInvocationStatus,
@@ -184,6 +185,14 @@ def test_agent_models_reject_unknown_fields(model_type, payload) -> None:
 def test_sensitive_and_runtime_fields_are_rejected(unsafe_payload) -> None:
     with pytest.raises(ValidationError, match="prohibited field"):
         _state(product_context=unsafe_payload)
+
+
+@pytest.mark.parametrize(
+    "prohibited_key", sorted(WORKFLOW_STATE_PROHIBITED_KEY_EXTENSIONS)
+)
+def test_workflow_specific_fields_are_rejected(prohibited_key: str) -> None:
+    with pytest.raises(ValidationError, match="prohibited field"):
+        _state(product_context={"nested": {prohibited_key: "runtime-marker"}})
 
 
 def test_runtime_objects_are_rejected_without_echoing_values() -> None:

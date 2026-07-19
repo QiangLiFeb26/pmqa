@@ -32,6 +32,11 @@ terminal and subprocess details do not enter the Prompt Package or execution
 service. Canonical validators enforce request and response schemas. The trace
 store owns persistence; the execution service only sequences these components.
 
+The prohibited-key definitions live in the neutral, dependency-free
+`pmqa/security/boundary_policy.py` module. The reasoning compatibility helper,
+scrubber, and final validator all consume that shared policy, preventing the
+cross-boundary subset from drifting.
+
 `PromptPackage` contains the package ID, request and prompt hashes, canonical
 request JSON, canonical response schema JSON, rendered prompt text, provider,
 request ID, and safe format metadata. Identical request content and provider
