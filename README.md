@@ -32,6 +32,11 @@ can evolve without embedding product configuration in framework code.
 See [the architecture guide](docs/architecture.md) for dependency rules and
 extension guidance.
 
+Project direction and status are maintained separately in the
+[product vision](docs/Vision.md) and [roadmap](docs/Roadmap.md). The
+[QA workflow loop catalog](docs/architecture/qa-loops.md) describes candidate
+memory-backed QA capabilities without assigning implementation status.
+
 ## Current scope
 
 Task 1 established the reusable framework foundation: runtime and knowledge
@@ -128,7 +133,7 @@ or Task 3 reasoning service. Patrol, stale detection, review, self-healing,
 prompt repositories, replay, and provider-selection policies remain out of
 scope.
 
-## Future roadmap
+## Roadmap checkpoint
 
 Task 4 is complete at implementation checkpoint
 `86214d76d2f12a2b70793b6ca28da4e1e5f3d858`, which includes supervisor and
@@ -140,3 +145,6 @@ add persistent memory, and integrate enterprise Playwright automation. Each
 product remains isolated in its own product pack while the framework stays
 product-agnostic. These are extension points, not commitments to a specific
 implementation.
+
+See the [authoritative roadmap](docs/Roadmap.md) for phase status. Task 5 is
+not started.
