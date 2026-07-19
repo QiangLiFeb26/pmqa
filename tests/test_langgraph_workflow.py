@@ -86,7 +86,7 @@ def test_failed_validation_recovery_completes_second_cycle() -> None:
     agents, registry = _dependencies(validation_outcomes=("failed", "passed"))
 
     final = run_pmqa_workflow(
-        _state(max_iterations=3),
+        _state(max_iterations=2),
         agents=agents,
         tool_registry=registry,
         recursion_limit=48,
@@ -131,8 +131,47 @@ def test_repeated_failure_terminates_at_domain_iteration_limit() -> None:
     assert final.termination_reason is TerminationReason.MAX_ITERATIONS
     assert final.iteration == 2
     assert agents[AgentRole.EXPLORER].invocation_count == 2
-    assert agents[AgentRole.KNOWLEDGE].invocation_count == 1
-    assert agents[AgentRole.VALIDATOR].invocation_count == 1
+    assert agents[AgentRole.KNOWLEDGE].invocation_count == 2
+    assert agents[AgentRole.VALIDATOR].invocation_count == 2
+    assert len(final.evidence) == 2
+    assert len(final.knowledge_candidates) == 2
+    assert len(final.validation_results) == 2
+    assert len(final.step_history) == 6
+
+
+@pytest.mark.parametrize(
+    ("validation_outcome", "expected_status", "expected_reason"),
+    [
+        ("passed", WorkflowStatus.COMPLETED, TerminationReason.GOAL_COMPLETED),
+        (
+            "failed",
+            WorkflowStatus.TERMINATED,
+            TerminationReason.MAX_ITERATIONS,
+        ),
+    ],
+)
+def test_single_allowed_cycle_finishes_before_iteration_limit_is_enforced(
+    validation_outcome: str,
+    expected_status: WorkflowStatus,
+    expected_reason: TerminationReason,
+) -> None:
+    agents, registry = _dependencies(validation_outcomes=(validation_outcome,))
+
+    final = run_pmqa_workflow(
+        _state(max_iterations=1),
+        agents=agents,
+        tool_registry=registry,
+        recursion_limit=24,
+    )
+
+    assert final.status is expected_status
+    assert final.termination_reason is expected_reason
+    assert final.iteration == 1
+    assert all(agent.invocation_count == 1 for agent in agents.values())
+    assert len(final.evidence) == 1
+    assert len(final.knowledge_candidates) == 1
+    assert len(final.validation_results) == 1
+    assert len(final.step_history) == 3
 
 
 def test_agent_appended_error_causes_supervisor_failure() -> None:
