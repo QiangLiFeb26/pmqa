@@ -54,6 +54,7 @@ class AgentRequest(_WorkflowContract):
 class AgentResult(_WorkflowContract):
     """Returns one agent's typed state patch without owning workflow state."""
 
+    workflow_id: str = Field(min_length=1)
     agent: AgentRole
     invocation_id: str = Field(min_length=1)
     patch: WorkflowStatePatch
@@ -104,6 +105,10 @@ def validate_agent_result(
     if result.agent != request.agent:
         raise AgentContractValidationError(
             "Agent result role must match the requested agent role"
+        )
+    if result.workflow_id != request.workflow_id:
+        raise AgentContractValidationError(
+            "Agent result workflow_id must match the request workflow_id"
         )
     if result.invocation_id != request.invocation_id:
         raise AgentContractValidationError(

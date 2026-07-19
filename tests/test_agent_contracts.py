@@ -235,6 +235,8 @@ def test_agent_result_is_typed_immutable_and_json_round_trips() -> None:
 
 
 def test_agent_result_validates_identity_timestamp_and_capability() -> None:
+    with pytest.raises(ValidationError, match="workflow_id"):
+        _result(workflow_id="")
     with pytest.raises(ValidationError, match="invocation_id"):
         _result(invocation_id="")
     with pytest.raises(ValidationError, match="timezone"):
@@ -254,6 +256,8 @@ def test_request_result_correlation() -> None:
     result = _result()
 
     assert validate_agent_result(request, result) is result
+    with pytest.raises(AgentContractValidationError, match="workflow_id"):
+        validate_agent_result(request, _result(workflow_id="another-workflow"))
     with pytest.raises(AgentContractValidationError, match="role"):
         validate_agent_result(
             request,
@@ -307,6 +311,7 @@ def _request(**updates) -> AgentRequest:
 
 def _result(**updates) -> AgentResult:
     values = {
+        "workflow_id": "workflow-1",
         "agent": AgentRole.EXPLORER,
         "invocation_id": "invocation-1",
         "patch": WorkflowStatePatch(
