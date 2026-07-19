@@ -140,8 +140,17 @@ an append-only serialized evidence update through `AgentResult` and
 `WorkflowStatePatch`; the reducer remains the state mutation boundary.
 
 The Tool and Explorer are independently executable through the existing
-runtime contracts, but no Knowledge agent, Validator agent, CLI composition,
-or end-to-end multi-agent workflow exists yet.
+runtime contracts. The product-owned Knowledge agent consumes exactly one
+unprocessed serialized evidence batch and deterministically maps it into the
+existing `Page`, `Element`, `Locator`, `Interaction`, and `KnowledgeArtifact`
+models. A correlated candidate envelope, rather than a live domain object, is
+appended through `WorkflowStatePatch.knowledge_candidates_to_add`.
+
+All mapped items have `ArtifactStatus.NEW` with no verification timestamp.
+This baseline mapping does not invoke a reasoning provider and does not claim
+verification; a later Validator checkpoint owns that transition. No real
+Validator, CLI composition, persistence, or end-to-end multi-agent workflow
+exists yet.
 
 ## Dependency direction
 
