@@ -4,7 +4,7 @@ import math
 import re
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -48,17 +48,32 @@ class TerminationReason(str, Enum):
     ERROR = "error"
 
 
-class AgentInvocation(BaseModel):
-    """Records the serializable evidence for one agent invocation."""
-
+class _WorkflowContract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+    def model_copy(
+        self,
+        *,
+        update: Optional[Dict[str, Any]] = None,
+        deep: bool = False,
+    ) -> "_WorkflowContract":
+        """Return a fully revalidated copy so updates cannot bypass freezing."""
+
+        _ = deep
+        values = self.model_dump(mode="python")
+        values.update(update or {})
+        return type(self).model_validate(values)
+
+
+class AgentInvocation(_WorkflowContract):
+    """Records the serializable evidence for one agent invocation."""
 
     agent: AgentRole
     started_at: datetime
     completed_at: Optional[datetime] = None
     status: AgentInvocationStatus
-    input_summary: Dict[str, Any] = Field(default_factory=dict)
-    output_summary: Dict[str, Any] = Field(default_factory=dict)
+    input_summary: Mapping[str, Any] = Field(default_factory=dict)
+    output_summary: Mapping[str, Any] = Field(default_factory=dict)
     reasoning_trace_id: Optional[str] = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
@@ -80,18 +95,18 @@ class AgentInvocation(BaseModel):
             )
         _validate_payload(self.input_summary, "input_summary")
         _validate_payload(self.output_summary, "output_summary")
+        object.__setattr__(self, "input_summary", _freeze(self.input_summary))
+        object.__setattr__(self, "output_summary", _freeze(self.output_summary))
         return self
 
 
-class AgentOutcome(BaseModel):
+class AgentOutcome(_WorkflowContract):
     """Describes requested state changes returned by an agent."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
     next_agent: Optional[AgentRole] = None
-    state_updates: Dict[str, Any] = Field(default_factory=dict)
-    warnings: List[str] = Field(default_factory=list)
-    errors: List[str] = Field(default_factory=list)
+    state_updates: Mapping[str, Any] = Field(default_factory=dict)
+    warnings: Tuple[str, ...] = Field(default_factory=tuple)
+    errors: Tuple[str, ...] = Field(default_factory=tuple)
     terminate: bool = False
     termination_reason: Optional[TerminationReason] = None
 
@@ -104,13 +119,12 @@ class AgentOutcome(BaseModel):
             raise ValueError(
                 "termination_reason must be present exactly when terminate is true"
             )
+        object.__setattr__(self, "state_updates", _freeze(self.state_updates))
         return self
 
 
-class WorkflowState(BaseModel):
+class WorkflowState(_WorkflowContract):
     """Carries checkpoint-safe shared state between future workflow agents."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
 
     workflow_id: str = Field(min_length=1)
     workflow_type: str = Field(min_length=1)
@@ -122,14 +136,14 @@ class WorkflowState(BaseModel):
     next_agent: Optional[AgentRole] = None
     iteration: int = Field(default=0, ge=0)
     max_iterations: int = Field(ge=1)
-    product_context: Dict[str, Any] = Field(default_factory=dict)
-    evidence: List[Dict[str, Any]] = Field(default_factory=list)
-    knowledge_candidates: List[Dict[str, Any]] = Field(default_factory=list)
-    validation_results: List[Dict[str, Any]] = Field(default_factory=list)
-    reasoning_trace_ids: List[str] = Field(default_factory=list)
-    step_history: List[AgentInvocation] = Field(default_factory=list)
-    warnings: List[str] = Field(default_factory=list)
-    errors: List[str] = Field(default_factory=list)
+    product_context: Mapping[str, Any] = Field(default_factory=dict)
+    evidence: Tuple[Mapping[str, Any], ...] = Field(default_factory=tuple)
+    knowledge_candidates: Tuple[Mapping[str, Any], ...] = Field(default_factory=tuple)
+    validation_results: Tuple[Mapping[str, Any], ...] = Field(default_factory=tuple)
+    reasoning_trace_ids: Tuple[str, ...] = Field(default_factory=tuple)
+    step_history: Tuple[AgentInvocation, ...] = Field(default_factory=tuple)
+    warnings: Tuple[str, ...] = Field(default_factory=tuple)
+    errors: Tuple[str, ...] = Field(default_factory=tuple)
     termination_reason: Optional[TerminationReason] = None
     created_at: datetime
     updated_at: datetime
@@ -148,6 +162,14 @@ class WorkflowState(BaseModel):
         _validate_payload(self.evidence, "evidence")
         _validate_payload(self.knowledge_candidates, "knowledge_candidates")
         _validate_payload(self.validation_results, "validation_results")
+        object.__setattr__(self, "product_context", _freeze(self.product_context))
+        object.__setattr__(self, "evidence", _freeze(self.evidence))
+        object.__setattr__(
+            self, "knowledge_candidates", _freeze(self.knowledge_candidates)
+        )
+        object.__setattr__(
+            self, "validation_results", _freeze(self.validation_results)
+        )
         return self
 
 
@@ -196,7 +218,7 @@ def _validate_payload(value: Any, path: str) -> None:
                 f"Workflow state contains a non-finite number at {path}"
             )
         return
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         for index, item in enumerate(value):
             _validate_payload(item, f"{path}[{index}]")
         return
@@ -220,6 +242,30 @@ def _validate_payload(value: Any, path: str) -> None:
 
 def _normalize_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", value.casefold()).strip("_")
+
+
+class _FrozenDict(dict):
+    """JSON-serializable mapping that rejects in-place mutation."""
+
+    def _immutable(self, *args: Any, **kwargs: Any) -> None:
+        raise TypeError("workflow mappings are immutable")
+
+    __delitem__ = _immutable
+    __ior__ = _immutable
+    __setitem__ = _immutable
+    clear = _immutable
+    pop = _immutable
+    popitem = _immutable
+    setdefault = _immutable
+    update = _immutable
+
+
+def _freeze(value: Any) -> Any:
+    if isinstance(value, dict):
+        return _FrozenDict({key: _freeze(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze(item) for item in value)
+    return value
 
 
 def _require_aware(value: datetime, field_name: str) -> None:

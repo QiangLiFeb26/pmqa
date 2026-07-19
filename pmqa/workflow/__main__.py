@@ -1,7 +1,7 @@
 """Run the PMQA workflow skeleton from the command line."""
 
 from pmqa.core.models import PMQAState, RunContext
-from pmqa.workflow import build_graph
+from pmqa.workflow.graph import build_graph
 
 
 def main() -> None:

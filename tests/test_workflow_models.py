@@ -1,5 +1,7 @@
 """Unit tests for multi-agent workflow state contracts."""
 
+import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -26,6 +28,27 @@ def test_workflow_state_json_round_trip_is_deterministic() -> None:
     assert restored.model_dump_json() == serialized
     assert restored.created_at == _timestamp()
     assert restored.updated_at == _timestamp()
+
+
+def test_workflow_contract_import_does_not_load_langgraph() -> None:
+    statement = "\n".join(
+        [
+            "import sys",
+            "from pmqa.workflow import WorkflowState",
+            "assert WorkflowState.__name__ == 'WorkflowState'",
+            "assert 'pmqa.workflow.graph' not in sys.modules",
+            "assert not any(name == 'langgraph' or name.startswith('langgraph.') "
+            "for name in sys.modules)",
+        ]
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", statement],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
 
 
 def test_complete_state_supports_typed_history_and_references() -> None:
@@ -55,7 +78,7 @@ def test_complete_state_supports_typed_history_and_references() -> None:
 
     restored = WorkflowState.model_validate_json(state.model_dump_json())
 
-    assert restored.step_history == [invocation]
+    assert restored.step_history == (invocation,)
     assert restored.next_agent is AgentRole.VALIDATOR
 
 
@@ -84,6 +107,50 @@ def test_models_are_immutable() -> None:
     for model in (_state(), AgentOutcome(), invocation):
         with pytest.raises(ValidationError, match="frozen"):
             model.warnings = ["changed"]
+
+
+def test_workflow_state_nested_containers_are_deeply_immutable() -> None:
+    state = _state(
+        product_context={"nested": {"items": ["one"]}},
+        evidence=[{"details": {"ids": ["evidence-1"]}}],
+        reasoning_trace_ids=["trace-1"],
+    )
+
+    with pytest.raises(TypeError, match="immutable"):
+        state.product_context["api_key"] = "secret"
+    with pytest.raises(TypeError, match="immutable"):
+        state.product_context["nested"]["changed"] = True
+    with pytest.raises(AttributeError):
+        state.product_context["nested"]["items"].append("two")
+    with pytest.raises(AttributeError):
+        state.evidence.append({"evidence_id": "new"})
+    with pytest.raises(TypeError, match="immutable"):
+        state.evidence[0]["details"]["changed"] = True
+    with pytest.raises(AttributeError):
+        state.reasoning_trace_ids.append("trace-2")
+    with pytest.raises(ValidationError, match="api_key"):
+        state.model_copy(update={"product_context": {"api_key": "secret"}})
+
+
+def test_agent_payloads_are_deeply_immutable() -> None:
+    invocation = AgentInvocation(
+        agent=AgentRole.EXPLORER,
+        started_at=_timestamp(),
+        status=AgentInvocationStatus.RUNNING,
+        input_summary={"nested": {"ids": ["input-1"]}},
+    )
+    outcome = AgentOutcome(state_updates={"nested": {"ids": ["output-1"]}})
+
+    with pytest.raises(TypeError, match="immutable"):
+        invocation.input_summary["changed"] = True
+    with pytest.raises(TypeError, match="immutable"):
+        invocation.input_summary["nested"]["changed"] = True
+    with pytest.raises(AttributeError):
+        invocation.input_summary["nested"]["ids"].append("input-2")
+    with pytest.raises(TypeError, match="immutable"):
+        outcome.state_updates["status"] = "failed"
+    with pytest.raises(AttributeError):
+        outcome.state_updates["nested"]["ids"].append("output-2")
 
 
 def test_unknown_fields_are_rejected() -> None:

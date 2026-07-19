@@ -1,7 +1,6 @@
 """Workflow construction and orchestration."""
 
 from pmqa.workflow.errors import WorkflowStateValidationError
-from pmqa.workflow.graph import build_graph
 from pmqa.workflow.models import (
     AgentInvocation,
     AgentInvocationStatus,
@@ -21,5 +20,4 @@ __all__ = [
     "WorkflowState",
     "WorkflowStateValidationError",
     "WorkflowStatus",
-    "build_graph",
 ]

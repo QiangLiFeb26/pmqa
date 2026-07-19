@@ -1,7 +1,7 @@
 """Tests for the executable workflow skeleton."""
 
 from pmqa.core import PMQAState, RunContext
-from pmqa.workflow import build_graph
+from pmqa.workflow.graph import build_graph
 
 
 def test_workflow_executes_and_preserves_state() -> None:
