@@ -155,6 +155,7 @@ def test_latest_passed_validation_completes_workflow() -> None:
     state = _knowledge_state(
         current_agent=AgentRole.VALIDATOR,
         validation_results=({"status": "passed"},),
+        step_history=(_invocation(AgentRole.VALIDATOR),),
     )
 
     decision = decide_next_action(state)
@@ -193,7 +194,12 @@ def test_latest_failed_validation_routes_to_explorer_without_deleting_history() 
     [
         (
             ({"status": "failed"}, {"status": "passed"}),
-            (),
+            (
+                AgentRole.VALIDATOR,
+                AgentRole.EXPLORER,
+                AgentRole.KNOWLEDGE,
+                AgentRole.VALIDATOR,
+            ),
             SupervisorAction.COMPLETE_WORKFLOW,
             None,
         ),
@@ -227,6 +233,110 @@ def test_only_latest_validation_result_controls_routing(
     assert decision.selected_agent is expected_agent
 
 
+def test_passed_validation_requires_completed_validator() -> None:
+    state = _knowledge_state(
+        validation_results=({"status": "passed"},),
+        step_history=(),
+    )
+
+    with pytest.raises(SupervisorPolicyError, match="completed Validator"):
+        decide_next_action(state)
+
+
+def test_passed_validation_with_matching_validator_completes() -> None:
+    state = _knowledge_state(
+        validation_results=({"status": "passed"},),
+        step_history=(_invocation(AgentRole.VALIDATOR),),
+    )
+
+    decision = decide_next_action(state)
+
+    assert decision.action is SupervisorAction.COMPLETE_WORKFLOW
+    assert apply_patch(state, decision.patch).status is WorkflowStatus.COMPLETED
+
+
+def test_extra_completed_validator_without_result_is_rejected() -> None:
+    state = _knowledge_state(
+        validation_results=({"status": "passed"},),
+        step_history=(
+            _invocation(AgentRole.VALIDATOR),
+            _invocation(AgentRole.VALIDATOR),
+        ),
+    )
+
+    with pytest.raises(
+        SupervisorPolicyError,
+        match="no newly appended validation result",
+    ):
+        decide_next_action(state)
+
+
+def test_validation_result_without_validator_is_rejected() -> None:
+    state = _knowledge_state(
+        validation_results=({"status": "failed"}, {"status": "passed"}),
+        step_history=(_invocation(AgentRole.VALIDATOR),),
+    )
+
+    with pytest.raises(
+        SupervisorPolicyError,
+        match="no matching completed Validator",
+    ):
+        decide_next_action(state)
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        ({"status": "passed"}, {"status": "passed"}),
+        ({"status": "passed"}, {"status": "failed"}),
+        (
+            {"status": "failed"},
+            {"status": "passed"},
+            {"status": "failed"},
+        ),
+        (
+            {"status": "failed"},
+            {"status": "passed"},
+            {"status": "passed"},
+        ),
+    ],
+)
+def test_validation_history_cannot_continue_after_pass(results) -> None:
+    state = _knowledge_state(
+        validation_results=results,
+        step_history=tuple(
+            _invocation(AgentRole.VALIDATOR) for _ in results
+        ),
+    )
+
+    with pytest.raises(SupervisorPolicyError, match="continued after a passed"):
+        decide_next_action(state)
+
+
+@pytest.mark.parametrize(
+    ("earlier_result", "message"),
+    [
+        ({"status": "skipped"}, "unsupported status"),
+        ({"detail": "missing"}, "missing required status"),
+        ({"status": True}, "must be a string"),
+    ],
+)
+def test_every_validation_result_structure_is_validated(
+    earlier_result,
+    message: str,
+) -> None:
+    state = _knowledge_state(
+        validation_results=(earlier_result, {"status": "passed"}),
+        step_history=(
+            _invocation(AgentRole.VALIDATOR),
+            _invocation(AgentRole.VALIDATOR),
+        ),
+    )
+
+    with pytest.raises(SupervisorPolicyError, match=message):
+        decide_next_action(state)
+
+
 def test_error_precedence_skips_malformed_artifact_interpretation() -> None:
     state = _state(
         status=WorkflowStatus.RUNNING,
@@ -253,6 +363,7 @@ def test_error_precedence_skips_malformed_artifact_interpretation() -> None:
                 "evidence": ({"id": "evidence-1"},),
                 "knowledge_candidates": ({"id": "knowledge-1"},),
                 "validation_results": ({"detail": "missing"},),
+                "_completed_validator": True,
             },
             "missing required status",
         ),
@@ -261,6 +372,7 @@ def test_error_precedence_skips_malformed_artifact_interpretation() -> None:
                 "evidence": ({"id": "evidence-1"},),
                 "knowledge_candidates": ({"id": "knowledge-1"},),
                 "validation_results": ({"status": "skipped"},),
+                "_completed_validator": True,
             },
             "unsupported status",
         ),
@@ -269,12 +381,16 @@ def test_error_precedence_skips_malformed_artifact_interpretation() -> None:
                 "evidence": ({"id": "evidence-1"},),
                 "knowledge_candidates": ({"id": "knowledge-1"},),
                 "validation_results": ({"status": True},),
+                "_completed_validator": True,
             },
             "must be a string",
         ),
     ],
 )
 def test_policy_rejects_invalid_artifact_states(updates, message: str) -> None:
+    updates = dict(updates)
+    if updates.pop("_completed_validator", False):
+        updates["step_history"] = (_invocation(AgentRole.VALIDATOR),)
     with pytest.raises(SupervisorPolicyError, match=message):
         decide_next_action(_state(status=WorkflowStatus.RUNNING, **updates))
 

@@ -92,7 +92,8 @@ def decide_next_action(state: WorkflowState) -> RoutingDecision:
             summary="Knowledge validation is required",
         )
 
-    validation_status = _latest_validation_status(state.validation_results[-1])
+    completed_validator_indexes = _validate_validation_history(state)
+    validation_status = _validation_status(state.validation_results[-1])
     if validation_status == "passed":
         return _terminal_decision(
             state,
@@ -103,10 +104,11 @@ def decide_next_action(state: WorkflowState) -> RoutingDecision:
             summary="Latest knowledge validation passed",
         )
     if validation_status == "failed":
-        return _decide_failed_validation_recovery(state)
-    raise SupervisorPolicyError(
-        "Latest validation result has an unsupported status"
-    )
+        return _decide_failed_validation_recovery(
+            state,
+            completed_validator_indexes,
+        )
+    raise SupervisorPolicyError("Validation result has an unsupported status")
 
 
 def _validate_non_terminal_lifecycle(state: WorkflowState) -> None:
@@ -133,58 +135,63 @@ def _validate_artifact_dependencies(state: WorkflowState) -> None:
         )
 
 
-def _latest_validation_status(result: Mapping[str, object]) -> str:
+def _validation_status(result: Mapping[str, object]) -> str:
     if "status" not in result:
-        raise SupervisorPolicyError(
-            "Latest validation result is missing required status"
-        )
+        raise SupervisorPolicyError("Validation result is missing required status")
     status = result["status"]
     if not isinstance(status, str):
+        raise SupervisorPolicyError("Validation result status must be a string")
+    if status not in {"passed", "failed"}:
         raise SupervisorPolicyError(
-            "Latest validation result status must be a string"
+            "Validation result has an unsupported status"
         )
     return status
 
 
-def _decide_failed_validation_recovery(
-    state: WorkflowState,
-) -> RoutingDecision:
-    """Infer the recovery prefix using temporary append-order correlation."""
+def _validate_validation_history(state: WorkflowState) -> Tuple[int, ...]:
+    """Validate all results using temporary append-order correlation."""
 
-    completed_validators = tuple(
-        (index, invocation)
+    completed_validator_indexes = tuple(
+        index
         for index, invocation in enumerate(state.step_history)
         if invocation.agent is AgentRole.VALIDATOR
         and invocation.status is AgentInvocationStatus.COMPLETED
     )
-    if len(completed_validators) < len(state.validation_results):
+    if len(completed_validator_indexes) < len(state.validation_results):
         raise SupervisorPolicyError(
-            "Failed validation has no matching completed Validator invocation"
+            "Validation result has no matching completed Validator invocation"
         )
-    if len(completed_validators) > len(state.validation_results):
+    if len(completed_validator_indexes) > len(state.validation_results):
         raise SupervisorPolicyError(
-            "Completed recovery Validator has no newly appended validation result"
+            "Completed Validator has no newly appended validation result"
+        )
+
+    statuses = tuple(
+        _validation_status(result) for result in state.validation_results
+    )
+    if "passed" in statuses[:-1]:
+        raise SupervisorPolicyError(
+            "Validation history continued after a passed result"
         )
 
     for result_index in range(1, len(state.validation_results)):
-        previous_status = _latest_validation_status(
-            state.validation_results[result_index - 1]
-        )
-        if previous_status != "failed":
-            raise SupervisorPolicyError(
-                "Validation history continued after a passed result"
-            )
-        previous_index = completed_validators[result_index - 1][0]
-        current_index = completed_validators[result_index][0]
+        previous_index = completed_validator_indexes[result_index - 1]
+        current_index = completed_validator_indexes[result_index]
         completed_roles = _recovery_roles(
             state.step_history[previous_index + 1 : current_index + 1]
         )
-        _require_recovery_sequence(
-            completed_roles,
-            complete=True,
-        )
+        _require_recovery_sequence(completed_roles, complete=True)
 
-    latest_validator_index = completed_validators[-1][0]
+    return completed_validator_indexes
+
+
+def _decide_failed_validation_recovery(
+    state: WorkflowState,
+    completed_validator_indexes: Tuple[int, ...],
+) -> RoutingDecision:
+    """Infer the recovery prefix using temporary append-order correlation."""
+
+    latest_validator_index = completed_validator_indexes[-1]
     completed_roles = _recovery_roles(
         state.step_history[latest_validator_index + 1 :]
     )
