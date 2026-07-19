@@ -12,7 +12,11 @@ from pmqa.workflow import (
     WorkflowStatus,
 )
 from products.demo.capture import SauceDemoCaptureRunner
-from products.demo.config import DemoConfig
+from products.demo.config import (
+    DemoConfig,
+    DemoConfigValidationError,
+    validate_config,
+)
 from products.demo.exploration_tool import SauceDemoExplorationTool
 from products.demo.explorer_agent import SauceDemoExplorerAgent
 from products.demo.knowledge_agent import SauceDemoKnowledgeAgent
@@ -160,9 +164,12 @@ def _validate_initial_state(
 
 
 def _validate_config(config: DemoConfig) -> None:
-    if not isinstance(config, DemoConfig):
-        raise SauceDemoWorkflowCompositionError("config must be a DemoConfig")
-    _require_identifier(config.product_id, "config.product_id")
+    try:
+        validate_config(config)
+    except DemoConfigValidationError:
+        raise SauceDemoWorkflowCompositionError(
+            "SauceDemo workflow configuration is invalid"
+        ) from None
 
 
 def _require_identifier(value: str, field_name: str) -> None:

@@ -37,6 +37,28 @@ from products.demo.config import DemoConfig
 from products.demo.knowledge_mapping import SauceDemoKnowledgeCandidate
 
 
+INVALID_APPLICATION_CONFIG_UPDATES = (
+    {"product_id": "runtime-invalid-product-marker"},
+    {"allowed_safe_actions": "runtime-invalid-allowed-marker"},
+    {"blocked_destructive_actions": "runtime-invalid-blocked-marker"},
+    {"maximum_exploration_steps": 0},
+    {"artifact_output_location": "runtime-invalid-artifact-path-marker"},
+    {
+        "generated_test_output_location": "runtime-invalid-generated-path-marker"
+    },
+    {
+        "credential_environment_variables": {
+            "username": "runtime-invalid-credential-marker"
+        }
+    },
+    {
+        "demo_only_default_credentials": {
+            "password": "runtime-invalid-default-marker"
+        }
+    },
+)
+
+
 def test_application_runs_real_offline_workflow_persists_and_generates(
     tmp_path,
 ) -> None:
@@ -144,6 +166,30 @@ def test_invalid_application_inputs_fail_before_capture(tmp_path, updates) -> No
     assert capture.calls == []
     assert storage.saved == []
     assert not (tmp_path / "generated").exists()
+
+
+@pytest.mark.parametrize("updates", INVALID_APPLICATION_CONFIG_UPDATES)
+def test_application_rejects_invalid_config_before_external_effects(
+    tmp_path, updates
+) -> None:
+    capture = _CaptureRunner()
+    storage = _RecordingStorage()
+    output = tmp_path / "generated"
+    invalid = replace(_config(tmp_path), **updates)
+
+    with pytest.raises(SauceDemoApplicationError) as captured:
+        _run_application(
+            config=invalid,
+            capture=capture,
+            storage=storage,
+            output=output,
+        )
+
+    assert str(captured.value) == TASK5_DEMO_FAILURE_CODE
+    assert capture.calls == []
+    assert storage.saved == []
+    assert not output.exists()
+    assert "runtime-invalid" not in str(captured.value)
 
 
 def test_capture_failure_has_no_storage_or_generation_and_is_safe(

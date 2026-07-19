@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 from copy import deepcopy
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -35,6 +36,28 @@ from products.demo.workflow import (
     SauceDemoWorkflowCompositionError,
     create_saucedemo_workflow_state,
     run_saucedemo_workflow,
+)
+
+
+INVALID_CONFIG_UPDATES = (
+    {"product_id": "runtime-invalid-product-marker"},
+    {"allowed_safe_actions": "runtime-invalid-allowed-marker"},
+    {"blocked_destructive_actions": "runtime-invalid-blocked-marker"},
+    {"maximum_exploration_steps": 0},
+    {"artifact_output_location": "runtime-invalid-artifact-path-marker"},
+    {
+        "generated_test_output_location": "runtime-invalid-generated-path-marker"
+    },
+    {
+        "credential_environment_variables": {
+            "username": "runtime-invalid-credential-marker"
+        }
+    },
+    {
+        "demo_only_default_credentials": {
+            "password": "runtime-invalid-default-marker"
+        }
+    },
 )
 
 
@@ -83,6 +106,35 @@ def test_initial_state_factory_rejects_malformed_inputs(field, value) -> None:
 
     with pytest.raises(SauceDemoWorkflowCompositionError):
         create_saucedemo_workflow_state(_config(), **values)
+
+
+@pytest.mark.parametrize("updates", INVALID_CONFIG_UPDATES)
+def test_initial_state_factory_reuses_canonical_config_validation(
+    updates,
+) -> None:
+    invalid = replace(_config(), **updates)
+
+    with pytest.raises(SauceDemoWorkflowCompositionError) as captured:
+        create_saucedemo_workflow_state(invalid, **_initial_values())
+
+    assert "runtime-invalid" not in str(captured.value)
+
+
+@pytest.mark.parametrize("updates", INVALID_CONFIG_UPDATES)
+def test_workflow_rejects_invalid_config_before_tool_capture(updates) -> None:
+    capture = _CaptureRunner()
+    invalid = replace(_config(), **updates)
+
+    with pytest.raises(SauceDemoWorkflowCompositionError) as captured:
+        run_saucedemo_workflow(
+            invalid,
+            _initial_state(),
+            capture_runner=capture,
+            clock=lambda: _timestamp(1),
+        )
+
+    assert capture.calls == []
+    assert "runtime-invalid" not in str(captured.value)
 
 
 @pytest.mark.parametrize(

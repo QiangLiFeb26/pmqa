@@ -25,4 +25,9 @@ dev = [
 testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
-include = ["pmqa*"]
+include = ["pmqa*", "products*"]
+exclude = ["products.demo.artifacts*", "products.demo.generated_tests*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"products.demo" = ["config/product.json"]

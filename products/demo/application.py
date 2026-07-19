@@ -16,7 +16,11 @@ from products.demo.artifact_handoff import (
     persist_verified_knowledge,
 )
 from products.demo.capture import SauceDemoCaptureRunner
-from products.demo.config import DemoConfig
+from products.demo.config import (
+    DemoConfig,
+    DemoConfigValidationError,
+    validate_config,
+)
 from products.demo.workflow import (
     SauceDemoWorkflowCompositionError,
     create_saucedemo_workflow_state,
@@ -131,7 +135,9 @@ def _validate_application_dependencies(
     storage: Optional[StorageProvider],
     generated_test_output_directory: Optional[Path],
 ) -> None:
-    if not isinstance(config, DemoConfig):
+    try:
+        validate_config(config)
+    except DemoConfigValidationError:
         raise SauceDemoApplicationError(TASK5_DEMO_FAILURE_CODE)
     if type(headless) is not bool:
         raise SauceDemoApplicationError(TASK5_DEMO_FAILURE_CODE)
