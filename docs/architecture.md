@@ -133,9 +133,15 @@ Browser, Page, Locator, credential, and Playwright objects remain inside that
 product-owned capture boundary. Only serialized `ExplorationEvidence` crosses
 the Tool boundary into workflow payloads.
 
-The SauceDemo Tool is independently dispatchable through `ToolRegistry` and
-`WorkflowRuntime`, but no real Explorer agent, Knowledge agent, validation
-agent, CLI composition, or end-to-end multi-agent workflow exists yet.
+The product-owned SauceDemo Explorer depends only on an injected Tool-dispatch
+callable. It neither imports nor instantiates Playwright, the concrete Tool, or
+the capture implementation. It validates the returned evidence and requests
+an append-only serialized evidence update through `AgentResult` and
+`WorkflowStatePatch`; the reducer remains the state mutation boundary.
+
+The Tool and Explorer are independently executable through the existing
+runtime contracts, but no Knowledge agent, Validator agent, CLI composition,
+or end-to-end multi-agent workflow exists yet.
 
 ## Dependency direction
 

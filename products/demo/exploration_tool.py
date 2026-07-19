@@ -2,9 +2,9 @@
 
 import hashlib
 from datetime import datetime, timezone
-from typing import Callable, Literal, Optional, Tuple
+from typing import Callable, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import ValidationError
 
 from pmqa.models import ExplorationEvidence, ExplorationSource
 from pmqa.workflow import (
@@ -16,35 +16,13 @@ from pmqa.workflow import (
     ToolRequest,
     ToolResult,
 )
-from products.demo.capture import (
-    SAUCEDEMO_EXPLORATION_ACTIONS,
-    PlaywrightSauceDemoCapture,
-    SauceDemoCaptureRunner,
-)
+from products.demo.capture import PlaywrightSauceDemoCapture, SauceDemoCaptureRunner
 from products.demo.config import DemoConfig
-
-
-SAUCEDEMO_EXPLORATION_TOOL_ID = "playwright.saucedemo_explore"
-
-SauceDemoExplorationAction = Literal[
-    "inspect_login_page",
-    "login",
-    "verify_inventory_page",
-    "inspect_inventory_item",
-]
-
-
-class SauceDemoExplorationInput(BaseModel):
-    """Strict product-owned input for the bounded SauceDemo action plan."""
-
-    model_config = ConfigDict(
-        extra="forbid",
-        frozen=True,
-        hide_input_in_errors=True,
-    )
-
-    product_id: str = Field(min_length=1)
-    actions: Tuple[SauceDemoExplorationAction, ...] = Field(min_length=1)
+from products.demo.exploration_contracts import (
+    SAUCEDEMO_EXPLORATION_ACTIONS,
+    SAUCEDEMO_EXPLORATION_TOOL_ID,
+    SauceDemoExplorationInput,
+)
 
 
 class SauceDemoExplorationTool:

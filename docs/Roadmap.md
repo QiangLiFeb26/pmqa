@@ -13,7 +13,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 3 — Reasoning trust boundary | Complete | Added provider-independent reasoning contracts, scrubbing, deterministic/manual/Copilot CLI providers, prompt packages, and SQLite trace storage. |
 | Task 4 — Multi-agent runtime | Complete | Added typed state, agent and tool contracts, deterministic reduction and routing, runtime execution, validated recovery, and LangGraph assembly. |
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
-| Task 5 — Real agent composition | In progress | Task 5.1 completed immutable evidence contracts; Task 5.2 adds the product-owned Playwright exploration Tool for review. |
+| Task 5 — Real agent composition | In progress | Tasks 5.1 and 5.2 completed evidence contracts and the Playwright Tool; Task 5.3 adds the real Explorer agent for review. |
 
 ## Task 4 closure
 
@@ -42,10 +42,10 @@ entry point. It does not add agents, tools, or Task 5 behavior.
 ## Task 5 checkpoints
 
 Task 5.1 completed the neutral exploration-evidence boundary between external
-capture and verified product knowledge. Task 5.2 is the product-owned
-Playwright exploration Tool checkpoint: it performs bounded SauceDemo capture
-and returns serialized evidence through the existing Tool contracts and
-runtime. It does not implement a real Explorer agent, other agents,
-persistence, CLI composition, or an end-to-end multi-agent workflow. Those
-remain later Task 5 checkpoints. Tasks 6 and 7 are outside the current
-implementation scope.
+capture and verified product knowledge. Task 5.2 completed the product-owned
+Playwright exploration Tool checkpoint. Task 5.3 is the real SauceDemo
+Explorer-agent checkpoint: the agent dispatches that Tool and requests an
+append-only evidence patch through the existing runtime and reducer contracts.
+It does not implement Knowledge or Validator agents, persistence, CLI
+composition, or an end-to-end multi-agent workflow. Those remain later Task 5
+checkpoints. Tasks 6 and 7 are outside the current implementation scope.

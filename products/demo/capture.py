@@ -16,14 +16,7 @@ from pmqa.models import (
     ObservedPage,
 )
 from products.demo.config import DemoConfig
-
-
-SAUCEDEMO_EXPLORATION_ACTIONS = (
-    "inspect_login_page",
-    "login",
-    "verify_inventory_page",
-    "inspect_inventory_item",
-)
+from products.demo.exploration_contracts import SAUCEDEMO_EXPLORATION_ACTIONS
 
 
 @dataclass(frozen=True)
@@ -72,6 +65,10 @@ class PlaywrightSauceDemoCapture:
                 page = browser.new_page()
                 page.goto(self._config.base_url + self._config.start_path)
                 for action in actions:
+                    if action not in SAUCEDEMO_EXPLORATION_ACTIONS:
+                        raise ValueError(
+                            "Unsupported bounded SauceDemo exploration action"
+                        )
                     if action == "inspect_login_page":
                         self._capture_login(
                             page, pages, elements, locator_candidates
@@ -84,10 +81,6 @@ class PlaywrightSauceDemoCapture:
                         )
                     elif action == "inspect_inventory_item":
                         page.locator("[data-test='inventory-item']").first.wait_for()
-                    else:
-                        raise ValueError(
-                            "Unsupported bounded SauceDemo exploration action"
-                        )
             finally:
                 browser.close()
         return SauceDemoCaptureResult(
