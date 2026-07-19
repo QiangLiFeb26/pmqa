@@ -16,6 +16,8 @@ from pmqa.supervisor import (
     decide_next_action,
 )
 from pmqa.workflow import (
+    AgentInvocation,
+    AgentInvocationStatus,
     AgentRole,
     TerminationReason,
     WorkflowState,
@@ -170,6 +172,7 @@ def test_latest_passed_validation_completes_workflow() -> None:
 def test_latest_failed_validation_routes_to_explorer_without_deleting_history() -> None:
     state = _knowledge_state(
         validation_results=({"status": "failed", "detail": "mismatch"},),
+        step_history=(_invocation(AgentRole.VALIDATOR),),
     )
 
     decision = decide_next_action(state)
@@ -186,15 +189,22 @@ def test_latest_failed_validation_routes_to_explorer_without_deleting_history() 
 
 
 @pytest.mark.parametrize(
-    ("results", "expected_action", "expected_agent"),
+    ("results", "history", "expected_action", "expected_agent"),
     [
         (
             ({"status": "failed"}, {"status": "passed"}),
+            (),
             SupervisorAction.COMPLETE_WORKFLOW,
             None,
         ),
         (
-            ({"status": "passed"}, {"status": "failed"}),
+            ({"status": "failed"}, {"status": "failed"}),
+            (
+                AgentRole.VALIDATOR,
+                AgentRole.EXPLORER,
+                AgentRole.KNOWLEDGE,
+                AgentRole.VALIDATOR,
+            ),
             SupervisorAction.EXECUTE_AGENT,
             AgentRole.EXPLORER,
         ),
@@ -202,11 +212,15 @@ def test_latest_failed_validation_routes_to_explorer_without_deleting_history() 
 )
 def test_only_latest_validation_result_controls_routing(
     results,
+    history,
     expected_action: SupervisorAction,
     expected_agent,
 ) -> None:
     decision = decide_next_action(
-        _knowledge_state(validation_results=results)
+        _knowledge_state(
+            validation_results=results,
+            step_history=tuple(_invocation(role) for role in history),
+        )
     )
 
     assert decision.action is expected_action
@@ -304,7 +318,10 @@ def test_routing_decision_is_strict_immutable_and_json_serializable() -> None:
 
 
 def test_policy_does_not_mutate_state_and_is_deterministic() -> None:
-    state = _knowledge_state(validation_results=({"status": "failed"},))
+    state = _knowledge_state(
+        validation_results=({"status": "failed"},),
+        step_history=(_invocation(AgentRole.VALIDATOR),),
+    )
     original = state.model_dump_json()
 
     first = decide_next_action(state)
@@ -313,6 +330,211 @@ def test_policy_does_not_mutate_state_and_is_deterministic() -> None:
     assert first == second
     assert first.model_dump_json() == second.model_dump_json()
     assert state.model_dump_json() == original
+
+
+def test_full_failed_validation_recovery_cycle_reaches_completion() -> None:
+    state = _knowledge_state(
+        validation_results=({"status": "failed"},),
+        step_history=(_invocation(AgentRole.VALIDATOR),),
+        warnings=("preserve-warning",),
+    )
+
+    explorer_decision = decide_next_action(state)
+    _assert_agent_decision(explorer_decision, AgentRole.EXPLORER)
+    state = apply_patch(state, explorer_decision.patch)
+    state = apply_patch(
+        state,
+        WorkflowStatePatch(
+            evidence_to_add=({"id": "evidence-2"},),
+            step_history_to_add=(_invocation(AgentRole.EXPLORER),),
+        ),
+    )
+
+    knowledge_decision = decide_next_action(state)
+    _assert_agent_decision(knowledge_decision, AgentRole.KNOWLEDGE)
+    assert knowledge_decision.reason_code is SupervisorReason.KNOWLEDGE_REQUIRED
+    state = apply_patch(state, knowledge_decision.patch)
+    state = apply_patch(
+        state,
+        WorkflowStatePatch(
+            knowledge_candidates_to_add=({"id": "knowledge-2"},),
+            step_history_to_add=(_invocation(AgentRole.KNOWLEDGE),),
+        ),
+    )
+
+    validator_decision = decide_next_action(state)
+    _assert_agent_decision(validator_decision, AgentRole.VALIDATOR)
+    assert validator_decision.reason_code is SupervisorReason.VALIDATION_REQUIRED
+    state = apply_patch(state, validator_decision.patch)
+    state = apply_patch(
+        state,
+        WorkflowStatePatch(
+            validation_results_to_add=({"status": "passed"},),
+            step_history_to_add=(_invocation(AgentRole.VALIDATOR),),
+        ),
+    )
+
+    completion = decide_next_action(state)
+    assert completion.action is SupervisorAction.COMPLETE_WORKFLOW
+    assert completion.reason_code is SupervisorReason.VALIDATION_PASSED
+    completed_state = apply_patch(state, completion.patch)
+    assert completed_state.status is WorkflowStatus.COMPLETED
+    assert len(completed_state.evidence) == 2
+    assert len(completed_state.knowledge_candidates) == 2
+    assert len(completed_state.validation_results) == 2
+    assert len(completed_state.step_history) == 4
+    assert completed_state.warnings == ("preserve-warning",)
+
+
+def test_repeated_failed_validation_starts_a_new_recovery_cycle() -> None:
+    state = _knowledge_state(
+        evidence=({"id": "evidence-1"}, {"id": "evidence-2"}),
+        knowledge_candidates=({"id": "knowledge-1"}, {"id": "knowledge-2"}),
+        validation_results=({"status": "failed"}, {"status": "failed"}),
+        step_history=(
+            _invocation(AgentRole.VALIDATOR),
+            _invocation(AgentRole.EXPLORER),
+            _invocation(AgentRole.KNOWLEDGE),
+            _invocation(AgentRole.VALIDATOR),
+        ),
+    )
+
+    decision = decide_next_action(state)
+
+    _assert_agent_decision(decision, AgentRole.EXPLORER)
+    assert decision.reason_code is SupervisorReason.VALIDATION_FAILED
+    assert apply_patch(state, decision.patch).validation_results == (
+        {"status": "failed"},
+        {"status": "failed"},
+    )
+
+
+def test_recovery_respects_error_and_iteration_precedence() -> None:
+    invalid_recovery = {
+        "validation_results": ({"status": "failed"},),
+        "step_history": (),
+    }
+    failed = decide_next_action(
+        _knowledge_state(errors=("fatal",), **invalid_recovery)
+    )
+    terminated = decide_next_action(
+        _knowledge_state(
+            iteration=3,
+            max_iterations=3,
+            **invalid_recovery,
+        )
+    )
+
+    assert failed.action is SupervisorAction.FAIL_WORKFLOW
+    assert terminated.action is SupervisorAction.TERMINATE_WORKFLOW
+
+
+@pytest.mark.parametrize(
+    ("history", "results", "message"),
+    [
+        ((), ({"status": "failed"},), "no matching completed Validator"),
+        (
+            (AgentRole.VALIDATOR, AgentRole.KNOWLEDGE),
+            ({"status": "failed"},),
+            "must follow Explorer",
+        ),
+        (
+            (
+                AgentRole.VALIDATOR,
+                AgentRole.EXPLORER,
+                AgentRole.VALIDATOR,
+            ),
+            ({"status": "failed"}, {"status": "failed"}),
+            "must follow Explorer",
+        ),
+        (
+            (
+                AgentRole.VALIDATOR,
+                AgentRole.EXPLORER,
+                AgentRole.KNOWLEDGE,
+                AgentRole.VALIDATOR,
+            ),
+            ({"status": "failed"},),
+            "no newly appended validation result",
+        ),
+        (
+            (
+                AgentRole.VALIDATOR,
+                AgentRole.EXPLORER,
+                AgentRole.EXPLORER,
+            ),
+            ({"status": "failed"},),
+            "must follow Explorer",
+        ),
+    ],
+)
+def test_policy_rejects_invalid_recovery_sequences(
+    history,
+    results,
+    message: str,
+) -> None:
+    state = _knowledge_state(
+        validation_results=results,
+        step_history=tuple(_invocation(role) for role in history),
+    )
+
+    with pytest.raises(SupervisorPolicyError, match=message):
+        decide_next_action(state)
+
+
+def test_failed_or_incomplete_recovery_invocation_is_ambiguous() -> None:
+    base_history = (_invocation(AgentRole.VALIDATOR),)
+    for status, message in (
+        (AgentInvocationStatus.FAILED, "cannot advance"),
+        (AgentInvocationStatus.RUNNING, "ambiguous"),
+    ):
+        state = _knowledge_state(
+            validation_results=({"status": "failed"},),
+            step_history=base_history
+            + (_invocation(AgentRole.EXPLORER, status),),
+        )
+        with pytest.raises(SupervisorPolicyError, match=message):
+            decide_next_action(state)
+
+
+@pytest.mark.parametrize(
+    ("action", "status", "wrong_reason"),
+    [
+        (
+            SupervisorAction.COMPLETE_WORKFLOW,
+            WorkflowStatus.COMPLETED,
+            TerminationReason.ERROR,
+        ),
+        (
+            SupervisorAction.FAIL_WORKFLOW,
+            WorkflowStatus.FAILED,
+            TerminationReason.GOAL_COMPLETED,
+        ),
+        (
+            SupervisorAction.TERMINATE_WORKFLOW,
+            WorkflowStatus.TERMINATED,
+            TerminationReason.ERROR,
+        ),
+    ],
+)
+def test_terminal_decision_rejects_mismatched_termination_reason(
+    action: SupervisorAction,
+    status: WorkflowStatus,
+    wrong_reason: TerminationReason,
+) -> None:
+    with pytest.raises(ValidationError, match="termination_reason"):
+        RoutingDecision(
+            workflow_id="workflow-1",
+            action=action,
+            reason_code=SupervisorReason.WORKFLOW_ERROR,
+            summary="Invalid terminal mapping",
+            patch=WorkflowStatePatch(
+                status=status,
+                termination_reason=wrong_reason,
+                clear_current_agent=True,
+                clear_next_agent=True,
+            ),
+        )
 
 
 def test_supervisor_import_has_no_runtime_or_provider_dependencies() -> None:
@@ -349,6 +571,23 @@ def _knowledge_state(**updates) -> WorkflowState:
     }
     values.update(updates)
     return _state(**values)
+
+
+def _invocation(
+    agent: AgentRole,
+    status: AgentInvocationStatus = AgentInvocationStatus.COMPLETED,
+) -> AgentInvocation:
+    timestamp = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    terminal = status in {
+        AgentInvocationStatus.COMPLETED,
+        AgentInvocationStatus.FAILED,
+    }
+    return AgentInvocation(
+        agent=agent,
+        started_at=timestamp,
+        completed_at=timestamp if terminal else None,
+        status=status,
+    )
 
 
 def _state(**updates) -> WorkflowState:

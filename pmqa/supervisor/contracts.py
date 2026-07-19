@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from pmqa.workflow.models import AgentRole, WorkflowStatus
+from pmqa.workflow.models import AgentRole, TerminationReason, WorkflowStatus
 from pmqa.workflow.updates import WorkflowStatePatch
 
 
@@ -72,13 +72,27 @@ class RoutingDecision(BaseModel):
 
         if self.selected_agent is not None:
             raise ValueError("terminal decision must not select an agent")
-        expected_status = {
-            SupervisorAction.COMPLETE_WORKFLOW: WorkflowStatus.COMPLETED,
-            SupervisorAction.FAIL_WORKFLOW: WorkflowStatus.FAILED,
-            SupervisorAction.TERMINATE_WORKFLOW: WorkflowStatus.TERMINATED,
+        expected_terminal = {
+            SupervisorAction.COMPLETE_WORKFLOW: (
+                WorkflowStatus.COMPLETED,
+                TerminationReason.GOAL_COMPLETED,
+            ),
+            SupervisorAction.FAIL_WORKFLOW: (
+                WorkflowStatus.FAILED,
+                TerminationReason.ERROR,
+            ),
+            SupervisorAction.TERMINATE_WORKFLOW: (
+                WorkflowStatus.TERMINATED,
+                TerminationReason.MAX_ITERATIONS,
+            ),
         }[self.action]
+        expected_status, expected_reason = expected_terminal
         if self.patch.status is not expected_status:
             raise ValueError("terminal decision patch status must match action")
+        if self.patch.termination_reason is not expected_reason:
+            raise ValueError(
+                "terminal decision termination_reason must match action"
+            )
         if not self.patch.clear_current_agent or not self.patch.clear_next_agent:
             raise ValueError("terminal decision patch must clear agent routing")
         return self

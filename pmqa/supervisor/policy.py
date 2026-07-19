@@ -1,6 +1,6 @@
 """Pure deterministic policy for selecting the next workflow action."""
 
-from typing import Mapping
+from typing import Mapping, Tuple
 
 from pmqa.supervisor.contracts import (
     RoutingDecision,
@@ -9,6 +9,8 @@ from pmqa.supervisor.contracts import (
 )
 from pmqa.supervisor.errors import SupervisorPolicyError
 from pmqa.workflow.models import (
+    AgentInvocation,
+    AgentInvocationStatus,
     AgentRole,
     TerminationReason,
     WorkflowState,
@@ -101,12 +103,7 @@ def decide_next_action(state: WorkflowState) -> RoutingDecision:
             summary="Latest knowledge validation passed",
         )
     if validation_status == "failed":
-        return _agent_decision(
-            state,
-            agent=AgentRole.EXPLORER,
-            reason=SupervisorReason.VALIDATION_FAILED,
-            summary="Latest knowledge validation failed",
-        )
+        return _decide_failed_validation_recovery(state)
     raise SupervisorPolicyError(
         "Latest validation result has an unsupported status"
     )
@@ -147,6 +144,114 @@ def _latest_validation_status(result: Mapping[str, object]) -> str:
             "Latest validation result status must be a string"
         )
     return status
+
+
+def _decide_failed_validation_recovery(
+    state: WorkflowState,
+) -> RoutingDecision:
+    """Infer the recovery prefix using temporary append-order correlation."""
+
+    completed_validators = tuple(
+        (index, invocation)
+        for index, invocation in enumerate(state.step_history)
+        if invocation.agent is AgentRole.VALIDATOR
+        and invocation.status is AgentInvocationStatus.COMPLETED
+    )
+    if len(completed_validators) < len(state.validation_results):
+        raise SupervisorPolicyError(
+            "Failed validation has no matching completed Validator invocation"
+        )
+    if len(completed_validators) > len(state.validation_results):
+        raise SupervisorPolicyError(
+            "Completed recovery Validator has no newly appended validation result"
+        )
+
+    for result_index in range(1, len(state.validation_results)):
+        previous_status = _latest_validation_status(
+            state.validation_results[result_index - 1]
+        )
+        if previous_status != "failed":
+            raise SupervisorPolicyError(
+                "Validation history continued after a passed result"
+            )
+        previous_index = completed_validators[result_index - 1][0]
+        current_index = completed_validators[result_index][0]
+        completed_roles = _recovery_roles(
+            state.step_history[previous_index + 1 : current_index + 1]
+        )
+        _require_recovery_sequence(
+            completed_roles,
+            complete=True,
+        )
+
+    latest_validator_index = completed_validators[-1][0]
+    completed_roles = _recovery_roles(
+        state.step_history[latest_validator_index + 1 :]
+    )
+    _require_recovery_sequence(completed_roles, complete=False)
+
+    next_agent = (
+        AgentRole.EXPLORER,
+        AgentRole.KNOWLEDGE,
+        AgentRole.VALIDATOR,
+    )[len(completed_roles)]
+    reason = {
+        AgentRole.EXPLORER: SupervisorReason.VALIDATION_FAILED,
+        AgentRole.KNOWLEDGE: SupervisorReason.KNOWLEDGE_REQUIRED,
+        AgentRole.VALIDATOR: SupervisorReason.VALIDATION_REQUIRED,
+    }[next_agent]
+    return _agent_decision(
+        state,
+        agent=next_agent,
+        reason=reason,
+        summary=f"Failed-validation recovery requires {next_agent.value}",
+    )
+
+
+def _recovery_roles(
+    invocations: Tuple[AgentInvocation, ...],
+) -> Tuple[AgentRole, ...]:
+    roles = []
+    relevant_roles = {
+        AgentRole.EXPLORER,
+        AgentRole.KNOWLEDGE,
+        AgentRole.VALIDATOR,
+    }
+    for invocation in invocations:
+        if invocation.agent not in relevant_roles:
+            continue
+        if invocation.status is AgentInvocationStatus.FAILED:
+            raise SupervisorPolicyError(
+                f"Failed {invocation.agent.value} invocation cannot advance recovery"
+            )
+        if invocation.status is not AgentInvocationStatus.COMPLETED:
+            raise SupervisorPolicyError(
+                f"Incomplete {invocation.agent.value} invocation is ambiguous"
+            )
+        roles.append(invocation.agent)
+    return tuple(roles)
+
+
+def _require_recovery_sequence(
+    roles: Tuple[AgentRole, ...],
+    *,
+    complete: bool,
+) -> None:
+    expected = (
+        AgentRole.EXPLORER,
+        AgentRole.KNOWLEDGE,
+        AgentRole.VALIDATOR,
+    )
+    if complete:
+        if roles != expected:
+            raise SupervisorPolicyError(
+                "Completed recovery cycle must follow Explorer, Knowledge, Validator"
+            )
+        return
+    if len(roles) >= len(expected) or roles != expected[: len(roles)]:
+        raise SupervisorPolicyError(
+            "Recovery sequence must follow Explorer, Knowledge, Validator"
+        )
 
 
 def _agent_decision(
