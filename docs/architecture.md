@@ -146,11 +146,23 @@ existing `Page`, `Element`, `Locator`, `Interaction`, and `KnowledgeArtifact`
 models. A correlated candidate envelope, rather than a live domain object, is
 appended through `WorkflowStatePatch.knowledge_candidates_to_add`.
 
-All mapped items have `ArtifactStatus.NEW` with no verification timestamp.
-This baseline mapping does not invoke a reasoning provider and does not claim
-verification; a later Validator checkpoint owns that transition. No real
-Validator, CLI composition, persistence, or end-to-end multi-agent workflow
-exists yet.
+All mapped candidate items have `ArtifactStatus.NEW` with no verification
+timestamp. The product-owned Validator deterministically compares exactly one
+unvalidated candidate with the candidate rebuilt from its source evidence. A
+matching candidate appends a passed result containing a separate
+`KnowledgeArtifact` snapshot whose items are `ArtifactStatus.VERIFIED`; the
+stored NEW candidate is not mutated.
+
+A structurally valid candidate mismatch appends a domain-level failed result
+with completed Validator history and no fatal workflow error. The unchanged
+Supervisor policy therefore starts its existing Explorer, Knowledge,
+Validator recovery sequence. Malformed or ambiguous state instead produces a
+failed Validator invocation, no validation result, and the stable fatal error
+`validator_execution_failed`.
+
+This baseline Validator does not invoke a reasoning provider. Production
+composition, persistence, CLI integration, and generated-test integration do
+not exist yet.
 
 ## Dependency direction
 

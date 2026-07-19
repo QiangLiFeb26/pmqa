@@ -13,7 +13,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 3 — Reasoning trust boundary | Complete | Added provider-independent reasoning contracts, scrubbing, deterministic/manual/Copilot CLI providers, prompt packages, and SQLite trace storage. |
 | Task 4 — Multi-agent runtime | Complete | Added typed state, agent and tool contracts, deterministic reduction and routing, runtime execution, validated recovery, and LangGraph assembly. |
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
-| Task 5 — Real agent composition | In progress | Tasks 5.1–5.3 completed evidence, Tool, and Explorer checkpoints; Task 5.4 adds deterministic candidates and the real Knowledge agent for review. |
+| Task 5 — Real agent composition | In progress | Tasks 5.1–5.4 completed evidence through Knowledge checkpoints; Task 5.5 adds the real Validator and recovery integration for review. |
 
 ## Task 4 closure
 
@@ -41,11 +41,11 @@ entry point. It does not add agents, tools, or Task 5 behavior.
 
 ## Task 5 checkpoints
 
-Task 5.1 completed the neutral exploration-evidence boundary, Task 5.2
-completed the product-owned Playwright exploration Tool, and Task 5.3
-completed the real SauceDemo Explorer. Task 5.4 is the deterministic
-Knowledge-candidate mapping and real Knowledge-agent checkpoint. It reuses the
-existing product-knowledge models but does not verify or persist candidates.
-Validator behavior, reasoning-provider integration, CLI composition, and an
-end-to-end multi-agent workflow remain later checkpoints. Tasks 6 and 7 are
-outside the current implementation scope.
+Tasks 5.1–5.4 completed the neutral exploration-evidence boundary, the
+product-owned Playwright exploration Tool, the real SauceDemo Explorer, and
+deterministic Knowledge-candidate mapping. Task 5.5 is the real Validator and
+failed-validation recovery-integration checkpoint. It produces an append-only
+verified snapshot on success without mutating or persisting the NEW candidate.
+Production composition, reasoning-provider integration, persistence, and CLI
+remain later checkpoints. Tasks 6 and 7 are outside the current implementation
+scope.

@@ -161,7 +161,7 @@ def build_knowledge_candidate(
     )
     candidate = SauceDemoKnowledgeCandidate(
         schema_version=CANDIDATE_SCHEMA_VERSION,
-        candidate_id=_candidate_id(
+        candidate_id=candidate_id_for(
             evidence.workflow_id, evidence.product_id, evidence.evidence_id
         ),
         workflow_id=evidence.workflow_id,
@@ -190,7 +190,7 @@ def _map_attributes(attributes) -> Dict[str, str]:
 def _validate_candidate_correlation(candidate: SauceDemoKnowledgeCandidate) -> None:
     if candidate.knowledge.product_id != candidate.product_id:
         raise KnowledgeCandidateError("candidate knowledge product is inconsistent")
-    if candidate.candidate_id != _candidate_id(
+    if candidate.candidate_id != candidate_id_for(
         candidate.workflow_id,
         candidate.product_id,
         candidate.source_evidence_id,
@@ -314,7 +314,11 @@ def _require_unique(values: Iterable[str], label: str) -> None:
         raise KnowledgeCandidateError(f"duplicate {label} are not allowed")
 
 
-def _candidate_id(workflow_id: str, product_id: str, evidence_id: str) -> str:
+def candidate_id_for(
+    workflow_id: str, product_id: str, evidence_id: str
+) -> str:
+    """Return the canonical deterministic ID for one candidate correlation."""
+
     return "candidate.saucedemo." + _correlation_digest(
         "candidate", workflow_id, product_id, evidence_id
     )
