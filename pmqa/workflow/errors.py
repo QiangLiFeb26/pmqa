@@ -7,3 +7,7 @@ class WorkflowStateValidationError(ValueError):
 
 class AgentContractValidationError(ValueError):
     """Reports an invalid agent request, result, or patch capability."""
+
+
+class ToolContractValidationError(ValueError):
+    """Reports an invalid tool contract, registration, or execution result."""

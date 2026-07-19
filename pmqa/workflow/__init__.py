@@ -9,6 +9,7 @@ from pmqa.workflow.agents import (
 )
 from pmqa.workflow.errors import (
     AgentContractValidationError,
+    ToolContractValidationError,
     WorkflowStateValidationError,
 )
 from pmqa.workflow.models import (
@@ -26,6 +27,18 @@ from pmqa.workflow.updates import (
     WorkflowStatePatch,
     validate_patch_for_role,
 )
+from pmqa.workflow.tools import (
+    ArtifactReference,
+    PMQATool,
+    ToolCategory,
+    ToolError,
+    ToolExecutionStatus,
+    ToolMetadata,
+    ToolRegistry,
+    ToolRequest,
+    ToolResult,
+    validate_tool_result,
+)
 
 __all__ = [
     "AGENT_UPDATE_POLICY",
@@ -37,8 +50,18 @@ __all__ = [
     "AgentRequest",
     "AgentResult",
     "AgentRole",
+    "ArtifactReference",
     "PMQAAgent",
+    "PMQATool",
     "TerminationReason",
+    "ToolCategory",
+    "ToolContractValidationError",
+    "ToolError",
+    "ToolExecutionStatus",
+    "ToolMetadata",
+    "ToolRegistry",
+    "ToolRequest",
+    "ToolResult",
     "WorkflowPatchField",
     "WorkflowState",
     "WorkflowStatePatch",
@@ -46,4 +69,5 @@ __all__ = [
     "WorkflowStatus",
     "validate_agent_result",
     "validate_patch_for_role",
+    "validate_tool_result",
 ]
