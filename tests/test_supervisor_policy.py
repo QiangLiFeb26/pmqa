@@ -91,7 +91,6 @@ def test_iteration_limit_terminates_workflow() -> None:
         status=WorkflowStatus.RUNNING,
         iteration=3,
         max_iterations=3,
-        next_agent=AgentRole.VALIDATOR,
     )
 
     decision = decide_next_action(state)
@@ -141,6 +140,19 @@ def test_evidence_without_knowledge_routes_to_knowledge() -> None:
     assert apply_patch(state, decision.patch).next_agent is AgentRole.KNOWLEDGE
 
 
+def test_evidence_at_iteration_limit_still_routes_to_knowledge() -> None:
+    state = _state(
+        status=WorkflowStatus.RUNNING,
+        iteration=3,
+        max_iterations=3,
+        evidence=({"evidence_id": "evidence-1"},),
+    )
+
+    decision = decide_next_action(state)
+
+    _assert_agent_decision(decision, AgentRole.KNOWLEDGE)
+
+
 def test_knowledge_without_validation_routes_to_validator() -> None:
     state = _knowledge_state()
 
@@ -149,6 +161,14 @@ def test_knowledge_without_validation_routes_to_validator() -> None:
     _assert_agent_decision(decision, AgentRole.VALIDATOR)
     assert decision.reason_code is SupervisorReason.VALIDATION_REQUIRED
     assert apply_patch(state, decision.patch).next_agent is AgentRole.VALIDATOR
+
+
+def test_knowledge_at_iteration_limit_still_routes_to_validator() -> None:
+    state = _knowledge_state(iteration=3, max_iterations=3)
+
+    decision = decide_next_action(state)
+
+    _assert_agent_decision(decision, AgentRole.VALIDATOR)
 
 
 def test_latest_passed_validation_completes_workflow() -> None:
@@ -168,6 +188,20 @@ def test_latest_passed_validation_completes_workflow() -> None:
     assert reduced.status is WorkflowStatus.COMPLETED
     assert reduced.current_agent is None
     assert reduced.next_agent is None
+
+
+def test_passed_validation_at_iteration_limit_still_completes() -> None:
+    state = _knowledge_state(
+        iteration=3,
+        max_iterations=3,
+        validation_results=({"status": "passed"},),
+        step_history=(_invocation(AgentRole.VALIDATOR),),
+    )
+
+    decision = decide_next_action(state)
+
+    assert decision.action is SupervisorAction.COMPLETE_WORKFLOW
+    assert decision.reason_code is SupervisorReason.VALIDATION_PASSED
 
 
 def test_latest_failed_validation_routes_to_explorer_without_deleting_history() -> None:
@@ -537,12 +571,42 @@ def test_recovery_respects_error_and_iteration_precedence() -> None:
         _knowledge_state(
             iteration=3,
             max_iterations=3,
-            **invalid_recovery,
+            validation_results=({"status": "failed"},),
+            step_history=(_invocation(AgentRole.VALIDATOR),),
         )
     )
 
     assert failed.action is SupervisorAction.FAIL_WORKFLOW
     assert terminated.action is SupervisorAction.TERMINATE_WORKFLOW
+
+
+def test_recovery_at_iteration_limit_allows_remaining_non_explorer_agents() -> None:
+    base = {
+        "iteration": 3,
+        "max_iterations": 3,
+        "validation_results": ({"status": "failed"},),
+    }
+    after_explorer = _knowledge_state(
+        **base,
+        step_history=(
+            _invocation(AgentRole.VALIDATOR),
+            _invocation(AgentRole.EXPLORER),
+        ),
+    )
+    after_knowledge = _knowledge_state(
+        **base,
+        step_history=(
+            _invocation(AgentRole.VALIDATOR),
+            _invocation(AgentRole.EXPLORER),
+            _invocation(AgentRole.KNOWLEDGE),
+        ),
+    )
+
+    knowledge_decision = decide_next_action(after_explorer)
+    validator_decision = decide_next_action(after_knowledge)
+
+    _assert_agent_decision(knowledge_decision, AgentRole.KNOWLEDGE)
+    _assert_agent_decision(validator_decision, AgentRole.VALIDATOR)
 
 
 @pytest.mark.parametrize(

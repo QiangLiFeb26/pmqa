@@ -51,16 +51,6 @@ def decide_next_action(state: WorkflowState) -> RoutingDecision:
             summary="Workflow contains a fatal error",
         )
 
-    if state.iteration >= state.max_iterations:
-        return _terminal_decision(
-            state,
-            action=SupervisorAction.TERMINATE_WORKFLOW,
-            reason=SupervisorReason.MAX_ITERATIONS_REACHED,
-            status=WorkflowStatus.TERMINATED,
-            termination_reason=TerminationReason.MAX_ITERATIONS,
-            summary="Workflow reached its maximum iteration count",
-        )
-
     _validate_artifact_dependencies(state)
 
     if not state.evidence:
@@ -69,9 +59,8 @@ def decide_next_action(state: WorkflowState) -> RoutingDecision:
             if state.status is WorkflowStatus.PENDING
             else SupervisorReason.EXPLORATION_REQUIRED
         )
-        return _agent_decision(
+        return _explorer_or_iteration_limit(
             state,
-            agent=AgentRole.EXPLORER,
             reason=reason,
             summary="Structured exploration evidence is required",
         )
@@ -207,11 +196,18 @@ def _decide_failed_validation_recovery(
         AgentRole.KNOWLEDGE: SupervisorReason.KNOWLEDGE_REQUIRED,
         AgentRole.VALIDATOR: SupervisorReason.VALIDATION_REQUIRED,
     }[next_agent]
+    summary = f"Failed-validation recovery requires {next_agent.value}"
+    if next_agent is AgentRole.EXPLORER:
+        return _explorer_or_iteration_limit(
+            state,
+            reason=reason,
+            summary=summary,
+        )
     return _agent_decision(
         state,
         agent=next_agent,
         reason=reason,
-        summary=f"Failed-validation recovery requires {next_agent.value}",
+        summary=summary,
     )
 
 
@@ -280,6 +276,29 @@ def _agent_decision(
             next_agent=agent,
             clear_termination_reason=True,
         ),
+    )
+
+
+def _explorer_or_iteration_limit(
+    state: WorkflowState,
+    *,
+    reason: SupervisorReason,
+    summary: str,
+) -> RoutingDecision:
+    if state.iteration >= state.max_iterations:
+        return _terminal_decision(
+            state,
+            action=SupervisorAction.TERMINATE_WORKFLOW,
+            reason=SupervisorReason.MAX_ITERATIONS_REACHED,
+            status=WorkflowStatus.TERMINATED,
+            termination_reason=TerminationReason.MAX_ITERATIONS,
+            summary="Workflow reached its maximum iteration count",
+        )
+    return _agent_decision(
+        state,
+        agent=AgentRole.EXPLORER,
+        reason=reason,
+        summary=summary,
     )
 
 
