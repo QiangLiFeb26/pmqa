@@ -33,12 +33,14 @@ framework dependency.
 
 Providers isolate external capabilities behind three single-purpose contracts:
 
-- `ReasoningProvider` produces an artifact for a task.
+- `ReasoningProvider` returns a validated structured reasoning response.
 - `ExecutionProvider` executes a task and reports its result.
 - `StorageProvider` saves and retrieves artifacts.
 
-Only interfaces exist in Sprint 1. Implementations should be composed into a
-workflow at an application boundary rather than selected through global state.
+Provider implementations are composed at an application boundary rather than
+selected through global state. Task 3 includes deterministic, manual Copilot,
+and Copilot CLI reasoning providers; product-specific execution remains in its
+product pack.
 
 ### Reasoning
 
@@ -75,7 +77,7 @@ Later node behavior should depend on provider contracts and explicit state.
 A product pack is the only home for product-specific configuration, selectors,
 rules, and adapters. Add a sibling of `products/demo/` for a new product. A
 pack may depend on public framework types; the framework may never depend on a
-pack. The demo pack is deliberately empty in this task.
+pack. The demo pack contains the bounded SauceDemo vertical slice.
 
 ### Memory
 

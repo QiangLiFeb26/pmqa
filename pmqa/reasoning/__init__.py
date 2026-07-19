@@ -1,5 +1,7 @@
 """Provider-independent contracts for structured reasoning."""
 
+from typing import Any, TYPE_CHECKING
+
 from pmqa.reasoning.copilot_cli import (
     CliExecutionResult,
     CopilotCliConfig,
@@ -12,12 +14,6 @@ from pmqa.reasoning.copilot_cli import (
     build_copilot_command,
 )
 from pmqa.reasoning.deterministic import DeterministicReasoningProvider
-from pmqa.reasoning.execution import (
-    PreparedManualReasoning,
-    ReasoningExecutionError,
-    ReasoningExecutionResult,
-    ReasoningExecutionService,
-)
 from pmqa.reasoning.manual import (
     ManualCopilotReasoningProvider,
     ManualPromptPackage,
@@ -54,6 +50,31 @@ from pmqa.reasoning.validation import (
     validate_reasoning_request,
     validate_reasoning_response,
 )
+
+if TYPE_CHECKING:
+    from pmqa.reasoning.execution import (
+        PreparedManualReasoning,
+        ReasoningExecutionError,
+        ReasoningExecutionResult,
+        ReasoningExecutionService,
+    )
+
+_EXECUTION_EXPORTS = {
+    "PreparedManualReasoning",
+    "ReasoningExecutionError",
+    "ReasoningExecutionResult",
+    "ReasoningExecutionService",
+}
+
+
+def __getattr__(name: str) -> Any:
+    """Load execution exports lazily to keep trace imports acyclic."""
+
+    if name in _EXECUTION_EXPORTS:
+        from pmqa.reasoning import execution
+
+        return getattr(execution, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "CliExecutionResult",

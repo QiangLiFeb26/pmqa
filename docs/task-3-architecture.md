@@ -22,12 +22,13 @@ TraceStore              immutable request/response history and package correlati
 
 ## Responsibilities and trust boundary
 
-The scrubber alone owns sanitization. Prompt construction accepts only the
-resulting validated request and never retains raw pre-scrub input. Providers
-own reasoning and transport: terminal and subprocess details do not enter the
-Prompt Package or execution service. Canonical validators enforce request and
-response schemas. The trace store owns persistence; the execution service only
-sequences these components.
+The scrubber owns deterministic removal and redaction. The request validator is
+the final prohibited-key gate, including when a caller directly constructs a
+request without using the scrubber. Prompt construction validates its request
+and never retains raw pre-scrub input. Providers own reasoning and transport:
+terminal and subprocess details do not enter the Prompt Package or execution
+service. Canonical validators enforce request and response schemas. The trace
+store owns persistence; the execution service only sequences these components.
 
 `PromptPackage` contains the package ID, request and prompt hashes, canonical
 request JSON, canonical response schema JSON, rendered prompt text, provider,
@@ -40,7 +41,8 @@ Manual reasoning remains non-blocking through `prepare_manual()` and
 `complete_manual()`; no terminal input occurs inside the service. A successful
 exchange is persisted only after request, package, response, and provider
 correlation pass validation. Trace metadata records the package ID, prompt
-hash, scrubbed-output hash, and execution mode without storing raw input.
+hash, scrubbed-output hash, execution mode, and secret-free scrub audit details
+without storing raw input.
 
 ## Validation
 
