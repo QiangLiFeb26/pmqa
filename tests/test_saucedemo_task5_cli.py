@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 from copy import deepcopy
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -296,7 +297,7 @@ def test_cli_success_prints_only_bounded_summary_and_does_not_run_pytest(
         goal="Run Task 5",
         max_iterations=1,
         headed=True,
-        _config_loader=lambda root: object(),
+        _config_loader=lambda root: _config(tmp_path),
         _application_runner=lambda **kwargs: application_result,
         _clock=lambda: _timestamp(),
     )
@@ -320,8 +321,86 @@ def test_cli_success_prints_only_bounded_summary_and_does_not_run_pytest(
     assert "password" not in output.out.casefold()
 
 
-def test_cli_expected_failure_is_code_2_without_traceback_or_marker(
-    capsys,
+@pytest.mark.parametrize(
+    "config_error",
+    [
+        OSError("runtime-config-os-marker"),
+        json.JSONDecodeError(
+            "runtime-config-json-marker",
+            "runtime-config-document-marker",
+            0,
+        ),
+        KeyError("runtime-config-key-marker"),
+    ],
+)
+def test_cli_config_loader_failures_are_safe(
+    capsys, config_error
+) -> None:
+    application_calls = []
+
+    def fail_config_load(root):
+        raise config_error
+
+    def forbidden_application(**kwargs):
+        application_calls.append(kwargs)
+        raise AssertionError("application must not execute")
+
+    code = cli.task5_demo(
+        "demo",
+        workflow_id="workflow-cli",
+        product_version="1",
+        goal="Run Task 5",
+        max_iterations=1,
+        headed=False,
+        _config_loader=fail_config_load,
+        _application_runner=forbidden_application,
+        _clock=lambda: _timestamp(),
+    )
+
+    output = capsys.readouterr()
+    assert code == 2
+    assert application_calls == []
+    assert output.out == ""
+    assert output.err.strip() == TASK5_DEMO_FAILURE_CODE
+    assert "Traceback" not in output.err
+    assert "runtime-config" not in output.err
+
+
+def test_cli_invalid_loaded_config_fails_before_application(
+    tmp_path, capsys
+) -> None:
+    application_calls = []
+    invalid = replace(
+        _config(tmp_path),
+        allowed_safe_actions="runtime-invalid-config-marker",
+    )
+
+    def forbidden_application(**kwargs):
+        application_calls.append(kwargs)
+        raise AssertionError("application must not execute")
+
+    code = cli.task5_demo(
+        "demo",
+        workflow_id="workflow-cli",
+        product_version="1",
+        goal="Run Task 5",
+        max_iterations=1,
+        headed=False,
+        _config_loader=lambda root: invalid,
+        _application_runner=forbidden_application,
+        _clock=lambda: _timestamp(),
+    )
+
+    output = capsys.readouterr()
+    assert code == 2
+    assert application_calls == []
+    assert output.out == ""
+    assert output.err.strip() == TASK5_DEMO_FAILURE_CODE
+    assert "runtime-invalid-config-marker" not in output.err
+
+
+def test_cli_application_failure_is_code_2_without_detail(
+    tmp_path, capsys
 ) -> None:
     def fail_application(**kwargs):
         raise SauceDemoApplicationError(
@@ -335,7 +414,7 @@ def test_cli_expected_failure_is_code_2_without_traceback_or_marker(
         goal="Run Task 5",
         max_iterations=1,
         headed=False,
-        _config_loader=lambda root: object(),
+        _config_loader=lambda root: _config(tmp_path),
         _application_runner=fail_application,
         _clock=lambda: _timestamp(),
     )
@@ -348,11 +427,20 @@ def test_cli_expected_failure_is_code_2_without_traceback_or_marker(
     assert "runtime-secret-marker" not in output.err
 
 
-def test_cli_does_not_hide_unexpected_programming_errors() -> None:
+@pytest.mark.parametrize(
+    "application_error",
+    [
+        RuntimeError("unexpected runtime programming error"),
+        OSError("unexpected os boundary error"),
+    ],
+)
+def test_cli_does_not_hide_unexpected_application_errors(
+    tmp_path, application_error
+) -> None:
     def fail_application(**kwargs):
-        raise RuntimeError("unexpected programming error")
+        raise application_error
 
-    with pytest.raises(RuntimeError, match="unexpected programming error"):
+    with pytest.raises(type(application_error), match=str(application_error)):
         cli.task5_demo(
             "demo",
             workflow_id="workflow-cli",
@@ -360,7 +448,7 @@ def test_cli_does_not_hide_unexpected_programming_errors() -> None:
             goal="Run Task 5",
             max_iterations=1,
             headed=False,
-            _config_loader=lambda root: object(),
+            _config_loader=lambda root: _config(tmp_path),
             _application_runner=fail_application,
             _clock=lambda: _timestamp(),
         )

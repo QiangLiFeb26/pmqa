@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 
+class DemoConfigValidationError(ValueError):
+    """Reports an invalid loaded SauceDemo configuration shape."""
+
+
 @dataclass(frozen=True)
 class DemoConfig:
     """Contains product-owned exploration and output configuration."""
@@ -49,4 +53,55 @@ def load_config(repository_root: Path) -> DemoConfig:
         generated_test_output_location=repository_root / raw["generated_test_output_location"],
         credential_environment_variables=raw["credential_environment_variables"],
         demo_only_default_credentials=raw["demo_only_default_credentials"],
+    )
+
+
+def validate_config(config: DemoConfig) -> DemoConfig:
+    """Validate the complete product configuration before live capability use."""
+
+    if not isinstance(config, DemoConfig):
+        raise DemoConfigValidationError("invalid SauceDemo configuration")
+    if config.product_id != "demo":
+        raise DemoConfigValidationError("invalid SauceDemo configuration")
+    if not _is_nonempty_string(config.base_url):
+        raise DemoConfigValidationError("invalid SauceDemo configuration")
+    if not _is_nonempty_string(config.start_path):
+        raise DemoConfigValidationError("invalid SauceDemo configuration")
+    if (
+        type(config.maximum_exploration_steps) is not int
+        or config.maximum_exploration_steps < 1
+    ):
+        raise DemoConfigValidationError("invalid SauceDemo configuration")
+    if not _is_string_list(config.allowed_safe_actions):
+        raise DemoConfigValidationError("invalid SauceDemo configuration")
+    if not _is_string_list(config.blocked_destructive_actions):
+        raise DemoConfigValidationError("invalid SauceDemo configuration")
+    if not isinstance(config.artifact_output_location, Path):
+        raise DemoConfigValidationError("invalid SauceDemo configuration")
+    if not isinstance(config.generated_test_output_location, Path):
+        raise DemoConfigValidationError("invalid SauceDemo configuration")
+    if not _is_credential_mapping(config.credential_environment_variables):
+        raise DemoConfigValidationError("invalid SauceDemo configuration")
+    if not _is_credential_mapping(config.demo_only_default_credentials):
+        raise DemoConfigValidationError("invalid SauceDemo configuration")
+    return config
+
+
+def _is_nonempty_string(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _is_string_list(value: object) -> bool:
+    return (
+        isinstance(value, list)
+        and bool(value)
+        and all(_is_nonempty_string(item) for item in value)
+    )
+
+
+def _is_credential_mapping(value: object) -> bool:
+    return (
+        isinstance(value, dict)
+        and set(value) == {"username", "password"}
+        and all(_is_nonempty_string(item) for item in value.values())
     )

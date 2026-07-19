@@ -280,29 +280,32 @@ def task5_demo(
     if product != "demo":
         print(_TASK5_DEMO_FAILURE_CODE, file=sys.stderr)
         return 2
+    from products.demo.application import (
+        SauceDemoApplicationError,
+        run_saucedemo_demo,
+    )
+    from products.demo.config import load_config, validate_config
+
+    config_loader = load_config if _config_loader is None else _config_loader
+    application_runner = (
+        run_saucedemo_demo
+        if _application_runner is None
+        else _application_runner
+    )
+    creation_clock = (
+        _clock
+        if _clock is not None
+        else lambda: datetime.now(timezone.utc)
+    )
+    created_at = creation_clock()
+
     try:
-        from products.demo.application import (
-            SauceDemoApplicationError,
-            run_saucedemo_demo,
-        )
+        config = validate_config(config_loader(_root()))
+    except (OSError, ValueError, KeyError, TypeError):
+        print(_TASK5_DEMO_FAILURE_CODE, file=sys.stderr)
+        return 2
 
-        if _config_loader is None:
-            from products.demo.config import load_config
-
-            config_loader = load_config
-        else:
-            config_loader = _config_loader
-        if _application_runner is None:
-            application_runner = run_saucedemo_demo
-        else:
-            application_runner = _application_runner
-        creation_clock = (
-            _clock
-            if _clock is not None
-            else lambda: datetime.now(timezone.utc)
-        )
-        created_at = creation_clock()
-        config = config_loader(_root())
+    try:
         result = application_runner(
             config=config,
             workflow_id=workflow_id,
@@ -312,7 +315,7 @@ def task5_demo(
             created_at=created_at,
             headless=not headed,
         )
-    except (OSError, SauceDemoApplicationError):
+    except SauceDemoApplicationError:
         print(_TASK5_DEMO_FAILURE_CODE, file=sys.stderr)
         return 2
 
