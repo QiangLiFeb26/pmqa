@@ -44,11 +44,18 @@ product pack.
 
 ### Reasoning
 
-`pmqa/reasoning/` owns scrubbed request and response contracts, the canonical
-prohibited-key policy, deterministic Prompt Packages, reasoning providers, and
-the small execution service that sequences them. The request validator is the
-final trust-boundary gate: it rejects prohibited keys even when a caller
-constructs a `ReasoningRequest` directly and bypasses the scrubber.
+`pmqa/reasoning/` owns scrubbed request and response contracts, deterministic
+Prompt Packages, reasoning providers, and the small execution service that
+sequences them. The request validator is the final trust-boundary gate: it
+rejects prohibited keys even when a caller constructs a `ReasoningRequest`
+directly and bypasses the scrubber.
+
+`pmqa/security/boundary_policy.py` is the neutral, dependency-free home for
+prohibited-key policy shared by serializable boundaries. Reasoning uses the
+common policy unchanged. Workflow state extends it with `connection`,
+`llm_client`, `locator`, and `provider_instance`, which are state-specific
+runtime handles. This explicit construction prevents the common subset from
+drifting while preserving the stricter workflow boundary.
 
 Capture-time normalization in `pmqa/core/normalization.py` intentionally has a
 separate policy because capture and reasoning operate at different trust
@@ -86,6 +93,11 @@ Knowledge and Validator steps may finish before the terminal decision.
 
 LangGraph owns control flow only. The policy, reducer, runtime validation, and
 domain state remain independently testable and do not import LangGraph.
+`build_pmqa_graph` and `run_pmqa_workflow` are the active Task 4 graph APIs;
+callers must inject Explorer, Knowledge, and Validator agents and a
+`ToolRegistry`. The Task 1 no-op graph is retired, and the workflow package is
+not a runnable substitute for application composition. Task 5 will provide
+real domain agents and tools.
 
 ### Product Pack
 
@@ -123,6 +135,7 @@ miscellaneous helpers without a concrete shared use case.
 | Product-knowledge schema | `pmqa/models/` |
 | External capability contract | `pmqa/providers/` |
 | Reasoning trust boundary and execution | `pmqa/reasoning/` |
+| Shared serializable-boundary policy | `pmqa/security/` |
 | Reasoning trace persistence | `pmqa/trace/` |
 | Workflow, agent, tool, and patch contracts | `pmqa/workflow/` |
 | Single-agent execution | `pmqa/runtime/` |
@@ -135,3 +148,15 @@ miscellaneous helpers without a concrete shared use case.
 
 If ownership is unclear, leave a TODO near the caller until a concrete use case
 establishes the correct boundary.
+
+## Documentation authority
+
+- `README.md` introduces the project, setup, and active entry points.
+- `docs/Vision.md` owns long-term product purpose and principles.
+- `docs/Roadmap.md` owns phase status and planned work.
+- Versioned product specifications own scoped functional behavior when active.
+- This guide owns technical boundaries and implementation decisions.
+- `notes/prompts/`, if introduced, contains historical, non-authoritative work.
+
+The stable QA-loop catalog is maintained at
+`docs/architecture/qa-loops.md`; no root-level duplicate is authoritative.

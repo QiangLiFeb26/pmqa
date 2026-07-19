@@ -1,13 +1,16 @@
 """Runtime-independent state contracts for future multi-agent workflows."""
 
 import math
-import re
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Mapping, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from pmqa.security.boundary_policy import (
+    WORKFLOW_STATE_PROHIBITED_KEYS,
+    is_prohibited_key,
+)
 from pmqa.workflow.errors import WorkflowStateValidationError
 
 
@@ -154,42 +157,6 @@ class WorkflowState(_WorkflowContract):
         return self
 
 
-_PROHIBITED_STATE_KEYS = frozenset(
-    {
-        "access_token",
-        "api_key",
-        "apikey",
-        "authorization",
-        "browser",
-        "browser_context",
-        "browser_state",
-        "connection",
-        "cookie",
-        "cookies",
-        "credential",
-        "credentials",
-        "dom",
-        "html",
-        "llm_client",
-        "locator",
-        "passwd",
-        "password",
-        "playwright",
-        "provider_instance",
-        "raw_dom",
-        "refresh_token",
-        "runtime",
-        "screenshot",
-        "secret",
-        "session",
-        "session_id",
-        "storage_state",
-        "token",
-        "tokens",
-    }
-)
-
-
 def _validate_payload(value: Any, path: str) -> None:
     if value is None or isinstance(value, (str, bool, int)):
         return
@@ -210,7 +177,7 @@ def _validate_payload(value: Any, path: str) -> None:
                     f"Workflow state contains a non-string key at {path}"
                 )
             child_path = f"{path}.{key}"
-            if _normalize_key(key) in _PROHIBITED_STATE_KEYS:
+            if is_prohibited_key(key, WORKFLOW_STATE_PROHIBITED_KEYS):
                 raise WorkflowStateValidationError(
                     f"Workflow state contains a prohibited field at {child_path}"
                 )
@@ -219,12 +186,6 @@ def _validate_payload(value: Any, path: str) -> None:
     raise WorkflowStateValidationError(
         f"Workflow state contains a runtime object at {path}"
     )
-
-
-def _normalize_key(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", value.casefold()).strip("_")
-
-
 class _FrozenDict(dict):
     """JSON-serializable mapping that rejects in-place mutation."""
 

@@ -19,6 +19,7 @@ can evolve without embedding product configuration in framework code.
 - `pmqa/providers/` defines contracts for reasoning, execution, and storage.
 - `pmqa/reasoning/` owns scrubbed reasoning contracts, Prompt Packages,
   providers, and provider-independent execution sequencing.
+- `pmqa/security/` owns dependency-free policies shared by trust boundaries.
 - `pmqa/trace/` persists canonical reasoning history and audit correlation.
 - `pmqa/workflow/` owns serializable workflow, agent, tool, and patch contracts.
 - `pmqa/runtime/` executes one validated agent invocation at a time.
@@ -41,9 +42,8 @@ memory-backed QA capabilities without assigning implementation status.
 
 Task 1 established the reusable framework foundation: runtime and knowledge
 models, single-purpose provider interfaces, product-pack isolation, storage
-boundaries, and an executable no-op LangGraph skeleton:
-
-`initialize -> explore -> generate_tests -> patrol -> finish`
+boundaries, and an initial no-op LangGraph skeleton. That historical skeleton
+has been retired and is not an active workflow API.
 
 Task 2 adds the first product-specific vertical slice under `products/demo/`.
 It performs bounded SauceDemo exploration with Python Playwright, persists
@@ -63,6 +63,14 @@ correlation, and a thin LangGraph adapter for Explorer, Knowledge, and
 Validator cycles. Recovery follows the validated invocation history. The
 iteration limit gates only the start of a new Explorer cycle, so Knowledge and
 Validator can finish the final allowed cycle before completion or termination.
+
+The active Task 4 orchestration APIs are
+`pmqa.orchestration.build_pmqa_graph` and
+`pmqa.orchestration.run_pmqa_workflow`. They require explicit Explorer,
+Knowledge, and Validator agent implementations plus a `ToolRegistry`.
+`python -m pmqa.workflow` is intentionally unsupported because silently
+constructing placeholder dependencies would misrepresent the active graph.
+Task 5 will provide real domain agents and tools; it is not started.
 
 The Task 2 SauceDemo CLI and Task 3 reasoning service are not yet composed into
 the Task 4 multi-agent graph. The graph is an executable framework boundary
@@ -138,7 +146,8 @@ scope.
 Task 4 is complete at implementation checkpoint
 `86214d76d2f12a2b70793b6ca28da4e1e5f3d858`, which includes supervisor and
 recovery routing from PR #15 and LangGraph assembly plus final-cycle iteration
-semantics from PR #16. This is the proposed Task 5 starting checkpoint.
+semantics from PR #16. Task 4.8 closes review findings around shared boundary
+policy and the retired Task 1 graph before Task 5 begins.
 
 Future work can compose real agent implementations with the Task 4 runtime,
 add persistent memory, and integrate enterprise Playwright automation. Each
