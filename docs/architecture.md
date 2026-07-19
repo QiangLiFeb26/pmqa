@@ -161,8 +161,16 @@ failed Validator invocation, no validation result, and the stable fatal error
 `validator_execution_failed`.
 
 This baseline Validator does not invoke a reasoning provider. Production
-composition, persistence, CLI integration, and generated-test integration do
-not exist yet.
+composition is provided by the thin product-owned
+`products.demo.workflow.run_saucedemo_workflow` API. It creates one exploration
+Tool and Tool registry, injects registry-backed dispatch into the real
+Explorer, registers the real Knowledge and Validator agents, and invokes the
+unchanged Task 4 graph. The capture-runner seam supports deterministic offline
+end-to-end execution; live Playwright execution remains explicit.
+
+The composition root contains no exploration, mapping, validation, routing,
+reduction, or graph policy. CLI integration, verified-artifact persistence,
+reasoning-provider integration, and generated-test handoff do not exist yet.
 
 ## Dependency direction
 

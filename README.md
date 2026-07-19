@@ -70,7 +70,13 @@ The active Task 4 orchestration APIs are
 Knowledge, and Validator agent implementations plus a `ToolRegistry`.
 `python -m pmqa.workflow` is intentionally unsupported because silently
 constructing placeholder dependencies would misrepresent the active graph.
-Task 5 will provide real domain agents and tools; it is not started.
+
+Task 5 is in progress. The product-owned
+`products.demo.workflow.run_saucedemo_workflow` API composes the real
+SauceDemo exploration Tool, Explorer, Knowledge agent, and Validator through
+the existing Task 4 graph. Its capture-runner seam supports deterministic
+offline end-to-end execution; using the default real Playwright capture is an
+explicit live operation.
 
 The Task 2 SauceDemo CLI and Task 3 reasoning service are not yet composed into
 the Task 4 multi-agent graph. The graph is an executable framework boundary
@@ -147,13 +153,12 @@ Task 4 is complete at implementation checkpoint
 `86214d76d2f12a2b70793b6ca28da4e1e5f3d858`, which includes supervisor and
 recovery routing from PR #15 and LangGraph assembly plus final-cycle iteration
 semantics from PR #16. Task 4.8 closes review findings around shared boundary
-policy and the retired Task 1 graph before Task 5 begins.
+policy and the retired Task 1 graph before Task 5.
 
-Future work can compose real agent implementations with the Task 4 runtime,
-add persistent memory, and integrate enterprise Playwright automation. Each
-product remains isolated in its own product pack while the framework stays
-product-agnostic. These are extension points, not commitments to a specific
-implementation.
+Task 5.6 provides the real SauceDemo product composition API while keeping the
+framework product-agnostic. CLI integration, verified-artifact persistence,
+reasoning-provider integration, and generated-test handoff remain future
+checkpoints; Tasks 6 and 7 have not started.
 
-See the [authoritative roadmap](docs/Roadmap.md) for phase status. Task 5 is
-not started.
+See the [authoritative roadmap](docs/Roadmap.md) for phase status. Task 5
+remains in progress and unmerged.

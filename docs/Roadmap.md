@@ -13,7 +13,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 3 — Reasoning trust boundary | Complete | Added provider-independent reasoning contracts, scrubbing, deterministic/manual/Copilot CLI providers, prompt packages, and SQLite trace storage. |
 | Task 4 — Multi-agent runtime | Complete | Added typed state, agent and tool contracts, deterministic reduction and routing, runtime execution, validated recovery, and LangGraph assembly. |
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
-| Task 5 — Real agent composition | In progress | Tasks 5.1–5.4 completed evidence through Knowledge checkpoints; Task 5.5 adds the real Validator and recovery integration for review. |
+| Task 5 — Real agent composition | In progress | Tasks 5.1–5.5 completed evidence through Validator checkpoints; Task 5.6 adds the product-owned end-to-end workflow composition API for review. |
 
 ## Task 4 closure
 
@@ -41,11 +41,12 @@ entry point. It does not add agents, tools, or Task 5 behavior.
 
 ## Task 5 checkpoints
 
-Tasks 5.1–5.4 completed the neutral exploration-evidence boundary, the
+Tasks 5.1–5.5 completed the neutral exploration-evidence boundary, the
 product-owned Playwright exploration Tool, the real SauceDemo Explorer, and
-deterministic Knowledge-candidate mapping. Task 5.5 is the real Validator and
-failed-validation recovery-integration checkpoint. It produces an append-only
-verified snapshot on success without mutating or persisting the NEW candidate.
-Production composition, reasoning-provider integration, persistence, and CLI
-remain later checkpoints. Tasks 6 and 7 are outside the current implementation
-scope.
+deterministic Knowledge and Validator behavior with failed-validation recovery.
+Task 5.6 is the product-owned end-to-end workflow composition checkpoint. It
+wires the real Tool and all three real agents through the existing Task 4 graph
+and supports deterministic offline execution. CLI integration,
+reasoning-provider integration, verified-artifact persistence, and generated-
+test handoff remain later checkpoints. Tasks 6 and 7 are outside the current
+implementation scope.
