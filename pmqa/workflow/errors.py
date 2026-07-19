@@ -11,3 +11,7 @@ class AgentContractValidationError(ValueError):
 
 class ToolContractValidationError(ValueError):
     """Reports an invalid tool contract, registration, or execution result."""
+
+
+class WorkflowReducerError(ValueError):
+    """Reports a state patch that violates workflow transition rules."""

@@ -10,6 +10,7 @@ from pmqa.workflow.agents import (
 from pmqa.workflow.errors import (
     AgentContractValidationError,
     ToolContractValidationError,
+    WorkflowReducerError,
     WorkflowStateValidationError,
 )
 from pmqa.workflow.models import (
@@ -20,6 +21,7 @@ from pmqa.workflow.models import (
     WorkflowState,
     WorkflowStatus,
 )
+from pmqa.workflow.reducer import apply_patch
 from pmqa.workflow.updates import (
     AGENT_UPDATE_POLICY,
     AgentCapabilities,
@@ -63,10 +65,12 @@ __all__ = [
     "ToolRequest",
     "ToolResult",
     "WorkflowPatchField",
+    "WorkflowReducerError",
     "WorkflowState",
     "WorkflowStatePatch",
     "WorkflowStateValidationError",
     "WorkflowStatus",
+    "apply_patch",
     "validate_agent_result",
     "validate_patch_for_role",
     "validate_tool_result",
