@@ -1,8 +1,10 @@
 # Task 3 Reasoning Architecture
 
-Task 3 establishes PMQA's provider-independent reasoning boundary. It does not
-implement product exploration, Patrol, LangGraph orchestration, or Task 4
-workflow behavior.
+Task 3 establishes PMQA's provider-independent reasoning boundary. Its own
+scope does not implement product exploration, Patrol, or workflow behavior.
+Task 4 subsequently added workflow contracts, deterministic routing, runtime
+execution, and a thin LangGraph adapter without changing this reasoning
+boundary.
 
 ```text
 Raw structured context
@@ -58,6 +60,8 @@ Run the end-to-end offline demonstration with:
 pmqa task3-demo --database /tmp/pmqa-task3.sqlite3
 ```
 
-Current limitations are intentional: there is no retry or fallback policy,
-prompt repository, replay engine, provider-selection heuristic, failure-trace
-schema, multi-agent orchestration, or Task 4 integration.
+Current reasoning-layer limitations are intentional: there is no retry or
+fallback policy, prompt repository, replay engine, provider-selection
+heuristic, or failure-trace schema. Task 4 provides multi-agent orchestration
+contracts and LangGraph assembly, but it does not yet compose this Task 3
+reasoning service into that graph.

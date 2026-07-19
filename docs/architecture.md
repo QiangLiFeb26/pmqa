@@ -63,14 +63,29 @@ it never stores raw pre-scrub input or provider transport state. See
 
 ### Workflow
 
-The workflow owns sequencing, not product knowledge or external-system code.
-Its initial LangGraph is executable but intentionally does no work:
+`pmqa/workflow/` owns immutable, JSON-compatible workflow state plus typed
+agent, tool, capability, and patch contracts. `pmqa/runtime/` validates and
+executes exactly one agent invocation, while `pmqa/supervisor/` makes pure,
+deterministic routing decisions. Product knowledge and external-system code do
+not belong in these layers.
+
+`pmqa/orchestration/` is a thin LangGraph adapter around those contracts:
 
 ```text
-initialize -> explore -> generate_tests -> patrol -> finish
+supervisor -> execute Explorer -> supervisor
+           -> execute Knowledge -> supervisor
+           -> execute Validator -> supervisor
+           -> complete | fail | terminate
 ```
 
-Later node behavior should depend on provider contracts and explicit state.
+The supervisor correlates every validation result with completed Validator
+history and requires failed-validation recovery to follow Explorer, Knowledge,
+and Validator order. `max_iterations` counts Explorer cycles and gates only a
+new Explorer invocation. Once the final allowed Explorer cycle begins, its
+Knowledge and Validator steps may finish before the terminal decision.
+
+LangGraph owns control flow only. The policy, reducer, runtime validation, and
+domain state remain independently testable and do not import LangGraph.
 
 ### Product Pack
 
@@ -109,7 +124,10 @@ miscellaneous helpers without a concrete shared use case.
 | External capability contract | `pmqa/providers/` |
 | Reasoning trust boundary and execution | `pmqa/reasoning/` |
 | Reasoning trace persistence | `pmqa/trace/` |
-| Orchestration and nodes | `pmqa/workflow/` |
+| Workflow, agent, tool, and patch contracts | `pmqa/workflow/` |
+| Single-agent execution | `pmqa/runtime/` |
+| Supervisor routing policy | `pmqa/supervisor/` |
+| LangGraph assembly | `pmqa/orchestration/` |
 | Memory lifecycle | `pmqa/memory/` |
 | Knowledge relationships | `pmqa/graph/` |
 | Provider implementation for persistence | `pmqa/storage/` |
