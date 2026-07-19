@@ -68,6 +68,12 @@ class ManualCopilotReasoningProvider(ReasoningProvider):
         self._channel = channel
         self._parser = ManualResponseParser()
 
+    @property
+    def uses_interactive_terminal(self) -> bool:
+        """Return whether reasoning would block on built-in terminal input."""
+
+        return isinstance(self._channel, TerminalManualReasoningChannel)
+
     def prepare(self, request: RequestInput) -> ManualPromptPackage:
         """Build the shared deterministic prompt package for manual transport."""
 
@@ -87,7 +93,8 @@ class ManualCopilotReasoningProvider(ReasoningProvider):
 
         if self._channel is None:
             raise ManualReasoningError(
-                "No manual channel configured; use prepare() and complete() for two-phase operation"
+                "No manual channel configured; use prepare() and complete() "
+                "for two-phase operation"
             )
         package = self.prepare(request)
         self._channel.present_prompt(package)
