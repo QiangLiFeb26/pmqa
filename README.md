@@ -156,9 +156,12 @@ semantics from PR #16. Task 4.8 closes review findings around shared boundary
 policy and the retired Task 1 graph before Task 5.
 
 Task 5.6 provides the real SauceDemo product composition API while keeping the
-framework product-agnostic. CLI integration, verified-artifact persistence,
-reasoning-provider integration, and generated-test handoff remain future
-checkpoints; Tasks 6 and 7 have not started.
+framework product-agnostic. Task 5.7 adds a strict post-workflow handoff that
+persists only the Validator's independent VERIFIED snapshot through the
+existing `StorageProvider` boundary and passes that snapshot to the existing
+deterministic SauceDemo generator. The NEW candidate remains unchanged and is
+never stored as approved memory. CLI and reasoning-provider integration remain
+future checkpoints; Tasks 6 and 7 have not started.
 
 See the [authoritative roadmap](docs/Roadmap.md) for phase status. Task 5
 remains in progress and unmerged.

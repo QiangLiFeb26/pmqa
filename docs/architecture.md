@@ -169,8 +169,19 @@ unchanged Task 4 graph. The capture-runner seam supports deterministic offline
 end-to-end execution; live Playwright execution remains explicit.
 
 The composition root contains no exploration, mapping, validation, routing,
-reduction, or graph policy. CLI integration, verified-artifact persistence,
-reasoning-provider integration, and generated-test handoff do not exist yet.
+reduction, or graph policy.
+
+After successful workflow completion, the product-owned artifact-handoff
+boundary reconstructs every strict evidence, candidate, and validation result
+and recomputes their deterministic correlation. Only the latest passed
+Validator result's independent VERIFIED `KnowledgeArtifact` snapshot can be
+wrapped as the existing core `Artifact`, stored under the stable `knowledge`
+key through `StorageProvider`, or passed to the existing SauceDemo test
+generator. The stored candidate remains NEW and is never persisted as approved
+memory. Failed or inconsistent handoff validation performs no persistence or
+generation.
+
+CLI and reasoning-provider integration do not exist yet.
 
 ## Dependency direction
 
