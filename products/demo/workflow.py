@@ -71,7 +71,7 @@ def run_saucedemo_workflow(
     headless: bool = True,
     recursion_limit: int = _DEFAULT_RECURSION_LIMIT,
 ) -> WorkflowState:
-    """Compose the real Tool and agents and return their terminal graph state."""
+    """Compose and run the graph, sampling an injected clock exactly once."""
 
     _validate_config(config)
     _validate_initial_state(initial_state, config)
@@ -81,11 +81,12 @@ def run_saucedemo_workflow(
         raise SauceDemoWorkflowCompositionError(
             "recursion_limit must be a positive integer"
         )
+    tool_clock = _prevalidated_clock(clock)
 
     tool = SauceDemoExplorationTool(
         config,
         capture_runner=capture_runner,
-        clock=clock,
+        clock=tool_clock,
         headless=headless,
     )
     registry = ToolRegistry((tool,))
@@ -185,3 +186,20 @@ def _require_aware(value: datetime, field_name: str) -> None:
         raise SauceDemoWorkflowCompositionError(
             f"{field_name} must include timezone information"
         )
+
+
+def _prevalidated_clock(
+    clock: Optional[Callable[[], datetime]],
+) -> Optional[Callable[[], datetime]]:
+    """Sample a caller clock once before capture and replay that fixed value."""
+
+    if clock is None:
+        return None
+    if not callable(clock):
+        raise SauceDemoWorkflowCompositionError("clock must be callable")
+    try:
+        sampled_at = clock()
+    except Exception as error:
+        raise SauceDemoWorkflowCompositionError("clock sampling failed") from error
+    _require_aware(sampled_at, "clock result")
+    return lambda: sampled_at

@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from pmqa.models import (
     ArtifactStatus,
+    ExplorationEvidence,
     InteractionObservation,
     LocatorCandidateObservation,
     ObservedAttribute,
@@ -262,6 +263,73 @@ def test_invalid_runtime_options_fail_before_capture() -> None:
         assert capture.calls == []
 
 
+def test_non_callable_clock_fails_before_capture() -> None:
+    capture = _CaptureRunner()
+
+    with pytest.raises(SauceDemoWorkflowCompositionError):
+        run_saucedemo_workflow(
+            _config(),
+            _initial_state(),
+            capture_runner=capture,
+            clock="not-callable",
+        )
+
+    assert capture.calls == []
+
+
+@pytest.mark.parametrize(
+    "invalid_value",
+    [datetime(2026, 7, 19, 15), "not-a-datetime"],
+)
+def test_invalid_clock_sample_fails_before_capture(invalid_value) -> None:
+    capture = _CaptureRunner()
+    clock = _CountingClock(invalid_value)
+
+    with pytest.raises(SauceDemoWorkflowCompositionError):
+        run_saucedemo_workflow(
+            _config(),
+            _initial_state(),
+            capture_runner=capture,
+            clock=clock,
+        )
+
+    assert clock.calls == 1
+    assert capture.calls == []
+
+
+def test_valid_injected_clock_is_sampled_once_before_capture() -> None:
+    capture = _CaptureRunner()
+    clock = _CountingClock(_timestamp(1))
+
+    final = run_saucedemo_workflow(
+        _config(),
+        _initial_state(),
+        capture_runner=capture,
+        clock=clock,
+    )
+
+    assert final.status is WorkflowStatus.COMPLETED
+    assert final.updated_at == _timestamp(1)
+    assert clock.calls == 1
+    assert capture.calls
+
+
+def test_prevalidated_clock_preserves_tool_timestamp_correlation() -> None:
+    clock = _CountingClock(_timestamp(-1))
+
+    final = run_saucedemo_workflow(
+        _config(),
+        _initial_state(),
+        capture_runner=_CaptureRunner(),
+        clock=clock,
+    )
+
+    assert final.updated_at == _timestamp()
+    evidence = ExplorationEvidence.from_workflow_payload(final.evidence[0])
+    assert evidence.captured_at == _timestamp()
+    assert clock.calls == 1
+
+
 def test_generic_pmqa_imports_remain_product_independent() -> None:
     statement = "\n".join(
         [
@@ -325,6 +393,16 @@ class _CaptureRunner:
         if self.error is not None:
             raise self.error
         return _capture_result()
+
+
+class _CountingClock:
+    def __init__(self, value):
+        self.value = value
+        self.calls = 0
+
+    def __call__(self):
+        self.calls += 1
+        return self.value
 
 
 def _capture_result():
