@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from pmqa.models import Element, Interaction, Page
+from pmqa.reasoning.boundary_policy import is_prohibited_reasoning_key
 from pmqa.reasoning.models import ReasoningRequest
 from pmqa.reasoning.validation import ReasoningValidationError, validate_reasoning_request
 from pmqa.utils.hashing import canonical_json_sha256
@@ -133,28 +134,6 @@ class DeterministicReasoningScrubber(ReasoningScrubber):
         return ScrubResult(request=request, report=report)
 
 
-_PROHIBITED_KEYS = {
-    "password",
-    "passwd",
-    "secret",
-    "token",
-    "access_token",
-    "refresh_token",
-    "authorization",
-    "api_key",
-    "apikey",
-    "cookie",
-    "cookies",
-    "credential",
-    "credentials",
-    "storage_state",
-    "browser",
-    "browser_context",
-    "playwright",
-    "raw_dom",
-    "html",
-}
-
 _BEARER_PATTERN = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
 _COOKIE_PATTERN = re.compile(r"(?i)\b(cookie)\s*:\s*[^\r\n]+")
 _ASSIGNMENT_PATTERN = re.compile(
@@ -189,7 +168,7 @@ def _sanitize(
                     f"Unsupported non-string key at {_display_path(path)}"
                 )
             child_path = f"{path}.{key}" if path else key
-            if _normalize_key(key) in _PROHIBITED_KEYS:
+            if is_prohibited_reasoning_key(key):
                 removed.append(child_path)
                 rules.add("prohibited-key-removal")
                 continue
@@ -263,10 +242,6 @@ def _record_redaction(
 ) -> None:
     rules.add(rule)
     redactions.extend(RedactionRecord(path=path, rule=rule) for _ in range(count))
-
-
-def _normalize_key(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", value.casefold()).strip("_")
 
 
 def _display_path(path: str) -> str:

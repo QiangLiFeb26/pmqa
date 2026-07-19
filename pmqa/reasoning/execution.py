@@ -73,6 +73,14 @@ class ReasoningExecutionService:
     ) -> ReasoningExecutionResult:
         """Execute and persist one automated provider exchange."""
 
+        if (
+            isinstance(provider, ManualCopilotReasoningProvider)
+            and provider.uses_interactive_terminal
+        ):
+            raise ReasoningExecutionError(
+                "Interactive manual providers cannot use execute(); use "
+                "prepare_manual() and complete_manual()"
+            )
         request, report, package, provider_name = self._prepare(
             scrub_input, provider
         )
@@ -184,6 +192,16 @@ class ReasoningExecutionService:
                 "package_id": package.package_id,
                 "prompt_hash": package.prompt_hash,
                 "scrub_output_hash": report.output_hash,
+                "scrub_audit": {
+                    "output_hash": report.output_hash,
+                    "redacted_values": [
+                        item.model_dump(mode="json")
+                        for item in report.redacted_values
+                    ],
+                    "removed_fields": list(report.removed_fields),
+                    "rules_applied": list(report.rules_applied),
+                    "warnings": list(report.warnings),
+                },
             },
         )
         if trace.request_id != package.request_id:

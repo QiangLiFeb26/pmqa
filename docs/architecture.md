@@ -8,9 +8,13 @@ implementations change around it.
 
 ```text
 Framework
-    ↓ defines contracts
+    ↓ defines contracts and trust boundaries
 Providers
-    ↓ supply external capabilities to
+    ↓ perform reasoning or execution through
+Reasoning
+    ↓ persists correlated audit history in
+Trace
+    ↓ supplies validated results to
 Workflow
     ↓ operates with a selected
 Product Pack
@@ -35,6 +39,25 @@ Providers isolate external capabilities behind three single-purpose contracts:
 
 Only interfaces exist in Sprint 1. Implementations should be composed into a
 workflow at an application boundary rather than selected through global state.
+
+### Reasoning
+
+`pmqa/reasoning/` owns scrubbed request and response contracts, the canonical
+prohibited-key policy, deterministic Prompt Packages, reasoning providers, and
+the small execution service that sequences them. The request validator is the
+final trust-boundary gate: it rejects prohibited keys even when a caller
+constructs a `ReasoningRequest` directly and bypasses the scrubber.
+
+Capture-time normalization in `pmqa/core/normalization.py` intentionally has a
+separate policy because capture and reasoning operate at different trust
+boundaries. They should not be unified unless their semantics become identical.
+
+### Trace
+
+`pmqa/trace/` owns provider-independent reasoning history. It stores canonical
+requests and responses plus safe Prompt Package and scrub-audit correlation;
+it never stores raw pre-scrub input or provider transport state. See
+[Task 3 reasoning architecture](task-3-architecture.md) for the complete flow.
 
 ### Workflow
 
@@ -68,7 +91,7 @@ Dependencies point inward toward shared models and contracts:
 ```text
 products ──> pmqa public models/contracts <── provider implementations
                          ↑
-                      workflow
+               reasoning and workflow
 ```
 
 Cross-layer behavior should be assembled through composition. Do not add
@@ -82,6 +105,8 @@ miscellaneous helpers without a concrete shared use case.
 | Runtime coordination data | `pmqa/core/` |
 | Product-knowledge schema | `pmqa/models/` |
 | External capability contract | `pmqa/providers/` |
+| Reasoning trust boundary and execution | `pmqa/reasoning/` |
+| Reasoning trace persistence | `pmqa/trace/` |
 | Orchestration and nodes | `pmqa/workflow/` |
 | Memory lifecycle | `pmqa/memory/` |
 | Knowledge relationships | `pmqa/graph/` |

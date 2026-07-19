@@ -20,6 +20,7 @@ from pmqa.reasoning import (
     ReasoningStatus,
     ReasoningValidationError,
     ScrubInput,
+    TerminalManualReasoningChannel,
 )
 from pmqa.trace import SQLiteTraceStore, TraceStore
 
@@ -73,12 +74,28 @@ class RecordingTraceStore(TraceStore):
         return list(reversed(self.saved[-limit:]))
 
 
+class GuardedTerminalChannel(TerminalManualReasoningChannel):
+    """Fails if the automated path attempts terminal interaction."""
+
+    def __init__(self) -> None:
+        self.presented = False
+        self.requested_input = False
+
+    def present_prompt(self, package) -> None:
+        self.presented = True
+
+    def receive_response(self) -> str:
+        self.requested_input = True
+        raise AssertionError("automated execution must not request terminal input")
+
+
 def test_automated_execution_scrubs_builds_and_persists(tmp_path: Path) -> None:
     with SQLiteTraceStore(tmp_path / "traces.sqlite3") as store:
         result = _service(store).execute(
             scrub_input=_unsafe_input(), provider=FakeProvider()
         )
         saved = store.list_recent()
+        restored = store.get_trace(result.trace.trace_id)
 
     assert isinstance(result, ReasoningExecutionResult)
     assert result.request.metadata == {
@@ -92,6 +109,26 @@ def test_automated_execution_scrubs_builds_and_persists(tmp_path: Path) -> None:
     assert saved == [result.trace]
     assert result.trace.metadata["package_id"] == result.prompt_package.package_id
     assert result.trace.metadata["prompt_hash"] == result.prompt_package.prompt_hash
+    audit = result.trace.metadata["scrub_audit"]
+    assert audit["removed_fields"] == [
+        "constraints.password",
+        "metadata.token",
+    ]
+    assert audit["rules_applied"] == [
+        "bearer-value-redaction",
+        "prohibited-key-removal",
+    ]
+    assert audit["redacted_values"] == [
+        {
+            "path": "metadata.note",
+            "replacement": "[REDACTED]",
+            "rule": "bearer-value-redaction",
+        }
+    ]
+    assert restored.metadata == result.trace.metadata
+    serialized_trace = restored.model_dump_json()
+    assert "private-token" not in serialized_trace
+    assert "secret-password" not in serialized_trace
 
 
 def test_manual_prepare_complete_uses_same_package_and_saves_once(
@@ -166,6 +203,22 @@ def test_deterministic_provider_executes_without_copilot_or_terminal() -> None:
 
     assert result.response.provider == "deterministic"
     assert len(store.saved) == 1
+
+
+def test_automated_execution_rejects_interactive_manual_terminal() -> None:
+    store = RecordingTraceStore()
+    channel = GuardedTerminalChannel()
+    provider = ManualCopilotReasoningProvider(channel)
+
+    with pytest.raises(
+        ReasoningExecutionError,
+        match=r"prepare_manual\(\).*complete_manual\(\)",
+    ):
+        _service(store).execute(scrub_input=_unsafe_input(), provider=provider)
+
+    assert channel.presented is False
+    assert channel.requested_input is False
+    assert store.saved == []
 
 
 def test_task3_demo_runs_complete_offline_flow(

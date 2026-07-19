@@ -6,6 +6,7 @@ from typing import Any, Mapping, Optional, Union
 from pydantic import ValidationError
 from pydantic_core import PydanticSerializationError
 
+from pmqa.reasoning.boundary_policy import is_prohibited_reasoning_key
 from pmqa.reasoning.models import ReasoningRequest, ReasoningResponse
 
 
@@ -15,24 +16,6 @@ class ReasoningValidationError(ValueError):
 
 RequestInput = Union[ReasoningRequest, Mapping[str, Any]]
 ResponseInput = Union[ReasoningResponse, Mapping[str, Any]]
-
-_PROHIBITED_KEYS = {
-    "browser",
-    "browser_context",
-    "cookie",
-    "cookies",
-    "credential",
-    "credentials",
-    "dom",
-    "html",
-    "password",
-    "playwright",
-    "raw_dom",
-    "storage_state",
-    "token",
-    "tokens",
-}
-
 
 def validate_reasoning_request(value: RequestInput) -> ReasoningRequest:
     """Validate and normalize a reasoning request or raise a meaningful error."""
@@ -104,11 +87,11 @@ def _dump_json(model: Any, label: str) -> Any:
 def _reject_prohibited_keys(value: Any, path: str) -> None:
     if isinstance(value, dict):
         for key, item in value.items():
-            normalized = key.casefold().replace("-", "_")
             child_path = f"{path}.{key}"
-            if normalized in _PROHIBITED_KEYS:
+            if is_prohibited_reasoning_key(key):
                 raise ReasoningValidationError(
-                    f"Reasoning request contains prohibited runtime or sensitive field: {child_path}"
+                    "Reasoning request contains prohibited runtime or sensitive "
+                    f"field: {child_path}"
                 )
             _reject_prohibited_keys(item, child_path)
     elif isinstance(value, list):
