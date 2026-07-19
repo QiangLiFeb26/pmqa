@@ -18,7 +18,10 @@ pmqa = "pmqa.cli:main"
 
 [project.optional-dependencies]
 dev = [
+    "build>=1,<2",
     "pytest>=8,<9",
+    "setuptools>=68",
+    "wheel>=0.41,<1",
 ]
 
 [tool.pytest.ini_options]
