@@ -127,8 +127,15 @@ external capture tool
 ```
 
 Task 5.1 defines only the evidence contracts and their explicit workflow
-serialization boundary. It does not yet provide the capture tool, Knowledge
-agent, other real agents, or end-to-end composition.
+serialization boundary. Concrete Playwright tools belong to product packs;
+`products/demo` contains the bounded SauceDemo capture and Tool adapter. All
+Browser, Page, Locator, credential, and Playwright objects remain inside that
+product-owned capture boundary. Only serialized `ExplorationEvidence` crosses
+the Tool boundary into workflow payloads.
+
+The SauceDemo Tool is independently dispatchable through `ToolRegistry` and
+`WorkflowRuntime`, but no real Explorer agent, Knowledge agent, validation
+agent, CLI composition, or end-to-end multi-agent workflow exists yet.
 
 ## Dependency direction
 
