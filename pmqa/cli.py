@@ -29,6 +29,9 @@ from pmqa.storage import JsonFileStorage
 from pmqa.trace import SQLiteTraceStore, TraceRecord
 
 
+_TASK5_DEMO_FAILURE_CODE = "task5_demo_failed"
+
+
 def _root() -> Path:
     return Path(__file__).resolve().parents[1]
 
@@ -260,6 +263,73 @@ def task3_demo(database: Path) -> int:
     return 0
 
 
+def task5_demo(
+    product: str,
+    *,
+    workflow_id: str,
+    product_version: str,
+    goal: str,
+    max_iterations: int,
+    headed: bool,
+    _config_loader=None,
+    _application_runner=None,
+    _clock=None,
+) -> int:
+    """Run the real Task 5 workflow, handoff, persistence, and generation."""
+
+    if product != "demo":
+        print(_TASK5_DEMO_FAILURE_CODE, file=sys.stderr)
+        return 2
+    try:
+        from products.demo.application import (
+            SauceDemoApplicationError,
+            run_saucedemo_demo,
+        )
+
+        if _config_loader is None:
+            from products.demo.config import load_config
+
+            config_loader = load_config
+        else:
+            config_loader = _config_loader
+        if _application_runner is None:
+            application_runner = run_saucedemo_demo
+        else:
+            application_runner = _application_runner
+        creation_clock = (
+            _clock
+            if _clock is not None
+            else lambda: datetime.now(timezone.utc)
+        )
+        created_at = creation_clock()
+        config = config_loader(_root())
+        result = application_runner(
+            config=config,
+            workflow_id=workflow_id,
+            product_version=product_version,
+            goal=goal,
+            max_iterations=max_iterations,
+            created_at=created_at,
+            headless=not headed,
+        )
+    except (OSError, SauceDemoApplicationError):
+        print(_TASK5_DEMO_FAILURE_CODE, file=sys.stderr)
+        return 2
+
+    state = result.final_state
+    artifact_path = result.persisted_artifact_path
+    print(
+        f"workflow_id={state.workflow_id} status={state.status.value} "
+        f"termination_reason={state.termination_reason.value} "
+        f"iteration={state.iteration} evidence_count={len(state.evidence)} "
+        f"candidate_count={len(state.knowledge_candidates)} "
+        f"validation_result_count={len(state.validation_results)} "
+        f"artifact_path={artifact_path} "
+        f"generated_test_path={result.generated_test_path}"
+    )
+    return 0
+
+
 def main(argv: Sequence[str] = ()) -> int:
     """Parse and execute one PMQA command."""
 
@@ -281,6 +351,17 @@ def main(argv: Sequence[str] = ()) -> int:
     task3_parser.add_argument(
         "--database", type=Path, default=Path("pmqa-traces.sqlite3")
     )
+    task5_parser = subparsers.add_parser("task5-demo")
+    task5_parser.add_argument("--product", required=True)
+    task5_parser.add_argument(
+        "--workflow-id", default="saucedemo-task5-demo"
+    )
+    task5_parser.add_argument("--product-version", default="1")
+    task5_parser.add_argument(
+        "--goal", default="Build verified SauceDemo product memory"
+    )
+    task5_parser.add_argument("--max-iterations", type=int, default=1)
+    task5_parser.add_argument("--headed", action="store_true")
     args = parser.parse_args(list(argv) if argv else None)
     if args.command == "explore":
         print(explore(args.product))
@@ -296,6 +377,15 @@ def main(argv: Sequence[str] = ()) -> int:
         return trace_demo(args.database)
     if args.command == "task3-demo":
         return task3_demo(args.database)
+    if args.command == "task5-demo":
+        return task5_demo(
+            args.product,
+            workflow_id=args.workflow_id,
+            product_version=args.product_version,
+            goal=args.goal,
+            max_iterations=args.max_iterations,
+            headed=args.headed,
+        )
     return reason_copilot_cli(
         args.product,
         args.copilot_executable,

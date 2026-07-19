@@ -71,16 +71,16 @@ Knowledge, and Validator agent implementations plus a `ToolRegistry`.
 `python -m pmqa.workflow` is intentionally unsupported because silently
 constructing placeholder dependencies would misrepresent the active graph.
 
-Task 5 is in progress. The product-owned
-`products.demo.workflow.run_saucedemo_workflow` API composes the real
-SauceDemo exploration Tool, Explorer, Knowledge agent, and Validator through
-the existing Task 4 graph. Its capture-runner seam supports deterministic
-offline end-to-end execution; using the default real Playwright capture is an
-explicit live operation.
+Task 5 is at its final implementation checkpoint. The product-owned
+`products.demo.application.run_saucedemo_demo` API composes the real SauceDemo
+exploration Tool, Explorer, Knowledge agent, Validator, Task 4 graph, strict
+verified-artifact handoff, storage, and deterministic test generation. Its
+capture-runner seam supports deterministic offline end-to-end execution; using
+the default real Playwright capture is an explicit live operation.
 
-The Task 2 SauceDemo CLI and Task 3 reasoning service are not yet composed into
-the Task 4 multi-agent graph. The graph is an executable framework boundary
-with injected agents and tools, not the path used by the demo CLI commands.
+The `task5-demo` command is the supported real multi-agent demo path. The Task
+2 `explore`, `generate`, and `test-generated` commands remain compatible and
+separate. Task 3 reasoning providers are not selected by this command.
 
 ## Prerequisites
 
@@ -106,6 +106,27 @@ export PMQA_DEMO_PASSWORD='secret_sauce'
 ```
 
 ## Explore, generate, and test
+
+Run the complete real Task 5 multi-agent workflow, persist its independently
+verified knowledge, and generate the two deterministic Playwright tests:
+
+```bash
+pmqa task5-demo --product demo
+# equivalent: python -m pmqa.cli task5-demo --product demo
+```
+
+The command defaults to headless capture. Pass `--headed` to show the browser,
+or use `--workflow-id`, `--product-version`, `--goal`, and `--max-iterations`
+to set the bounded workflow inputs explicitly. It writes
+`products/demo/artifacts/knowledge.json` and
+`products/demo/generated_tests/test_saucedemo_generated.py`. It intentionally
+does not run pytest; execute the generated tests separately:
+
+```bash
+pmqa test-generated --product demo
+```
+
+The older Task 2 path remains available:
 
 Run the bounded deterministic exploration, generate tests from its persisted
 knowledge, and execute the generated tests:
@@ -159,9 +180,11 @@ Task 5.6 provides the real SauceDemo product composition API while keeping the
 framework product-agnostic. Task 5.7 adds a strict post-workflow handoff that
 persists only the Validator's independent VERIFIED snapshot through the
 existing `StorageProvider` boundary and passes that snapshot to the existing
-deterministic SauceDemo generator. The NEW candidate remains unchanged and is
-never stored as approved memory. CLI and reasoning-provider integration remain
-future checkpoints; Tasks 6 and 7 have not started.
+deterministic SauceDemo generator. Task 5.8 adds the product-owned application
+composition and supported `task5-demo` CLI. The NEW candidate remains unchanged
+and is never stored as approved memory. Reasoning-provider integration remains
+a future checkpoint; Tasks 6 and 7 have not started.
 
-See the [authoritative roadmap](docs/Roadmap.md) for phase status. Task 5
-remains in progress and unmerged.
+See the [authoritative roadmap](docs/Roadmap.md) for phase status. Task 5.8 is
+ready for cumulative architecture review; Task 5 remains unmerged, and its
+final PR will not be created until that review passes.

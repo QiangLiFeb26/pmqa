@@ -13,7 +13,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 3 — Reasoning trust boundary | Complete | Added provider-independent reasoning contracts, scrubbing, deterministic/manual/Copilot CLI providers, prompt packages, and SQLite trace storage. |
 | Task 4 — Multi-agent runtime | Complete | Added typed state, agent and tool contracts, deterministic reduction and routing, runtime execution, validated recovery, and LangGraph assembly. |
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
-| Task 5 — Real agent composition | In progress | Tasks 5.1–5.6 completed the real workflow composition; Task 5.7 adds strict verified-artifact storage and generated-test handoff for review. |
+| Task 5 — Real agent composition | In progress | Tasks 5.1–5.8 now provide the real workflow, strict verified-artifact handoff, and supported SauceDemo demo application/CLI; the cumulative branch is ready for review. |
 
 ## Task 4 closure
 
@@ -49,5 +49,10 @@ through the existing Task 4 graph and supports deterministic offline execution.
 Task 5.7 is the strict verified-artifact handoff checkpoint: only the
 Validator's independent VERIFIED snapshot may pass through the existing
 storage boundary and deterministic test generator. The stored NEW candidate is
-never persisted as approved memory. CLI and reasoning-provider integration
-remain later checkpoints. Tasks 6 and 7 are outside the current scope.
+never persisted as approved memory. Task 5.8 is the final Task 5 implementation
+checkpoint: a product-owned application composes workflow, handoff, storage,
+and generation, while the generic CLI dynamically loads it only for
+`--product demo`. The command never runs generated tests automatically. The
+cumulative branch is ready for architecture review and remains unmerged;
+the final Task 5 PR will not be created until that review passes.
+Reasoning-provider integration and Tasks 6 and 7 are outside the current scope.

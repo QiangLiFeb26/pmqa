@@ -96,8 +96,8 @@ domain state remain independently testable and do not import LangGraph.
 `build_pmqa_graph` and `run_pmqa_workflow` are the active Task 4 graph APIs;
 callers must inject Explorer, Knowledge, and Validator agents and a
 `ToolRegistry`. The Task 1 no-op graph is retired, and the workflow package is
-not a runnable substitute for application composition. Task 5 will provide
-real domain agents and tools.
+not a runnable substitute for application composition. Task 5 provides real
+domain agents and tools through a product-owned application boundary.
 
 ### Product Pack
 
@@ -181,7 +181,22 @@ generator. The stored candidate remains NEW and is never persisted as approved
 memory. Failed or inconsistent handoff validation performs no persistence or
 generation.
 
-CLI and reasoning-provider integration do not exist yet.
+`products.demo.application.run_saucedemo_demo` is the Task 5 application
+boundary. It validates inputs, creates the canonical empty state, runs the real
+workflow, invokes the strict handoff for persistence, and then invokes the same
+strict handoff for deterministic generation. Its injected capture runner,
+single-sample Tool clock, storage provider, and output-directory seams remain
+outside WorkflowState. It returns only the final serializable state, stored
+artifact identifier, and user-facing output paths; it never runs generated
+tests.
+
+The generic `pmqa.cli` module checks `--product demo` before dynamically
+importing that product application. `task5-demo` is therefore the supported
+real multi-agent demo entry point without making `products.demo` a framework
+dependency. Expected failures collapse to the stable `task5_demo_failed`
+message and exit code 2. The older Task 2 commands are not redirected, and
+`test-generated` remains the explicit generated-test execution step.
+Reasoning-provider selection is not part of this application boundary.
 
 ## Dependency direction
 
