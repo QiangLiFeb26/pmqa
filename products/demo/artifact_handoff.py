@@ -111,6 +111,9 @@ def _extract_verified_knowledge(
     validations = _parse_validations(
         canonical_state, candidate_by_id, evidence_by_id
     )
+    _validate_terminal_append_order(
+        evidence_by_id, candidate_by_id, validations
+    )
     latest = validations[-1]
     if latest.status != "passed" or latest.verified_knowledge is None:
         raise SauceDemoArtifactHandoffError(
@@ -307,6 +310,34 @@ def _parse_validations(
         candidate_ids.add(result.candidate_id)
         results.append(result)
     return results
+
+
+def _validate_terminal_append_order(
+    evidence_by_id: Dict[str, ExplorationEvidence],
+    candidate_by_id: Dict[str, SauceDemoKnowledgeCandidate],
+    validations: List[SauceDemoValidationResult],
+) -> None:
+    evidence_ids = tuple(evidence_by_id)
+    candidates = tuple(candidate_by_id.values())
+    candidate_ids = tuple(candidate_by_id)
+    candidate_source_ids = tuple(
+        candidate.source_evidence_id for candidate in candidates
+    )
+    validation_candidate_ids = tuple(
+        result.candidate_id for result in validations
+    )
+    validation_source_ids = tuple(
+        result.source_evidence_id for result in validations
+    )
+    if not (
+        len(evidence_ids) == len(candidates) == len(validations)
+        and candidate_source_ids == evidence_ids
+        and validation_candidate_ids == candidate_ids
+        and validation_source_ids == evidence_ids
+    ):
+        raise SauceDemoArtifactHandoffError(
+            "terminal artifact correlation is incomplete or out of order"
+        )
 
 
 def _knowledge_items(knowledge: KnowledgeArtifact):

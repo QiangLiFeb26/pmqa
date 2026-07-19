@@ -353,6 +353,74 @@ def test_legitimate_failed_validation_recovery_latest_pass_is_accepted() -> None
     assert len(state.validation_results) == 2
 
 
+def test_extra_unvalidated_candidate_and_evidence_after_pass_is_rejected(
+    completed_workflow,
+) -> None:
+    state = _append_unvalidated_pair(completed_workflow)
+
+    with pytest.raises(
+        SauceDemoArtifactHandoffError,
+        match="terminal artifact correlation is incomplete or out of order",
+    ):
+        extract_verified_knowledge(state, _config())
+
+
+def test_extra_unprocessed_evidence_after_pass_is_rejected(
+    completed_workflow,
+) -> None:
+    values = json.loads(completed_workflow.model_dump_json())
+    values["evidence"].append(
+        _evidence("evidence-extra").to_workflow_payload()
+    )
+    state = WorkflowState.model_validate(values)
+
+    with pytest.raises(SauceDemoArtifactHandoffError):
+        extract_verified_knowledge(state, _config())
+
+
+def test_candidate_without_validation_is_rejected(completed_workflow) -> None:
+    state = _append_unvalidated_pair(completed_workflow)
+
+    with pytest.raises(SauceDemoArtifactHandoffError):
+        extract_verified_knowledge(state, _config())
+
+
+def test_reordered_candidate_correlation_is_rejected() -> None:
+    state = _recovery_state(latest_status="passed")
+    values = json.loads(state.model_dump_json())
+    values["knowledge_candidates"].reverse()
+    reordered = WorkflowState.model_validate(values)
+
+    with pytest.raises(SauceDemoArtifactHandoffError):
+        extract_verified_knowledge(reordered, _config())
+
+
+def test_validation_order_inconsistent_with_candidate_order_is_rejected() -> None:
+    state = _recovery_state(latest_status="passed")
+    values = json.loads(state.model_dump_json())
+    values["validation_results"].reverse()
+    reordered = WorkflowState.model_validate(values)
+
+    with pytest.raises(SauceDemoArtifactHandoffError):
+        extract_verified_knowledge(reordered, _config())
+
+
+def test_terminal_incomplete_state_has_no_storage_or_generation_side_effect(
+    completed_workflow, tmp_path
+) -> None:
+    state = _append_unvalidated_pair(completed_workflow)
+    storage = _RecordingStorage()
+    output = tmp_path / "generated"
+
+    with pytest.raises(SauceDemoArtifactHandoffError):
+        persist_verified_knowledge(state, _config(), storage)
+    with pytest.raises(SauceDemoArtifactHandoffError):
+        generate_tests_from_verified_workflow(state, _config(), output)
+
+    assert storage.saved == []
+    assert not output.exists()
+
+
 def test_generic_pmqa_imports_remain_product_independent() -> None:
     statement = "\n".join(
         [
@@ -407,6 +475,15 @@ def _completed_workflow():
         capture_runner=_CaptureRunner(),
         clock=lambda: _timestamp(1),
     )
+
+
+def _append_unvalidated_pair(state):
+    evidence = _evidence("evidence-extra")
+    candidate = build_knowledge_candidate(evidence)
+    values = json.loads(state.model_dump_json())
+    values["evidence"].append(evidence.to_workflow_payload())
+    values["knowledge_candidates"].append(candidate.to_workflow_payload())
+    return WorkflowState.model_validate(values)
 
 
 def _recovery_state(*, latest_status, first_status="failed"):
