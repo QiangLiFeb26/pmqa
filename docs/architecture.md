@@ -194,8 +194,21 @@ The generic `pmqa.cli` module checks `--product demo` before dynamically
 importing that product application. `task5-demo` is therefore the supported
 real multi-agent demo entry point without making `products.demo` a framework
 dependency. Expected failures collapse to the stable `task5_demo_failed`
-message and exit code 2. The older Task 2 commands are not redirected, and
-`test-generated` remains the explicit generated-test execution step.
+message and exit code 2. It is the only CLI path permitted to create or persist
+authoritative SauceDemo knowledge and to generate new tests from that handoff.
+
+The legacy `explore` and `generate` command names are retained only as static
+retirement stubs. Their CLI and direct Python callables cannot import a product
+pack, load configuration, capture, access storage, or invoke generation. Both
+CLI stubs return exit code 2 and direct contributors to `task5-demo` through
+one shared bounded policy. The underlying Task 2 provider, capture, storage,
+and generator implementations remain independently reusable libraries and
+test infrastructure; they are not authoritative CLI composition roots.
+
+`test-generated` only executes the existing generated regression file. That
+file embeds the verified locator inputs supplied to the generator, so a fresh
+checkout does not need a tracked runtime `knowledge.json`. Reasoning CLI
+demonstrations may read only the artifact created by a successful `task5-demo`.
 Reasoning-provider selection is not part of this application boundary.
 
 ## Dependency direction

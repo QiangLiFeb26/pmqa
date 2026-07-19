@@ -17,9 +17,13 @@ class GenerationEvidence:
     username_element: Element
     password_element: Element
     assertion_element: Element
+    username_locator: Locator
+    password_locator: Locator
+    target_locator: Locator
+    assertion_locator: Locator
 
 
-GENERATED_TEST = '''"""Generated from products/demo/artifacts/knowledge.json."""
+GENERATED_TEST = '''"""Generated from verified SauceDemo knowledge."""
 
 import json
 import os
@@ -30,8 +34,8 @@ from playwright.sync_api import Page, sync_playwright
 
 
 ROOT = Path(__file__).resolve().parents[3]
-ARTIFACT = json.loads((ROOT / "products/demo/artifacts/knowledge.json").read_text())
 CONFIG = json.loads((ROOT / "products/demo/config/product.json").read_text())
+LOCATORS = __LOCATORS__
 
 USERNAME_ELEMENT_ID = __USERNAME_ELEMENT_ID__
 PASSWORD_ELEMENT_ID = __PASSWORD_ELEMENT_ID__
@@ -42,10 +46,9 @@ EXPECTED_INVENTORY_TEXT = __EXPECTED_INVENTORY_TEXT__
 
 
 def _locator(page: Page, element_id: str):
-    known = [item for item in ARTIFACT["locators"] if item["element_id"] == element_id]
-    if not known:
+    locator = LOCATORS.get(element_id)
+    if locator is None:
         raise AssertionError(f"No stored locator for artifact element: {element_id}")
-    locator = sorted(known, key=lambda item: item["priority"])[0]
     if locator["strategy"] == "data-test":
         return page.locator(f"[data-test='{locator['value']}']")
     raise AssertionError(f"Unsupported stored locator strategy: {locator['strategy']}")
@@ -102,6 +105,21 @@ def generate_tests(artifact: KnowledgeArtifact, output_directory: Path) -> Path:
         "__ASSERTION_ELEMENT_ID__": json.dumps(evidence.assertion_element.id),
         "__EXPECTED_DESTINATION__": json.dumps(evidence.interaction.expected_outcome_value),
         "__EXPECTED_INVENTORY_TEXT__": json.dumps(evidence.assertion_element.visible_text),
+        "__LOCATORS__": json.dumps(
+            {
+                locator.element_id: {
+                    "strategy": locator.strategy,
+                    "value": locator.value,
+                }
+                for locator in (
+                    evidence.username_locator,
+                    evidence.password_locator,
+                    evidence.target_locator,
+                    evidence.assertion_locator,
+                )
+            },
+            sort_keys=True,
+        ),
     }
     generated = GENERATED_TEST
     for marker, value in replacements.items():
@@ -132,7 +150,7 @@ def _resolve_evidence(artifact: KnowledgeArtifact) -> GenerationEvidence:
     target = elements.get(interaction.target_element_id)
     if source_page is None or target is None or target.page_id != source_page.id:
         raise ValueError("Login interaction source page or target element evidence is missing")
-    _require_locator(target.id, locators_by_element)
+    target_locator = _require_locator(target.id, locators_by_element)
 
     destinations = [
         page for page in artifact.pages if page.url.endswith(interaction.expected_outcome_value)
@@ -144,8 +162,8 @@ def _resolve_evidence(artifact: KnowledgeArtifact) -> GenerationEvidence:
     source_elements = [element for element in artifact.elements if element.page_id == source_page.id]
     username = _unique_named(source_elements, "username")
     password = _unique_named(source_elements, "password")
-    _require_locator(username.id, locators_by_element)
-    _require_locator(password.id, locators_by_element)
+    username_locator = _require_locator(username.id, locators_by_element)
+    password_locator = _require_locator(password.id, locators_by_element)
 
     assertions = [
         element
@@ -157,12 +175,17 @@ def _resolve_evidence(artifact: KnowledgeArtifact) -> GenerationEvidence:
     ]
     if len(assertions) != 1:
         raise ValueError("Expected destination assertion evidence is missing or ambiguous")
+    assertion_locator = _require_locator(assertions[0].id, locators_by_element)
     return GenerationEvidence(
         interaction=interaction,
         destination_page=destination_page,
         username_element=username,
         password_element=password,
         assertion_element=assertions[0],
+        username_locator=username_locator,
+        password_locator=password_locator,
+        target_locator=target_locator,
+        assertion_locator=assertion_locator,
     )
 
 
@@ -177,6 +200,9 @@ def _unique_named(elements: List[Element], accessible_name: str) -> Element:
     return matches[0]
 
 
-def _require_locator(element_id: str, locators: Dict[str, List[Locator]]) -> None:
+def _require_locator(
+    element_id: str, locators: Dict[str, List[Locator]]
+) -> Locator:
     if element_id not in locators:
         raise ValueError("Artifact has no locator related to element: " + element_id)
+    return sorted(locators[element_id], key=lambda locator: locator.priority)[0]

@@ -538,12 +538,70 @@ def test_main_parser_dispatches_documented_task5_arguments(monkeypatch) -> None:
     }
 
 
-def test_existing_cli_dispatch_is_unchanged(monkeypatch, capsys) -> None:
-    expected = Path("existing-knowledge.json")
-    monkeypatch.setattr(cli, "explore", lambda product: expected)
+def test_test_generated_cli_dispatch_remains_supported(monkeypatch) -> None:
+    observed = []
 
-    assert cli.main(["explore", "--product", "demo"]) == 0
-    assert capsys.readouterr().out.strip() == str(expected)
+    def fake_test_generated(product):
+        observed.append(product)
+        return 17
+
+    monkeypatch.setattr(cli, "test_generated", fake_test_generated)
+
+    assert cli.main(["test-generated", "--product", "demo"]) == 17
+    assert observed == ["demo"]
+
+
+def test_task5_cli_still_persists_verified_knowledge_and_generates_tests(
+    tmp_path, capsys
+) -> None:
+    product_root = tmp_path / "products/demo"
+    config = replace(
+        _config(tmp_path),
+        artifact_output_location=product_root / "artifacts",
+        generated_test_output_location=product_root / "generated_tests",
+    )
+
+    def run_offline_application(**kwargs):
+        return run_saucedemo_demo(
+            **kwargs,
+            capture_runner=_CaptureRunner(),
+            tool_clock=lambda: _timestamp(),
+        )
+
+    code = cli.task5_demo(
+        "demo",
+        workflow_id="workflow-authoritative-cli",
+        product_version="1",
+        goal="Build verified SauceDemo product memory",
+        max_iterations=1,
+        headed=False,
+        _config_loader=lambda root: config,
+        _application_runner=run_offline_application,
+        _clock=lambda: _timestamp(),
+    )
+
+    artifact_path = product_root / "artifacts/knowledge.json"
+    generated_path = (
+        product_root / "generated_tests/test_saucedemo_generated.py"
+    )
+    artifact = KnowledgeArtifact.from_dict(
+        json.loads(artifact_path.read_text(encoding="utf-8"))
+    )
+    generated = generated_path.read_text(encoding="utf-8")
+    committed_regression = (
+        Path(__file__).resolve().parents[1]
+        / "products/demo/generated_tests/test_saucedemo_generated.py"
+    ).read_text(encoding="utf-8")
+
+    assert code == 0
+    assert all(
+        item.lifecycle.state is ArtifactStatus.VERIFIED
+        for item in _knowledge_items(artifact)
+    )
+    assert "def test_successful_login(page: Page)" in generated
+    assert "def test_inventory_page(page: Page)" in generated
+    assert generated == committed_regression
+    assert "artifact_path=" + str(artifact_path) in capsys.readouterr().out
 
 
 def test_cli_import_is_lazy_and_generic_pmqa_remains_product_independent() -> None:
