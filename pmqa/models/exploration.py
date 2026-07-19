@@ -5,6 +5,11 @@ from typing import Any, Dict, Iterable, Mapping, Optional, Set, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from pmqa.security.boundary_policy import (
+    WORKFLOW_STATE_PROHIBITED_KEYS,
+    is_prohibited_key,
+)
+
 
 class _EvidenceContract(BaseModel):
     """Base contract with validated copying and immutable typed fields."""
@@ -51,6 +56,15 @@ class ObservedAttribute(_EvidenceContract):
 
     name: str = Field(min_length=1)
     value: str
+
+    @field_validator("name")
+    @classmethod
+    def reject_prohibited_semantic_name(cls, value: str) -> str:
+        """Reject semantic keys that cannot cross the workflow boundary."""
+
+        if is_prohibited_key(value, WORKFLOW_STATE_PROHIBITED_KEYS):
+            raise ValueError("attribute name is prohibited")
+        return value
 
 
 class ObservedElement(_EvidenceContract):

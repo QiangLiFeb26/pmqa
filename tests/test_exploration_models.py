@@ -17,6 +17,7 @@ from pmqa.models import (
     ObservedElement,
     ObservedPage,
 )
+from pmqa.security.boundary_policy import WORKFLOW_STATE_PROHIBITED_KEYS
 from pmqa.workflow import WorkflowState
 
 
@@ -198,6 +199,85 @@ def test_runtime_objects_are_rejected_without_leaking_their_values() -> None:
     assert "runtime-marker" not in str(captured.value)
 
 
+@pytest.mark.parametrize("prohibited_name", sorted(WORKFLOW_STATE_PROHIBITED_KEYS))
+def test_every_workflow_prohibited_key_is_rejected_as_attribute_name(
+    prohibited_name: str,
+) -> None:
+    with pytest.raises(ValidationError, match="attribute name is prohibited"):
+        ObservedAttribute(name=prohibited_name, value="runtime-secret-marker")
+
+
+@pytest.mark.parametrize(
+    "prohibited_variant", ["API-Key", "browser context", "Provider-Instance"]
+)
+def test_prohibited_attribute_name_variants_use_shared_normalization(
+    prohibited_variant: str,
+) -> None:
+    with pytest.raises(ValidationError, match="attribute name is prohibited"):
+        ObservedAttribute(name=prohibited_variant, value="safe-marker")
+
+
+def test_prohibited_attribute_error_does_not_echo_its_value() -> None:
+    with pytest.raises(ValidationError) as captured:
+        ObservedAttribute(name="password", value="runtime-secret-marker")
+
+    assert "attribute name is prohibited" in str(captured.value)
+    assert "runtime-secret-marker" not in str(captured.value)
+
+
+def test_safe_attribute_names_and_values_remain_valid() -> None:
+    attributes = (
+        ObservedAttribute(name="data-test", value="login-button"),
+        ObservedAttribute(name="type", value="password"),
+    )
+
+    evidence = _evidence(
+        elements=[_elements()[0].model_copy(update={"attributes": attributes})]
+    )
+
+    assert evidence.elements[0].attributes == attributes
+    assert evidence.to_workflow_payload()["elements"][0]["attributes"][1] == {
+        "name": "type",
+        "value": "password",
+    }
+
+
+def test_prohibited_semantic_attribute_cannot_reach_workflow_payload() -> None:
+    payload = _evidence().to_workflow_payload()
+    payload["elements"][0]["attributes"].append(
+        {"name": "browser_context", "value": "runtime-secret-marker"}
+    )
+
+    with pytest.raises(ValidationError) as captured:
+        ExplorationEvidence.from_workflow_payload(payload)
+
+    assert "attribute name is prohibited" in str(captured.value)
+    assert "runtime-secret-marker" not in str(captured.value)
+
+
+def test_prohibited_semantic_attribute_cannot_build_workflow_state_evidence() -> None:
+    with pytest.raises(ValidationError, match="attribute name is prohibited"):
+        element = _elements()[0].model_copy(
+            update={
+                "attributes": [
+                    {"name": "api_key", "value": "runtime-secret-marker"}
+                ]
+            }
+        )
+        evidence = _evidence(elements=[element])
+        WorkflowState(
+            workflow_id=evidence.workflow_id,
+            workflow_type="exploration",
+            product_id=evidence.product_id,
+            product_version="1",
+            goal="Collect exploration evidence",
+            max_iterations=1,
+            evidence=[evidence.to_workflow_payload()],
+            created_at=evidence.captured_at,
+            updated_at=evidence.captured_at,
+        )
+
+
 def test_generic_evidence_import_has_no_runtime_or_product_side_effects() -> None:
     statement = "\n".join(
         [
@@ -205,7 +285,7 @@ def test_generic_evidence_import_has_no_runtime_or_product_side_effects() -> Non
             "from pmqa.models.exploration import ExplorationEvidence",
             "assert ExplorationEvidence",
             "for prefix in ('products', 'playwright', 'langgraph', "
-            "'pmqa.runtime', 'pmqa.orchestration'):",
+            "'pmqa.providers', 'pmqa.runtime', 'pmqa.orchestration'):",
             "    assert not any(name == prefix or name.startswith(prefix + '.') "
             "for name in sys.modules)",
         ]
