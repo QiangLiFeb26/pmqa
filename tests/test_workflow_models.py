@@ -10,7 +10,6 @@ from pydantic import ValidationError
 from pmqa.workflow import (
     AgentInvocation,
     AgentInvocationStatus,
-    AgentOutcome,
     AgentRole,
     TerminationReason,
     WorkflowState,
@@ -104,7 +103,7 @@ def test_models_are_immutable() -> None:
         started_at=_timestamp(),
         status=AgentInvocationStatus.RUNNING,
     )
-    for model in (_state(), AgentOutcome(), invocation):
+    for model in (_state(), invocation):
         with pytest.raises(ValidationError, match="frozen"):
             model.warnings = ["changed"]
 
@@ -139,18 +138,12 @@ def test_agent_payloads_are_deeply_immutable() -> None:
         status=AgentInvocationStatus.RUNNING,
         input_summary={"nested": {"ids": ["input-1"]}},
     )
-    outcome = AgentOutcome(state_updates={"nested": {"ids": ["output-1"]}})
-
     with pytest.raises(TypeError, match="immutable"):
         invocation.input_summary["changed"] = True
     with pytest.raises(TypeError, match="immutable"):
         invocation.input_summary["nested"]["changed"] = True
     with pytest.raises(AttributeError):
         invocation.input_summary["nested"]["ids"].append("input-2")
-    with pytest.raises(TypeError, match="immutable"):
-        outcome.state_updates["status"] = "failed"
-    with pytest.raises(AttributeError):
-        outcome.state_updates["nested"]["ids"].append("output-2")
 
 
 def test_unknown_fields_are_rejected() -> None:
@@ -173,7 +166,6 @@ def test_unknown_fields_are_rejected() -> None:
                 "unexpected": True,
             },
         ),
-        (AgentOutcome, {"unexpected": True}),
     ],
 )
 def test_agent_models_reject_unknown_fields(model_type, payload) -> None:
@@ -241,35 +233,6 @@ def test_agent_invocation_rejects_invalid_role_and_status() -> None:
 
     assert "agent" in str(captured.value)
     assert "status" in str(captured.value)
-
-
-def test_agent_outcome_describes_updates_without_owning_state() -> None:
-    outcome = AgentOutcome(
-        next_agent=AgentRole.VALIDATOR,
-        state_updates={"evidence_ids": ["evidence-1"]},
-        warnings=["review evidence"],
-    )
-
-    assert outcome.model_dump(mode="json") == {
-        "next_agent": "validator",
-        "state_updates": {"evidence_ids": ["evidence-1"]},
-        "warnings": ["review evidence"],
-        "errors": [],
-        "terminate": False,
-        "termination_reason": None,
-    }
-    assert AgentOutcome.model_validate_json(outcome.model_dump_json()) == outcome
-
-
-def test_agent_outcome_enforces_termination_reason_correlation() -> None:
-    outcome = AgentOutcome(
-        terminate=True,
-        termination_reason=TerminationReason.GOAL_COMPLETED,
-    )
-
-    assert outcome.termination_reason is TerminationReason.GOAL_COMPLETED
-    with pytest.raises(ValidationError, match="termination_reason"):
-        AgentOutcome(terminate=True)
 
 
 def _state(**updates) -> WorkflowState:

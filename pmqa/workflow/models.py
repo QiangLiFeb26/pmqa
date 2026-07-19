@@ -49,7 +49,11 @@ class TerminationReason(str, Enum):
 
 
 class _WorkflowContract(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
 
     def model_copy(
         self,
@@ -97,29 +101,6 @@ class AgentInvocation(_WorkflowContract):
         _validate_payload(self.output_summary, "output_summary")
         object.__setattr__(self, "input_summary", _freeze(self.input_summary))
         object.__setattr__(self, "output_summary", _freeze(self.output_summary))
-        return self
-
-
-class AgentOutcome(_WorkflowContract):
-    """Describes requested state changes returned by an agent."""
-
-    next_agent: Optional[AgentRole] = None
-    state_updates: Mapping[str, Any] = Field(default_factory=dict)
-    warnings: Tuple[str, ...] = Field(default_factory=tuple)
-    errors: Tuple[str, ...] = Field(default_factory=tuple)
-    terminate: bool = False
-    termination_reason: Optional[TerminationReason] = None
-
-    @model_validator(mode="after")
-    def validate_contract(self) -> "AgentOutcome":
-        """Validate safe updates and termination correlation."""
-
-        _validate_payload(self.state_updates, "state_updates")
-        if self.terminate != (self.termination_reason is not None):
-            raise ValueError(
-                "termination_reason must be present exactly when terminate is true"
-            )
-        object.__setattr__(self, "state_updates", _freeze(self.state_updates))
         return self
 
 
