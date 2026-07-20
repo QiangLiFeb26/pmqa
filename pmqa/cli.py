@@ -309,6 +309,7 @@ def product_pack_scaffold(
     output_directory: str,
     pack_id: str,
     pack_version: str,
+    distribution_version: str,
     product_id: str,
     display_name: str,
     capabilities: Sequence[str],
@@ -340,6 +341,7 @@ def product_pack_scaffold(
             ProductPackScaffoldRequest(
                 manifest=manifest,
                 output_directory=output_directory,
+                distribution_version=distribution_version,
             )
         )
     except ProductPackScaffoldError:
@@ -406,6 +408,7 @@ def main(argv: Sequence[str] = ()) -> int:
     scaffold_parser.add_argument("--output", required=True)
     scaffold_parser.add_argument("--pack-id", required=True)
     scaffold_parser.add_argument("--pack-version", required=True)
+    scaffold_parser.add_argument("--distribution-version", required=True)
     scaffold_parser.add_argument("--product-id", required=True)
     scaffold_parser.add_argument("--display-name", required=True)
     scaffold_parser.add_argument(
@@ -452,6 +455,7 @@ def main(argv: Sequence[str] = ()) -> int:
                 output_directory=args.output,
                 pack_id=args.pack_id,
                 pack_version=args.pack_version,
+                distribution_version=args.distribution_version,
                 product_id=args.product_id,
                 display_name=args.display_name,
                 capabilities=args.capability,

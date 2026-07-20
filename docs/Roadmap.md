@@ -114,13 +114,18 @@ is complete on this cumulative Task 5A branch and is not merged into `main`.
 Task 5A.5 provides a deterministic minimal external Python distribution and
 direct TypeScript bridge source scaffold, plus offline source-conformance and
 product-neutral CLI commands. It writes only to an explicit operator-selected
-target, recommends a separate private Product Pack source location, and
-generates a non-operational backend that fails closed. Consumer credentials
-remain in the execution environment. The baseline is consumer-approved direct
-TypeScript Playwright integration; no IDE, Copilot, or Playwright MCP setup is
-required. Scaffolding and validation launch no browser or external Product
-Pack. The API remains experimental rather than stable SDK v1. Task 5A.5 is
-ready for architecture review and is not merged or complete on `main`.
+target, uses no-replace publication, recommends a separate private Product Pack
+source location, and generates a non-operational backend that fails closed.
+Protocol and process-boundary files remain scaffold-owned; the consumer-owned
+backend implementation may change while preserving a bounded factory contract.
+Custom source conformance is not runtime verification. Product Pack SemVer and
+Python distribution PEP 440 versions are independent inputs. Consumer
+credentials remain in the execution environment. The baseline is an explicitly
+versioned, consumer-approved direct TypeScript Playwright dependency;
+Playwright MCP remains prohibited. Scaffolding and validation launch no browser
+or external Product Pack. The API remains experimental rather than stable SDK
+v1. Task 5A.5 is ready for architecture re-review and is not merged or complete
+on `main`.
 
 Task 5A.6 will validate the abstraction by migrating SauceDemo to the external
 Product Pack shape. That migration, the future read-only MDE pilot, Task 6, and

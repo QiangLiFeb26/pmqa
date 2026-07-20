@@ -208,21 +208,40 @@ the scaffold never writes into a product repository unless the operator
 deliberately selects that location.
 
 The generated Python entry point exposes only the canonical plain manifest
-dictionary. The TypeScript source fixes Bridge Protocol v1 and exposes a
-product-owned capture-backend interface. Its placeholder always returns a
-correlated `protocol_failure`; it cannot fabricate successful evidence and is
-not operational until the consumer implements and explicitly builds an
-approved direct Playwright TypeScript backend. Playwright versions remain a
-consumer dependency decision. No IDE, Copilot, Playwright MCP, install hook,
-browser download, or dependency installation is generated or required.
+dictionary. Product Pack `pack_version` remains canonical SemVer and is stored
+unchanged in that manifest. The scaffold request separately requires a
+canonical PEP 440 `distribution_version`, which alone becomes
+`project.version`; the loader does not compare the two version axes.
+
+The TypeScript source fixes Bridge Protocol v1 and separates ownership. The
+protocol declarations, capture-backend interface and fail-closed placeholder,
+and bounded stdin/stdout adapter are scaffold-owned controls. The separate
+consumer-owned `product_backend.ts` exports `createProductCaptureBackend()`.
+Initially it returns the placeholder, which always produces a correlated
+`protocol_failure` and cannot fabricate successful evidence. Consumers may
+replace that implementation and add one exact direct Playwright dependency.
+Playwright versions remain a consumer decision; Playwright MCP, install hooks,
+URLs, local paths, Git dependencies, dynamic downloads, and unbounded versions
+are rejected from package controls.
 
 Offline source conformance reads only scaffold-owned required control files. It
-checks the manifest, deterministic Python identity and entry point, supported
-protocol vocabulary, fail-closed backend, and absence of install/MCP drift
-without importing or running product code. It does not recursively inspect
-arbitrary consumer source for secrets. Credentials remain exclusively in the
-consumer execution environment. Scaffolding and conformance launch no browser,
-Node process, external Product Pack, or network operation.
+checks the manifest, independently validated PEP 440 distribution metadata,
+deterministic Python identity and entry point, supported protocol vocabulary,
+strict scaffold-owned bridge controls, and the consumer backend factory shape
+without importing, compiling, or running product code. Results distinguish
+`placeholder` from `custom`; neither state claims runtime or semantic
+verification. Conformance does not recursively inspect arbitrary consumer
+source for secrets. Credentials remain exclusively in the consumer execution
+environment. Scaffolding and conformance launch no browser, Node process,
+external Product Pack, or network operation.
+
+Publication uses an operating-system atomic no-replace directory primitive on
+macOS and Linux where available, and the native no-replace rename behavior on
+Windows. If a safe primitive is unavailable, scaffolding fails closed before
+publication rather than using a clobber-capable fallback. A target that appears
+during the final race window is preserved byte-for-byte and by identity; only
+the invocation-owned private temporary sibling is cleaned up. Atomic visibility
+is therefore claimed only where the supported no-replace primitive succeeds.
 
 ## Adoption sequence
 
@@ -237,6 +256,6 @@ The planned evidence-driven sequence is:
 7. API v1 stabilization after evidence from both SauceDemo and MDE.
 
 Task 5A.4 is complete on the cumulative branch. Task 5A.5 is ready for
-architecture review and is not merged or complete on `main`. Task 5A.6 will
+architecture re-review and is not merged or complete on `main`. Task 5A.6 will
 validate the abstraction by migrating SauceDemo to the external Product Pack
 shape; that work, the future MDE pilot, Task 6, and Task 7 have not started.

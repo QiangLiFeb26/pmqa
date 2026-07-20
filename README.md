@@ -220,13 +220,20 @@ serialized by PMQA. The runner is not a security sandbox. Task 5A.5 adds
 deterministic external-pack source scaffolding, offline conformance, and the
 product-neutral `pmqa product-pack scaffold` and
 `pmqa product-pack validate-source` commands. Generated bridge placeholders
-are deliberately non-operational and fail closed. Consumer teams add an
-approved direct TypeScript Playwright backend and keep credentials in their
-execution environment; no IDE, Copilot, or Playwright MCP configuration is
-required. Scaffolding writes only to the explicit operator-selected target,
-and a separate private Product Pack source location is recommended. Neither
-scaffolding nor validation launches a browser or external pack. This remains
-experimental, not a stable Product Pack SDK v1. Task 5A.6 will validate the
+are deliberately non-operational and fail closed. Scaffold-owned protocol,
+backend-interface, and stdin/stdout adapter files remain strict; consumers own
+`product_backend.ts` and may implement its stable factory without losing source
+conformance. A custom source result is not runtime verification. Consumer teams
+may add one explicitly versioned direct TypeScript Playwright dependency and
+keep credentials in their execution environment; Playwright MCP remains
+prohibited. Product Pack `pack_version` stays SemVer, while the required
+`--distribution-version` is an independent canonical PEP 440 version used by
+the Python distribution. Publication uses atomic no-replace primitives on
+supported systems and fails closed when safe publication is unavailable, so a
+racing target is never overwritten. A separate private Product Pack source
+location remains recommended. Neither scaffolding nor validation launches a
+browser or external pack. This remains experimental, not a stable Product Pack
+SDK v1. Task 5A.5 remains under architecture review; Task 5A.6 will validate the
 shape by migrating SauceDemo. Task 6 and Task 7 have not started.
 See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the

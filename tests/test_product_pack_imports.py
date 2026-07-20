@@ -24,6 +24,7 @@ def test_product_pack_import_is_neutral_and_side_effect_free() -> None:
             "assert pmqa.product_pack.run_product_pack_bridge",
             "assert pmqa.product_pack.ProductPackScaffoldRequest",
             "assert pmqa.product_pack.ProductPackScaffoldResult",
+            "assert pmqa.product_pack.ProductPackBackendSourceState",
             "assert pmqa.product_pack.scaffold_product_pack",
             "assert pmqa.product_pack.ProductPackSourceConformanceResult",
             "assert pmqa.product_pack.validate_product_pack_source",

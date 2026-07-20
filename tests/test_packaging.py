@@ -134,6 +134,12 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
             archive.read(entry_point_files[0]).decode("utf-8")
         )
         assert entry_points["console_scripts"]["pmqa"] == "pmqa.cli:main"
+        metadata_file = next(
+            name for name in names if name.endswith(".dist-info/METADATA")
+        )
+        metadata_text = archive.read(metadata_file).decode("utf-8")
+        assert "Requires-Dist: packaging" in metadata_text
+        assert "Requires-Dist: tomli" in metadata_text
 
 
 def test_actual_wheel_excludes_runtime_outputs_and_unrelated_files(

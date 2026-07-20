@@ -38,6 +38,7 @@ from pmqa.product_pack.loader import (
 )
 from pmqa.product_pack.scaffold import (
     PRODUCT_PACK_SCAFFOLD_VERSION,
+    ProductPackBackendSourceState,
     ProductPackScaffoldError,
     ProductPackScaffoldErrorCode,
     ProductPackScaffoldRequest,
@@ -78,6 +79,7 @@ __all__ = [
     "ProductPackBridgeProcessConfig",
     "run_product_pack_bridge",
     "PRODUCT_PACK_SCAFFOLD_VERSION",
+    "ProductPackBackendSourceState",
     "ProductPackScaffoldError",
     "ProductPackScaffoldErrorCode",
     "ProductPackScaffoldRequest",

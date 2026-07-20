@@ -128,10 +128,16 @@ is discarded behind fixed errors, and process configuration remains runtime
 only. The manifest cannot provide commands. The transport is not a security
 sandbox. Task 5A.5 adds deterministic external source scaffolding and offline
 conformance without executing product code. Its TypeScript backend interface
-is a fail-closed placeholder for consumer-owned direct Playwright integration;
-Playwright MCP, IDE configuration, and Copilot configuration are not baseline
-dependencies. Scaffolding writes only beneath an explicit target and neither
-scaffolding nor validation launches a browser or Product Pack.
+has a fail-closed placeholder, while a separate consumer-owned implementation
+file supplies the stable backend factory. Source conformance strictly owns the
+protocol and process adapter but reports customized consumer source only as
+source-conformant, never runtime-verified. Direct, explicitly versioned
+Playwright is permitted; Playwright MCP, IDE configuration, and Copilot
+configuration are not baseline dependencies. Manifest SemVer and Python
+distribution PEP 440 versions remain separate. Scaffolding publishes with an
+atomic no-replace primitive on supported platforms and otherwise fails closed;
+it never replaces a racing target. Neither scaffolding nor validation launches
+a browser or Product Pack.
 
 ### Memory
 

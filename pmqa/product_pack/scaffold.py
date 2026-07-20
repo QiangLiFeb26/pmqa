@@ -1,6 +1,7 @@
 """Deterministic scaffolding and offline source conformance for Product Packs."""
 
 from dataclasses import dataclass
+import ctypes
 from enum import Enum
 import json
 import os
@@ -8,8 +9,15 @@ from pathlib import Path
 import re
 import shutil
 import stat
+import sys
 import tempfile
 from typing import Dict, Optional, Tuple
+
+from packaging.version import InvalidVersion, Version
+try:
+    import tomllib
+except ImportError:  # pragma: no cover - exercised on the Python 3.9 baseline
+    import tomli as tomllib
 
 from pmqa.product_pack.manifest import (
     ProductPackManifest,
@@ -19,7 +27,28 @@ from pmqa.product_pack.manifest import (
 PRODUCT_PACK_SCAFFOLD_VERSION = "1"
 _MAX_PATH_LENGTH = 4096
 _MAX_CONTROL_FILE_BYTES = 256 * 1024
+_MAX_DISTRIBUTION_VERSION_LENGTH = 128
 _SEPARATOR_PATTERN = re.compile(r"[._-]+", flags=re.ASCII)
+_EXACT_NPM_VERSION_PATTERN = re.compile(
+    r"^(0|[1-9][0-9]*)\."
+    r"(0|[1-9][0-9]*)\."
+    r"(0|[1-9][0-9]*)"
+    r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$",
+    flags=re.ASCII,
+)
+_PRODUCT_BACKEND_FACTORY_PATTERN = re.compile(
+    r"\bexport\s+function\s+createProductCaptureBackend\s*\(\s*\)\s*"
+    r":\s*ProductCaptureBackend\s*\{",
+    flags=re.ASCII,
+)
+_TYPESCRIPT_NONCODE_PATTERN = re.compile(
+    r"//[^\n]*|/\*.*?\*/|"
+    r'"(?:\\.|[^"\\])*"|'
+    r"'(?:\\.|[^'\\])*'|"
+    r"`(?:\\.|[^`\\])*`",
+    flags=re.ASCII | re.DOTALL,
+)
 _DISTRIBUTION_IDENTITY_PATTERN = re.compile(
     r"^pmqa-product-pack-[a-z0-9]+(?:-[a-z0-9]+)*$",
     flags=re.ASCII,
@@ -34,6 +63,7 @@ _STATIC_GENERATED_FILES = (
     "bridge/package.json",
     "bridge/src/capture_backend.ts",
     "bridge/src/main.ts",
+    "bridge/src/product_backend.ts",
     "bridge/src/protocol.ts",
     "bridge/tsconfig.json",
     "product-pack.json",
@@ -86,6 +116,13 @@ class ProductPackSourceConformanceErrorCode(str, Enum):
     INVALID_BRIDGE_SOURCE = "invalid_bridge_source"
 
 
+class ProductPackBackendSourceState(str, Enum):
+    """Bounded source ownership state; it is not runtime verification."""
+
+    PLACEHOLDER = "placeholder"
+    CUSTOM = "custom"
+
+
 _CONFORMANCE_MESSAGES = {
     ProductPackSourceConformanceErrorCode.INVALID_REQUEST: (
         "invalid Product Pack source validation request"
@@ -114,11 +151,15 @@ class ProductPackScaffoldRequest:
 
     manifest: ProductPackManifest
     output_directory: str
+    distribution_version: str
 
     def __post_init__(self) -> None:
         if (
             type(self.manifest) is not ProductPackManifest
             or not _is_canonical_absolute_path(self.output_directory)
+            or not _is_canonical_distribution_version(
+                self.distribution_version
+            )
         ):
             _raise_scaffold_error(ProductPackScaffoldErrorCode.INVALID_REQUEST)
 
@@ -130,6 +171,7 @@ class ProductPackScaffoldResult:
     scaffold_version: str
     distribution_name: str
     python_package_name: str
+    distribution_version: str
     generated_files: Tuple[str, ...]
 
     def __post_init__(self) -> None:
@@ -147,7 +189,13 @@ class ProductPackScaffoldResult:
                 "pmqa-product-pack-"
             ).replace("-", "_")
             != self.python_package_name.removeprefix("pmqa_product_pack_")
-            or not _are_valid_generated_files(self.generated_files)
+            or not _is_canonical_distribution_version(
+                self.distribution_version
+            )
+            or not _are_valid_generated_files(
+                self.generated_files,
+                self.python_package_name,
+            )
         ):
             _raise_scaffold_error(ProductPackScaffoldErrorCode.INVALID_REQUEST)
 
@@ -158,15 +206,25 @@ class ProductPackSourceConformanceResult:
 
     is_conformant: bool
     error_code: Optional[ProductPackSourceConformanceErrorCode]
+    backend_source_state: Optional[ProductPackBackendSourceState]
+    is_runtime_verified: bool = False
 
     def __post_init__(self) -> None:
-        if type(self.is_conformant) is not bool or (
-            self.is_conformant != (self.error_code is None)
+        if (
+            type(self.is_conformant) is not bool
+            or type(self.is_runtime_verified) is not bool
+            or self.is_runtime_verified
+            or self.is_conformant != (self.error_code is None)
+            or self.is_conformant != (self.backend_source_state is not None)
         ):
             raise ValueError("invalid Product Pack conformance result")
         if self.error_code is not None and type(self.error_code) is not (
             ProductPackSourceConformanceErrorCode
         ):
+            raise ValueError("invalid Product Pack conformance result")
+        if self.backend_source_state is not None and type(
+            self.backend_source_state
+        ) is not ProductPackBackendSourceState:
             raise ValueError("invalid Product Pack conformance result")
 
     @property
@@ -184,21 +242,17 @@ class _DerivedIdentity:
     python_package_name: str
 
 
-def _are_valid_generated_files(value: object) -> bool:
-    if type(value) is not tuple or len(value) != 12:
+def _are_valid_generated_files(value: object, package_name: str) -> bool:
+    if type(value) is not tuple or len(value) != 13:
         return False
     if value != tuple(sorted(value)) or any(type(item) is not str for item in value):
         return False
     static = set(_STATIC_GENERATED_FILES)
     dynamic = [item for item in value if item not in static]
-    return (
-        len(dynamic) == 2
-        and dynamic[0].startswith("src/pmqa_product_pack_")
-        and dynamic[0].endswith("/__init__.py")
-        and dynamic[1].startswith("src/pmqa_product_pack_")
-        and dynamic[1].endswith("/manifest.py")
-        and dynamic[0].rsplit("/", 1)[0] == dynamic[1].rsplit("/", 1)[0]
-    )
+    return dynamic == [
+        "src/{}/__init__.py".format(package_name),
+        "src/{}/manifest.py".format(package_name),
+    ]
 
 
 def _derive_identity(manifest: ProductPackManifest) -> _DerivedIdentity:
@@ -237,14 +291,18 @@ def _manifest_module(manifest: ProductPackManifest) -> str:
     )
 
 
-def _pyproject(manifest: ProductPackManifest, identity: _DerivedIdentity) -> str:
+def _pyproject(
+    manifest: ProductPackManifest,
+    identity: _DerivedIdentity,
+    distribution_version: str,
+) -> str:
     return f'''[build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "{identity.distribution_name}"
-version = "{manifest.pack_version}"
+version = "{distribution_version}"
 description = "External PMQA Product Pack manifest"
 requires-python = ">=3.9"
 
@@ -410,8 +468,20 @@ export class UnimplementedCaptureBackend implements ProductCaptureBackend {
 '''
 
 
+def _product_backend_ts() -> str:
+    return '''import {
+  UnimplementedCaptureBackend,
+  type ProductCaptureBackend,
+} from "./capture_backend.js";
+
+export function createProductCaptureBackend(): ProductCaptureBackend {
+  return new UnimplementedCaptureBackend();
+}
+'''
+
+
 def _main_ts() -> str:
-    return '''import { UnimplementedCaptureBackend } from "./capture_backend.js";
+    return '''import { createProductCaptureBackend } from "./product_backend.js";
 import type { BridgeRequestV1 } from "./protocol.js";
 
 async function readRequest(): Promise<BridgeRequestV1> {
@@ -424,7 +494,7 @@ async function readRequest(): Promise<BridgeRequestV1> {
 
 async function main(): Promise<void> {
   const request = await readRequest();
-  const response = await new UnimplementedCaptureBackend().capture(request);
+  const response = await createProductCaptureBackend().capture(request);
   process.stdout.write(JSON.stringify(response));
 }
 
@@ -439,9 +509,13 @@ def _readme() -> str:
     return '''# External PMQA Product Pack
 
 This experimental scaffold is non-operational and fails closed until the
-consumer implements `ProductCaptureBackend` with an explicitly approved direct
-Playwright TypeScript integration. Choose and pin the Playwright version under
-the consumer team's dependency policy; this scaffold performs no installation.
+consumer implements `createProductCaptureBackend` in the consumer-owned
+`bridge/src/product_backend.ts` file with an explicitly approved direct
+Playwright TypeScript integration. The protocol, capture-backend interface, and
+stdin/stdout adapter remain scaffold-owned controls. Choose and pin the
+Playwright version under the consumer team's dependency policy; this scaffold
+performs no installation. Source conformance checks the factory shape but does
+not execute, compile, or runtime-verify consumer code.
 
 Build the Python manifest distribution with the approved offline build tooling.
 Build the bridge explicitly after adding consumer-owned implementation and
@@ -483,7 +557,10 @@ def test_manifest_entry_point_is_plain_dictionary():
 '''
 
 
-def _render_files(manifest: ProductPackManifest) -> Dict[str, str]:
+def _render_files(
+    manifest: ProductPackManifest,
+    distribution_version: str,
+) -> Dict[str, str]:
     identity = _derive_identity(manifest)
     package = identity.python_package_name
     return {
@@ -492,10 +569,15 @@ def _render_files(manifest: ProductPackManifest) -> Dict[str, str]:
         "bridge/package.json": _package_json(manifest),
         "bridge/src/capture_backend.ts": _capture_backend_ts(),
         "bridge/src/main.ts": _main_ts(),
+        "bridge/src/product_backend.ts": _product_backend_ts(),
         "bridge/src/protocol.ts": _protocol_ts(),
         "bridge/tsconfig.json": _tsconfig(),
         "product-pack.json": _canonical_json(manifest.to_dict()),
-        "pyproject.toml": _pyproject(manifest, identity),
+        "pyproject.toml": _pyproject(
+            manifest,
+            identity,
+            distribution_version,
+        ),
         "src/{}/__init__.py".format(package): "",
         "src/{}/manifest.py".format(package): _manifest_module(manifest),
         "tests/test_manifest.py": _manifest_test(identity),
@@ -510,6 +592,20 @@ def _is_canonical_absolute_path(value: object) -> bool:
         and os.path.isabs(value)
         and os.path.normpath(value) == value
     )
+
+
+def _is_canonical_distribution_version(value: object) -> bool:
+    if (
+        type(value) is not str
+        or not value
+        or len(value) > _MAX_DISTRIBUTION_VERSION_LENGTH
+    ):
+        return False
+    try:
+        parsed = Version(value)
+    except InvalidVersion:
+        return False
+    return str(parsed) == value
 
 
 def _path_exists_or_is_symlink(path: Path) -> bool:
@@ -557,6 +653,42 @@ def _remove_private_temporary_directory(path: Path, parent: Path) -> None:
         shutil.rmtree(path, ignore_errors=True)
 
 
+def _publish_directory_no_replace(source: Path, target: Path) -> None:
+    """Publish without replacing a target, or fail closed if unsupported."""
+
+    if os.name == "nt":  # os.rename is no-replace on Windows.
+        os.rename(str(source), str(target))
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    if sys.platform == "darwin" and hasattr(libc, "renamex_np"):
+        renamex_np = libc.renamex_np
+        renamex_np.argtypes = (ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint)
+        renamex_np.restype = ctypes.c_int
+        result = renamex_np(os.fsencode(source), os.fsencode(target), 0x00000004)
+    elif sys.platform.startswith("linux") and hasattr(libc, "renameat2"):
+        renameat2 = libc.renameat2
+        renameat2.argtypes = (
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        )
+        renameat2.restype = ctypes.c_int
+        result = renameat2(
+            -100,
+            os.fsencode(source),
+            -100,
+            os.fsencode(target),
+            0x00000001,
+        )
+    else:
+        raise OSError()
+    if result != 0:
+        error_number = ctypes.get_errno()
+        raise OSError(error_number, "")
+
+
 def scaffold_product_pack(
     request: ProductPackScaffoldRequest,
 ) -> ProductPackScaffoldResult:
@@ -565,7 +697,7 @@ def scaffold_product_pack(
     if type(request) is not ProductPackScaffoldRequest:
         _raise_scaffold_error(ProductPackScaffoldErrorCode.INVALID_REQUEST)
     target = _validate_target(request.output_directory)
-    files = _render_files(request.manifest)
+    files = _render_files(request.manifest, request.distribution_version)
     temporary = None
     failure = None
     try:
@@ -575,7 +707,7 @@ def scaffold_product_pack(
         _write_files(temporary, files)
         if _path_exists_or_is_symlink(target):
             _raise_scaffold_error(ProductPackScaffoldErrorCode.TARGET_EXISTS)
-        os.rename(str(temporary), str(target))
+        _publish_directory_no_replace(temporary, target)
         temporary = None
     except ProductPackScaffoldError:
         raise
@@ -596,6 +728,7 @@ def scaffold_product_pack(
         scaffold_version=PRODUCT_PACK_SCAFFOLD_VERSION,
         distribution_name=identity.distribution_name,
         python_package_name=identity.python_package_name,
+        distribution_version=request.distribution_version,
         generated_files=tuple(sorted(files)),
     )
 
@@ -646,7 +779,153 @@ def _read_required_files(
 def _conformance_failure(
     code: ProductPackSourceConformanceErrorCode,
 ) -> ProductPackSourceConformanceResult:
-    return ProductPackSourceConformanceResult(False, code)
+    return ProductPackSourceConformanceResult(False, code, None, False)
+
+
+def _parse_python_distribution(
+    text: str,
+    manifest: ProductPackManifest,
+    identity: _DerivedIdentity,
+) -> Optional[str]:
+    try:
+        value = tomllib.loads(text)
+    except (ValueError, RecursionError, OverflowError):
+        return None
+    if type(value) is not dict or set(value) != {"build-system", "project", "tool"}:
+        return None
+    build_system = value.get("build-system")
+    if build_system != {
+        "requires": ["setuptools>=68"],
+        "build-backend": "setuptools.build_meta",
+    }:
+        return None
+    project = value.get("project")
+    if type(project) is not dict or set(project) != {
+        "name",
+        "version",
+        "description",
+        "requires-python",
+        "entry-points",
+    }:
+        return None
+    distribution_version = project.get("version")
+    if (
+        project.get("name") != identity.distribution_name
+        or not _is_canonical_distribution_version(distribution_version)
+        or project.get("description") != "External PMQA Product Pack manifest"
+        or project.get("requires-python") != ">=3.9"
+        or project.get("entry-points")
+        != {
+            "pmqa.product_packs": {
+                manifest.pack_id: (
+                    identity.python_package_name
+                    + ".manifest:PRODUCT_PACK_MANIFEST"
+                )
+            }
+        }
+    ):
+        return None
+    tool = value.get("tool")
+    if type(tool) is not dict or set(tool) != {"setuptools"}:
+        return None
+    setuptools = tool.get("setuptools")
+    if type(setuptools) is not dict or set(setuptools) != {"packages"}:
+        return None
+    packages = setuptools.get("packages")
+    if type(packages) is not dict or set(packages) != {"find"}:
+        return None
+    if packages.get("find") != {
+        "where": ["src"],
+        "include": [identity.python_package_name],
+        "namespaces": False,
+    }:
+        return None
+    return distribution_version
+
+
+def _has_valid_dependency_map(value: object, allowed_names) -> bool:
+    return (
+        type(value) is dict
+        and set(value).issubset(allowed_names)
+        and all(
+            type(name) is str
+            and type(version) is str
+            and _EXACT_NPM_VERSION_PATTERN.fullmatch(version) is not None
+            for name, version in value.items()
+        )
+    )
+
+
+def _is_valid_bridge_package(
+    text: str,
+    manifest: ProductPackManifest,
+    identity: _DerivedIdentity,
+) -> bool:
+    try:
+        value = json.loads(
+            text,
+            object_pairs_hook=_unique_object,
+            parse_constant=_reject_constant,
+        )
+    except (ValueError, RecursionError, OverflowError):
+        return False
+    if type(value) is not dict or text != (
+        json.dumps(value, indent=2, ensure_ascii=False) + "\n"
+    ):
+        return False
+    allowed_keys = {
+        "name",
+        "version",
+        "private",
+        "type",
+        "engines",
+        "scripts",
+        "dependencies",
+        "devDependencies",
+    }
+    if not set(value).issubset(allowed_keys):
+        return False
+    if (
+        value.get("name") != identity.distribution_name + "-bridge"
+        or value.get("version") != manifest.pack_version
+        or value.get("private") is not True
+        or value.get("type") != "module"
+        or value.get("engines") != {"node": ">=20"}
+        or value.get("scripts") != {"build": "tsc -p tsconfig.json"}
+    ):
+        return False
+    dependencies = value.get("dependencies", {})
+    development = value.get("devDependencies", {})
+    if not _has_valid_dependency_map(
+        dependencies,
+        {"playwright", "@playwright/test"},
+    ) or not _has_valid_dependency_map(
+        development,
+        {"playwright", "@playwright/test", "typescript", "@types/node"},
+    ):
+        return False
+    playwright_names = {
+        name
+        for name in tuple(dependencies) + tuple(development)
+        if name in {"playwright", "@playwright/test"}
+    }
+    return len(playwright_names) <= 1
+
+
+def _backend_source_state(
+    source: str,
+) -> Optional[ProductPackBackendSourceState]:
+    if source == _product_backend_ts():
+        return ProductPackBackendSourceState.PLACEHOLDER
+    if "\x00" in source:
+        return None
+    structural_source = _TYPESCRIPT_NONCODE_PATTERN.sub(" ", source)
+    if (
+        len(_PRODUCT_BACKEND_FACTORY_PATTERN.findall(structural_source)) == 1
+        and "ProductCaptureBackend" in structural_source
+    ):
+        return ProductPackBackendSourceState.CUSTOM
+    return None
 
 
 def validate_product_pack_source(
@@ -676,6 +955,7 @@ def validate_product_pack_source(
         "bridge/package.json",
         "bridge/src/capture_backend.ts",
         "bridge/src/main.ts",
+        "bridge/src/product_backend.ts",
         "bridge/src/protocol.ts",
         "bridge/tsconfig.json",
         "product-pack.json",
@@ -717,8 +997,17 @@ def validate_product_pack_source(
         return _conformance_failure(
             ProductPackSourceConformanceErrorCode.INVALID_PYTHON_DISTRIBUTION
         )
-    expected_files = _render_files(manifest)
-    for relative_path in package_files + ("pyproject.toml", "tests/test_manifest.py"):
+    distribution_version = _parse_python_distribution(
+        files["pyproject.toml"],
+        manifest,
+        identity,
+    )
+    if distribution_version is None:
+        return _conformance_failure(
+            ProductPackSourceConformanceErrorCode.INVALID_PYTHON_DISTRIBUTION
+        )
+    expected_files = _render_files(manifest, distribution_version)
+    for relative_path in package_files + ("tests/test_manifest.py",):
         actual = (
             python_files[relative_path]
             if relative_path in python_files
@@ -730,17 +1019,35 @@ def validate_product_pack_source(
             )
 
     bridge_files = (
-        "bridge/package.json",
         "bridge/tsconfig.json",
         "bridge/src/protocol.ts",
         "bridge/src/capture_backend.ts",
         "bridge/src/main.ts",
     )
-    if any(files[path] != expected_files[path] for path in bridge_files):
+    if (
+        any(files[path] != expected_files[path] for path in bridge_files)
+        or not _is_valid_bridge_package(
+            files["bridge/package.json"],
+            manifest,
+            identity,
+        )
+    ):
         return _conformance_failure(
             ProductPackSourceConformanceErrorCode.INVALID_BRIDGE_SOURCE
         )
-    return ProductPackSourceConformanceResult(True, None)
+    backend_state = _backend_source_state(
+        files["bridge/src/product_backend.ts"]
+    )
+    if backend_state is None:
+        return _conformance_failure(
+            ProductPackSourceConformanceErrorCode.INVALID_BRIDGE_SOURCE
+        )
+    return ProductPackSourceConformanceResult(
+        True,
+        None,
+        backend_state,
+        False,
+    )
 
 
 def _raise_scaffold_error(code: ProductPackScaffoldErrorCode) -> None:
@@ -749,6 +1056,7 @@ def _raise_scaffold_error(code: ProductPackScaffoldErrorCode) -> None:
 
 __all__ = [
     "PRODUCT_PACK_SCAFFOLD_VERSION",
+    "ProductPackBackendSourceState",
     "ProductPackScaffoldError",
     "ProductPackScaffoldErrorCode",
     "ProductPackScaffoldRequest",
