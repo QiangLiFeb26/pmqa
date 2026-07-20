@@ -107,11 +107,15 @@ may never depend on, search for, or eagerly import a pack. The demo pack
 contains the bounded SauceDemo vertical slice in this repository.
 
 Task 5A.1 adds the experimental, product-neutral manifest contract in
-`pmqa.product_pack`. It carries only strict versioned identity and a bounded
-capability declaration; it does not discover, load, configure, or execute a
-Product Pack. The long-term logical boundaries, ownership, version axes,
-external-pack direction, and future TypeScript execution trust boundary are
-defined in the
+`pmqa.product_pack`. Task 5A.2 adds distribution-scoped loading of manifest
+metadata: an operator supplies one installed distribution and a complete
+expected manifest, and PMQA requires one `pmqa.product_packs` entry point named
+for the expected `pack_id` plus exact manifest equality. It performs no global
+discovery or arbitrary-path loading and does not configure or execute product
+adapters. Loading the approved Python distribution executes trusted Python
+import behavior and is not sandboxing. The long-term logical boundaries,
+ownership, version axes, external-pack direction, and future TypeScript
+execution trust boundary are defined in the
 [Product Pack adoption architecture](architecture/product-pack-adoption.md).
 
 ### Memory

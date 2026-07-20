@@ -2,9 +2,10 @@
 
 ## Status
 
-Task 5A.1 records an experimental architecture decision and manifest contract.
-It is an implementation checkpoint ready for architecture review, not a stable
-Product Pack SDK or a commitment that API version 1 is complete.
+Task 5A.1 records the experimental architecture decision and manifest contract.
+Task 5A.2 adds explicit external manifest loading and is ready for architecture
+review. These checkpoints are not a stable Product Pack SDK or a commitment
+that API version 1 is complete.
 
 ## Decision
 
@@ -12,7 +13,7 @@ PMQA uses three logical boundaries:
 
 ```text
 PMQA Core
-    <- stable Product Pack API
+    <- versioned Product Pack API
 Private/external Product Pack
     <- safe adapter or future versioned bridge
 Consumer product and existing E2E automation
@@ -26,8 +27,9 @@ repository. Consumer teams would normally maintain only their owned directory
 inside the private Product Pack repository.
 
 The Task 5A.1 manifest is deliberately small. It contains only versioned
-identity and a bounded capability declaration. It does not locate, load,
-register, configure, or execute a Product Pack.
+identity and a bounded capability declaration. Task 5A.2 can load that metadata
+from one explicitly selected installed distribution; it does not register,
+configure, or execute product adapters.
 
 ## Ownership
 
@@ -59,12 +61,35 @@ The consumer product team owns:
   dependency.
 - A Product Pack must not import product source across repositories through
   relative filesystem paths.
-- A later task must make external loading an explicit operator
-  configuration.
+- External loading requires an explicit operator-approved distribution name
+  and complete expected manifest.
 - PMQA must not automatically scan arbitrary directories for Product Packs.
 
-Task 5A.1 implements none of the external loading, discovery, registry, or
-repository integration described as future work.
+Task 5A.2 implements no automatic discovery, registry, arbitrary-path loading,
+or repository integration.
+
+## Explicit external manifest loading
+
+Task 5A.2 inspects only the installed distribution explicitly named in a
+`ProductPackLoadRequest`. Python distribution names are normalized to lowercase
+ASCII so `.`, `_`, and repeated `-` aliases have one hyphenated form.
+The loader never enumerates global entry points or installed distributions,
+scans directories, changes `sys.path`, installs a package, or loads a repository
+path.
+
+The fixed entry-point group is `pmqa.product_packs`. Within the selected
+distribution, exactly one entry point must have a name equal to the expected
+manifest's `pack_id`. Its value must resolve to a plain dictionary. PMQA
+reconstructs that dictionary through `ProductPackManifest.from_dict()` and
+requires complete contract equality with the operator-approved expected
+manifest. The immutable result retains only the canonical distribution name
+and validated manifest; it is not workflow state.
+
+The manifest payload is untrusted serialized data. In contrast, the explicitly
+selected installed Python distribution is operator-approved trusted code:
+calling `EntryPoint.load()` performs normal Python import execution and is not
+a sandbox. PMQA does not make arbitrary packages safe. Future TypeScript
+execution isolation is separate Task 5A.3 work.
 
 ## Version model
 
@@ -144,4 +169,4 @@ The planned evidence-driven sequence is:
 6. company-side, read-only MDE pilot; and
 7. API v1 stabilization after evidence from both SauceDemo and MDE.
 
-Task 5A.2 and later steps have not started. Task 6 and Task 7 have not started.
+Task 5A.3 and later steps have not started. Task 6 and Task 7 have not started.

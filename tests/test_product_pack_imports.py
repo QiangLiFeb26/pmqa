@@ -12,11 +12,17 @@ def test_product_pack_import_is_neutral_and_side_effect_free() -> None:
             "assert pmqa.product_pack.ProductPackManifest",
             "assert pmqa.product_pack.ProductPackCapability",
             "assert pmqa.product_pack.ProductPackManifestValidationError",
+            "assert pmqa.product_pack.ProductPackLoadRequest",
+            "assert pmqa.product_pack.LoadedProductPack",
+            "assert pmqa.product_pack.ProductPackLoadError",
+            "assert pmqa.product_pack.ProductPackLoadFailureCode",
+            "assert pmqa.product_pack.load_product_pack_manifest",
             "blocked = ('products.demo', 'playwright', 'langgraph', "
             "'pmqa.runtime', 'pmqa.supervisor', 'pmqa.orchestration')",
             "for prefix in blocked:",
             "    assert not any(name == prefix or name.startswith(prefix + '.') "
             "for name in sys.modules), prefix",
+            "assert 'external_demo_pack' not in sys.modules",
         ]
     )
 

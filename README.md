@@ -198,13 +198,16 @@ through PR #20. Its final branch head was
 authoritative SauceDemo workflow, and the legacy `explore` and `generate`
 commands remain retired.
 
-Task 5A — Product Pack Adoption Foundation is the next planned phase before
-the existing Task 6 recommendation work and is now in progress at Task 5A.1.
-That checkpoint adds only an experimental, strict Product Pack manifest and
-the architecture contract for future adoption. External loading, a TypeScript
-bridge, scaffolding, SauceDemo migration, and a future MDE pilot have not
-started; this is not yet a stable Product Pack SDK v1. Task 6 and Task 7 have
-not started. See the [authoritative roadmap](docs/Roadmap.md) for phase status
-and the
+Task 5A — Product Pack Adoption Foundation is the next phase before the
+existing Task 6 recommendation work and is in progress through Task 5A.2.
+Task 5A.1 adds the experimental strict manifest and architecture contract;
+Task 5A.2 explicitly loads only manifest metadata from one approved installed
+distribution and requires complete equality with an expected manifest. It
+does not discover packs globally, load arbitrary paths, run adapters or
+browsers, or provide sandboxing. The selected distribution is trusted Python
+code. The TypeScript bridge, scaffolding, SauceDemo migration, and future MDE
+pilot have not started; this is not yet a stable Product Pack SDK v1. Task 6
+and Task 7 have not started. See the
+[authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)
 for the dependency, ownership, trust-boundary, and versioning decisions.
