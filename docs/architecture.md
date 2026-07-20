@@ -102,9 +102,17 @@ domain agents and tools through a product-owned application boundary.
 ### Product Pack
 
 A product pack is the only home for product-specific configuration, selectors,
-rules, and adapters. Add a sibling of `products/demo/` for a new product. A
-pack may depend on public framework types; the framework may never depend on a
-pack. The demo pack contains the bounded SauceDemo vertical slice.
+rules, and adapters. A pack may depend on public framework types; the framework
+may never depend on, search for, or eagerly import a pack. The demo pack
+contains the bounded SauceDemo vertical slice in this repository.
+
+Task 5A.1 adds the experimental, product-neutral manifest contract in
+`pmqa.product_pack`. It carries only strict versioned identity and a bounded
+capability declaration; it does not discover, load, configure, or execute a
+Product Pack. The long-term logical boundaries, ownership, version axes,
+external-pack direction, and future TypeScript execution trust boundary are
+defined in the
+[Product Pack adoption architecture](architecture/product-pack-adoption.md).
 
 ### Memory
 
@@ -244,6 +252,7 @@ miscellaneous helpers without a concrete shared use case.
 | Knowledge relationships | `pmqa/graph/` |
 | Provider implementation for persistence | `pmqa/storage/` |
 | Product configuration or adapter | `products/<product>/` |
+| Product Pack manifest contract | `pmqa/product_pack/` |
 
 If ownership is unclear, leave a TODO near the caller until a concrete use case
 establishes the correct boundary.

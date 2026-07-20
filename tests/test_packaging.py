@@ -116,6 +116,8 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         ]
 
         assert "pmqa/__init__.py" in names
+        assert "pmqa/product_pack/__init__.py" in names
+        assert "pmqa/product_pack/manifest.py" in names
         assert REQUIRED_PRODUCT_MODULES <= names
         assert "products/demo/config/product.json" in names
         assert len(entry_point_files) == 1
@@ -191,11 +193,14 @@ sys.meta_path[:] = [
 ]
 
 import pmqa
+import pmqa.product_pack
 import products.demo
 import products.demo.application
 from products.demo.config import load_config, validate_config
 
-modules = (pmqa, products.demo, products.demo.application)
+assert pmqa.product_pack.ProductPackManifest
+assert pmqa.product_pack.ProductPackCapability
+modules = (pmqa, pmqa.product_pack, products.demo, products.demo.application)
 for module in modules:
     module_path = Path(module.__file__).resolve()
     module_path.relative_to(distribution)

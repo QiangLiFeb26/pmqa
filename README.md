@@ -199,9 +199,12 @@ authoritative SauceDemo workflow, and the legacy `explore` and `generate`
 commands remain retired.
 
 Task 5A — Product Pack Adoption Foundation is the next planned phase before
-the existing Task 6 recommendation work. It has not started; its high-level
-scope is a reusable Product Pack contract, explicit external/private Product
-Packs, a safe versioned TypeScript Playwright bridge, pack validation and
-scaffolding, and validation with SauceDemo before a future MDE pilot. Task 6
-and Task 7 have not started. See the
-[authoritative roadmap](docs/Roadmap.md) for phase status.
+the existing Task 6 recommendation work and is now in progress at Task 5A.1.
+That checkpoint adds only an experimental, strict Product Pack manifest and
+the architecture contract for future adoption. External loading, a TypeScript
+bridge, scaffolding, SauceDemo migration, and a future MDE pilot have not
+started; this is not yet a stable Product Pack SDK v1. Task 6 and Task 7 have
+not started. See the [authoritative roadmap](docs/Roadmap.md) for phase status
+and the
+[Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)
+for the dependency, ownership, trust-boundary, and versioning decisions.
