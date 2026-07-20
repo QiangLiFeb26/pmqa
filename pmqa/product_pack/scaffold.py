@@ -7,7 +7,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import stat
 import sys
 import tempfile
@@ -28,6 +27,12 @@ PRODUCT_PACK_SCAFFOLD_VERSION = "1"
 _MAX_PATH_LENGTH = 4096
 _MAX_CONTROL_FILE_BYTES = 256 * 1024
 _MAX_DISTRIBUTION_VERSION_LENGTH = 128
+_CONTROL_FLOW_ERROR_TYPES = (
+    MemoryError,
+    KeyboardInterrupt,
+    SystemExit,
+    GeneratorExit,
+)
 _SEPARATOR_PATTERN = re.compile(r"[._-]+", flags=re.ASCII)
 _EXACT_NPM_VERSION_PATTERN = re.compile(
     r"^(0|[1-9][0-9]*)\."
@@ -240,6 +245,15 @@ class ProductPackSourceConformanceResult:
 class _DerivedIdentity:
     distribution_name: str
     python_package_name: str
+
+
+@dataclass(frozen=True)
+class _TemporaryDirectoryOwnership:
+    path: Path
+    parent_descriptor: int
+    directory_descriptor: int
+    device: int
+    inode: int
 
 
 def _are_valid_generated_files(value: object, package_name: str) -> bool:
@@ -648,9 +662,198 @@ def _write_files(root: Path, files: Dict[str, str]) -> None:
             stream.write(files[relative_path])
 
 
-def _remove_private_temporary_directory(path: Path, parent: Path) -> None:
-    if path.parent == parent and path.name.startswith(".pmqa-scaffold-"):
-        shutil.rmtree(path, ignore_errors=True)
+def _directory_open_flags() -> int:
+    return (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+
+
+def _capture_temporary_directory_ownership(
+    path: Path,
+) -> _TemporaryDirectoryOwnership:
+    parent_descriptor = os.open(str(path.parent), _directory_open_flags())
+    try:
+        directory_descriptor = os.open(
+            path.name,
+            _directory_open_flags(),
+            dir_fd=parent_descriptor,
+        )
+    except BaseException:
+        os.close(parent_descriptor)
+        raise
+    try:
+        identity = os.fstat(directory_descriptor)
+        if not stat.S_ISDIR(identity.st_mode):
+            raise OSError()
+    except BaseException:
+        os.close(directory_descriptor)
+        os.close(parent_descriptor)
+        raise
+    return _TemporaryDirectoryOwnership(
+        path=path,
+        parent_descriptor=parent_descriptor,
+        directory_descriptor=directory_descriptor,
+        device=identity.st_dev,
+        inode=identity.st_ino,
+    )
+
+
+def _same_directory_identity(value, expected_device: int, expected_inode: int) -> bool:
+    return (
+        stat.S_ISDIR(value.st_mode)
+        and value.st_dev == expected_device
+        and value.st_ino == expected_inode
+    )
+
+
+def _remove_owned_directory_contents(directory_descriptor: int) -> bool:
+    with os.scandir(directory_descriptor) as entries:
+        names = tuple(entry.name for entry in entries)
+    for name in names:
+        before = os.stat(
+            name,
+            dir_fd=directory_descriptor,
+            follow_symlinks=False,
+        )
+        if stat.S_ISDIR(before.st_mode):
+            child_descriptor = os.open(
+                name,
+                _directory_open_flags(),
+                dir_fd=directory_descriptor,
+            )
+            try:
+                opened = os.fstat(child_descriptor)
+                if not _same_directory_identity(
+                    opened,
+                    before.st_dev,
+                    before.st_ino,
+                ):
+                    return False
+                if not _remove_owned_directory_contents(child_descriptor):
+                    return False
+                current = os.stat(
+                    name,
+                    dir_fd=directory_descriptor,
+                    follow_symlinks=False,
+                )
+                if not _same_directory_identity(
+                    current,
+                    opened.st_dev,
+                    opened.st_ino,
+                ):
+                    return False
+                os.rmdir(name, dir_fd=directory_descriptor)
+            finally:
+                os.close(child_descriptor)
+        else:
+            current = os.stat(
+                name,
+                dir_fd=directory_descriptor,
+                follow_symlinks=False,
+            )
+            if (
+                current.st_dev != before.st_dev
+                or current.st_ino != before.st_ino
+                or stat.S_IFMT(current.st_mode) != stat.S_IFMT(before.st_mode)
+            ):
+                return False
+            os.unlink(name, dir_fd=directory_descriptor)
+    return True
+
+
+def _remove_owned_temporary_directory(
+    ownership: _TemporaryDirectoryOwnership,
+) -> None:
+    original = os.fstat(ownership.directory_descriptor)
+    if not _same_directory_identity(
+        original,
+        ownership.device,
+        ownership.inode,
+    ):
+        return
+    current = os.stat(
+        ownership.path.name,
+        dir_fd=ownership.parent_descriptor,
+        follow_symlinks=False,
+    )
+    if not _same_directory_identity(
+        current,
+        ownership.device,
+        ownership.inode,
+    ):
+        return
+    candidate_descriptor = os.open(
+        ownership.path.name,
+        _directory_open_flags(),
+        dir_fd=ownership.parent_descriptor,
+    )
+    try:
+        candidate = os.fstat(candidate_descriptor)
+        if not _same_directory_identity(
+            candidate,
+            ownership.device,
+            ownership.inode,
+        ):
+            return
+        if not _remove_owned_directory_contents(candidate_descriptor):
+            return
+        current = os.stat(
+            ownership.path.name,
+            dir_fd=ownership.parent_descriptor,
+            follow_symlinks=False,
+        )
+        if not _same_directory_identity(
+            current,
+            ownership.device,
+            ownership.inode,
+        ):
+            return
+        os.rmdir(
+            ownership.path.name,
+            dir_fd=ownership.parent_descriptor,
+        )
+    finally:
+        os.close(candidate_descriptor)
+
+
+def _release_temporary_directory_ownership(
+    ownership: _TemporaryDirectoryOwnership,
+) -> None:
+    for descriptor in (
+        ownership.directory_descriptor,
+        ownership.parent_descriptor,
+    ):
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+
+
+def _cleanup_temporary_directory_safely(
+    ownership: _TemporaryDirectoryOwnership,
+) -> None:
+    active_control_flow = isinstance(
+        sys.exc_info()[1],
+        _CONTROL_FLOW_ERROR_TYPES,
+    )
+    cleanup_control_flow = None
+    try:
+        _remove_owned_temporary_directory(ownership)
+    except _CONTROL_FLOW_ERROR_TYPES as error:
+        cleanup_control_flow = error
+    except BaseException:
+        pass
+    try:
+        _release_temporary_directory_ownership(ownership)
+    except _CONTROL_FLOW_ERROR_TYPES as error:
+        if cleanup_control_flow is None:
+            cleanup_control_flow = error
+    except BaseException:
+        pass
+    if cleanup_control_flow is not None and not active_control_flow:
+        raise cleanup_control_flow
 
 
 def _publish_directory_no_replace(source: Path, target: Path) -> None:
@@ -701,13 +904,15 @@ def scaffold_product_pack(
     temporary = None
     failure = None
     try:
-        temporary = Path(
+        temporary_path = Path(
             tempfile.mkdtemp(prefix=".pmqa-scaffold-", dir=str(target.parent))
         )
-        _write_files(temporary, files)
+        temporary = _capture_temporary_directory_ownership(temporary_path)
+        _write_files(temporary.path, files)
         if _path_exists_or_is_symlink(target):
             _raise_scaffold_error(ProductPackScaffoldErrorCode.TARGET_EXISTS)
-        _publish_directory_no_replace(temporary, target)
+        _publish_directory_no_replace(temporary.path, target)
+        _release_temporary_directory_ownership(temporary)
         temporary = None
     except ProductPackScaffoldError:
         raise
@@ -719,7 +924,7 @@ def scaffold_product_pack(
         failure = ProductPackScaffoldErrorCode.GENERATION_FAILED
     finally:
         if temporary is not None:
-            _remove_private_temporary_directory(temporary, target.parent)
+            _cleanup_temporary_directory_safely(temporary)
     if failure is not None:
         _raise_scaffold_error(failure)
 

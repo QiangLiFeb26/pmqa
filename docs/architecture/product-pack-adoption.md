@@ -243,6 +243,17 @@ during the final race window is preserved byte-for-byte and by identity; only
 the invocation-owned private temporary sibling is cleaned up. Atomic visibility
 is therefore claimed only where the supported no-replace primitive succeeds.
 
+Temporary cleanup is authorized by an invocation-owned directory descriptor
+and recorded device/inode identity, not by the temporary path or its
+`.pmqa-scaffold-` prefix. On descriptor-capable platforms, recursive cleanup is
+directory-descriptor-relative, rejects symlinks, and rechecks identity before
+removing directory entries. If the original temporary directory is moved or
+its pathname is replaced, PMQA preserves the replacement object and may leave
+the moved invocation-owned directory as a conservative orphan. Identity or
+cleanup inspection failures likewise preserve the questionable path. The
+primary invariant is that PMQA never deletes an unowned replacement object;
+ordinary non-adversarial failures still remove the owned temporary directory.
+
 ## Adoption sequence
 
 The planned evidence-driven sequence is:

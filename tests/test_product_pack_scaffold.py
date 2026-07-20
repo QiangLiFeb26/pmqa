@@ -249,6 +249,231 @@ def test_publication_memory_and_control_flow_errors_propagate(
     assert not tuple(tmp_path.glob(".pmqa-scaffold-*"))
 
 
+@pytest.mark.parametrize(
+    "replacement_kind",
+    ["empty-directory", "nonempty-directory", "file", "symlink"],
+)
+def test_temporary_path_substitution_never_deletes_replacement(
+    tmp_path,
+    monkeypatch,
+    replacement_kind: str,
+) -> None:
+    target = tmp_path / "target"
+    moved_original = tmp_path / ("moved-original-" + replacement_kind)
+    symlink_destination = tmp_path / "external-directory"
+    observed = {}
+    recursive_calls = []
+    original_remove = scaffold_module._remove_owned_directory_contents
+
+    def observed_remove(descriptor):
+        recursive_calls.append(descriptor)
+        return original_remove(descriptor)
+
+    def substitute_then_fail(source, destination):
+        source.rename(moved_original)
+        if replacement_kind == "empty-directory":
+            source.mkdir(mode=0o750)
+        elif replacement_kind == "nonempty-directory":
+            source.mkdir(mode=0o750)
+            (source / "operator-owned.txt").write_text(
+                "operator-owned-marker",
+                encoding="utf-8",
+            )
+        elif replacement_kind == "file":
+            source.write_text("operator-owned-marker", encoding="utf-8")
+            source.chmod(0o640)
+        else:
+            symlink_destination.mkdir()
+            (symlink_destination / "operator-owned.txt").write_text(
+                "operator-owned-marker",
+                encoding="utf-8",
+            )
+            source.symlink_to(symlink_destination, target_is_directory=True)
+        identity = source.lstat()
+        observed["path"] = source
+        observed["inode"] = identity.st_ino
+        observed["mode"] = stat.S_IMODE(identity.st_mode)
+        raise OSError("runtime-secret-marker publication detail")
+
+    monkeypatch.setattr(
+        scaffold_module,
+        "_remove_owned_directory_contents",
+        observed_remove,
+    )
+    monkeypatch.setattr(
+        scaffold_module,
+        "_publish_directory_no_replace",
+        substitute_then_fail,
+    )
+
+    with pytest.raises(ProductPackScaffoldError) as captured:
+        scaffold_product_pack(
+            ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
+        )
+
+    replacement = observed["path"]
+    formatted = "".join(
+        traceback.format_exception(
+            type(captured.value),
+            captured.value,
+            captured.value.__traceback__,
+        )
+    )
+    assert captured.value.code is ProductPackScaffoldErrorCode.GENERATION_FAILED
+    assert captured.value.args == ("Product Pack scaffold generation failed",)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+    assert "runtime-secret-marker" not in formatted
+    assert "operator-owned-marker" not in formatted
+    assert str(replacement) not in formatted
+    assert replacement.lstat().st_ino == observed["inode"]
+    assert stat.S_IMODE(replacement.lstat().st_mode) == observed["mode"]
+    if replacement_kind == "empty-directory":
+        assert tuple(replacement.iterdir()) == ()
+    elif replacement_kind == "nonempty-directory":
+        assert _file_bytes(replacement) == {
+            "operator-owned.txt": b"operator-owned-marker"
+        }
+    elif replacement_kind == "file":
+        assert replacement.read_text(encoding="utf-8") == (
+            "operator-owned-marker"
+        )
+    else:
+        assert replacement.is_symlink()
+        assert replacement.readlink() == symlink_destination
+        assert _file_bytes(symlink_destination) == {
+            "operator-owned.txt": b"operator-owned-marker"
+        }
+    assert recursive_calls == []
+    assert moved_original.is_dir()
+    assert target.exists() is False
+
+
+def test_ordinary_publication_failure_removes_owned_temporary_directory(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    target = tmp_path / "target"
+
+    def fail_publication(source, destination):
+        raise OSError("runtime-secret-marker")
+
+    monkeypatch.setattr(
+        scaffold_module,
+        "_publish_directory_no_replace",
+        fail_publication,
+    )
+    with pytest.raises(ProductPackScaffoldError) as captured:
+        scaffold_product_pack(
+            ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
+        )
+
+    assert captured.value.code is ProductPackScaffoldErrorCode.GENERATION_FAILED
+    assert not tuple(tmp_path.glob(".pmqa-scaffold-*"))
+    assert not target.exists()
+
+
+def test_identity_inspection_failure_preserves_questionable_temporary_path(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    target = tmp_path / "target"
+    cleanup_started = []
+    original_stat = scaffold_module.os.stat
+
+    def fail_publication(source, destination):
+        cleanup_started.append(True)
+        raise OSError("publication detail")
+
+    def guarded_stat(*args, **kwargs):
+        if cleanup_started and kwargs.get("dir_fd") is not None:
+            raise OSError("identity detail")
+        return original_stat(*args, **kwargs)
+
+    monkeypatch.setattr(
+        scaffold_module,
+        "_publish_directory_no_replace",
+        fail_publication,
+    )
+    monkeypatch.setattr(scaffold_module.os, "stat", guarded_stat)
+
+    with pytest.raises(ProductPackScaffoldError) as captured:
+        scaffold_product_pack(
+            ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
+        )
+
+    assert captured.value.code is ProductPackScaffoldErrorCode.GENERATION_FAILED
+    assert len(tuple(tmp_path.glob(".pmqa-scaffold-*"))) == 1
+    assert not target.exists()
+
+
+@pytest.mark.parametrize("cleanup_error", [OSError, MemoryError])
+def test_cleanup_errors_do_not_mask_control_flow_exception(
+    tmp_path,
+    monkeypatch,
+    cleanup_error,
+) -> None:
+    target = tmp_path / "target"
+
+    def interrupt_publication(source, destination):
+        raise KeyboardInterrupt()
+
+    def fail_cleanup(ownership):
+        raise cleanup_error()
+
+    monkeypatch.setattr(
+        scaffold_module,
+        "_publish_directory_no_replace",
+        interrupt_publication,
+    )
+    monkeypatch.setattr(
+        scaffold_module,
+        "_remove_owned_temporary_directory",
+        fail_cleanup,
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        scaffold_product_pack(
+            ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
+        )
+    assert len(tuple(tmp_path.glob(".pmqa-scaffold-*"))) == 1
+    assert not target.exists()
+
+
+@pytest.mark.parametrize(
+    "cleanup_error",
+    [MemoryError, KeyboardInterrupt, SystemExit, GeneratorExit],
+)
+def test_cleanup_control_flow_errors_propagate_without_active_control_flow(
+    tmp_path,
+    monkeypatch,
+    cleanup_error,
+) -> None:
+    target = tmp_path / "target"
+
+    def fail_publication(source, destination):
+        raise OSError()
+
+    def interrupt_cleanup(ownership):
+        raise cleanup_error()
+
+    monkeypatch.setattr(
+        scaffold_module,
+        "_publish_directory_no_replace",
+        fail_publication,
+    )
+    monkeypatch.setattr(
+        scaffold_module,
+        "_remove_owned_temporary_directory",
+        interrupt_cleanup,
+    )
+
+    with pytest.raises(cleanup_error):
+        scaffold_product_pack(
+            ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
+        )
+
+
 def test_platform_without_no_replace_primitive_fails_closed(
     tmp_path,
     monkeypatch,
@@ -264,6 +489,68 @@ def test_platform_without_no_replace_primitive_fails_closed(
     assert captured.value.code is ProductPackScaffoldErrorCode.GENERATION_FAILED
     assert not target.exists()
     assert not tuple(tmp_path.glob(".pmqa-scaffold-*"))
+
+
+def test_windows_publication_uses_native_no_replace_rename(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    calls = []
+    monkeypatch.setattr(scaffold_module.os, "name", "nt")
+    monkeypatch.setattr(
+        scaffold_module.os,
+        "rename",
+        lambda old, new: calls.append((old, new)),
+    )
+
+    scaffold_module._publish_directory_no_replace(source, target)
+
+    assert calls == [(str(source), str(target))]
+
+
+@pytest.mark.parametrize(
+    ("platform", "function_name", "expected_flag"),
+    [
+        ("darwin", "renamex_np", 0x00000004),
+        ("linux", "renameat2", 0x00000001),
+    ],
+)
+def test_posix_publication_keeps_atomic_no_replace_policy(
+    tmp_path,
+    monkeypatch,
+    platform: str,
+    function_name: str,
+    expected_flag: int,
+) -> None:
+    calls = []
+
+    class FakeFunction:
+        argtypes = None
+        restype = None
+
+        def __call__(self, *args):
+            calls.append(args)
+            return 0
+
+    class FakeLibC:
+        pass
+
+    function = FakeFunction()
+    libc = FakeLibC()
+    setattr(libc, function_name, function)
+    monkeypatch.setattr(scaffold_module.os, "name", "posix")
+    monkeypatch.setattr(scaffold_module.sys, "platform", platform)
+    monkeypatch.setattr(scaffold_module.ctypes, "CDLL", lambda *args, **kwargs: libc)
+
+    scaffold_module._publish_directory_no_replace(
+        tmp_path / "source",
+        tmp_path / "target",
+    )
+
+    assert len(calls) == 1
+    assert calls[0][-1] == expected_flag
 
 
 @pytest.mark.parametrize("existing_kind", ["file", "empty-directory", "nonempty"])
