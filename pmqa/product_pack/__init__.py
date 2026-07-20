@@ -3,6 +3,11 @@
 from pmqa.product_pack.manifest import (
     ProductPackCapability,
     ProductPackManifest,
+    ProductPackManifestValidationError,
 )
 
-__all__ = ["ProductPackCapability", "ProductPackManifest"]
+__all__ = [
+    "ProductPackCapability",
+    "ProductPackManifest",
+    "ProductPackManifestValidationError",
+]

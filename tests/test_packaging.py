@@ -200,6 +200,7 @@ from products.demo.config import load_config, validate_config
 
 assert pmqa.product_pack.ProductPackManifest
 assert pmqa.product_pack.ProductPackCapability
+assert pmqa.product_pack.ProductPackManifestValidationError
 modules = (pmqa, pmqa.product_pack, products.demo, products.demo.application)
 for module in modules:
     module_path = Path(module.__file__).resolve()

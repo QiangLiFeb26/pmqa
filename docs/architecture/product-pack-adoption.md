@@ -96,18 +96,30 @@ Its exact fields are:
 - `display_name`; and
 - `capabilities`.
 
-It has no free-form metadata or configuration mapping. Its bounded capability
-vocabulary covers exploration capture, knowledge mapping, knowledge
-validation, test generation, and test inventory. It does not grant access to
-credentials, repositories, providers, commands, or runtime objects.
+It has no credential, command, path, runtime-object, free-form metadata, or
+configuration field. Its bounded capability vocabulary covers exploration
+capture, knowledge mapping, knowledge validation, test generation, and test
+inventory; it grants no repository, provider, command-execution, or credential
+capability.
 
-The exact-field policy and strict validation prevent credentials, tokens,
-passwords, cookies, environment values, base URLs, selectors, DOM or HTML,
-filesystem and repository paths, callables, subprocess handles, browser
-objects, arbitrary entry points, command lines, and free-form configuration
-from entering the manifest. Validation errors hide input values. Importing the
-contract performs no file reads, environment access, discovery, or
-registration.
+All allowed field values are public, non-sensitive metadata. Product Pack
+authors must not encode secrets in `display_name`, identifiers, versions,
+capabilities, or any other allowed value. The manifest contract is not a
+secret scanner, DLP system, or PHI scrubber. Exact-field and strict validation
+reject undeclared fields and invalid runtime shapes; they do not detect secret
+content inside an otherwise valid string.
+
+Trusted internal code may construct `ProductPackManifest` directly and receive
+detailed Pydantic validation failures. Serialized or untrusted private/external
+manifest data must instead pass through `ProductPackManifest.from_dict()`,
+which converts expected validation failures into the fixed, bounded
+`ProductPackManifestValidationError`. That safe domain error can cross an
+application or CLI boundary. Raw external payloads and raw Pydantic structured
+errors must not be logged. The Task 5A.2 loader must use `from_dict()` rather
+than the constructor or `model_validate()`.
+
+Importing the contract performs no file reads, environment access, discovery,
+or registration.
 
 ## Future TypeScript execution boundary
 

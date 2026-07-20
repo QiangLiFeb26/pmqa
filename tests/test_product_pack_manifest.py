@@ -1,11 +1,17 @@
 """Tests for the experimental Product Pack manifest contract."""
 
+import copy
 import json
+import traceback
 
 import pytest
 from pydantic import ValidationError
 
-from pmqa.product_pack import ProductPackCapability, ProductPackManifest
+from pmqa.product_pack import (
+    ProductPackCapability,
+    ProductPackManifest,
+    ProductPackManifestValidationError,
+)
 
 
 ALL_CAPABILITIES = tuple(ProductPackCapability)
@@ -107,7 +113,7 @@ def test_unknown_fields_are_rejected() -> None:
     payload["metadata"] = {"arbitrary": True}
 
     with pytest.raises(ValidationError, match="metadata"):
-        ProductPackManifest.from_dict(payload)
+        ProductPackManifest(**payload)
 
 
 @pytest.mark.parametrize("field", ["schema_version", "product_pack_api_version"])
@@ -194,18 +200,21 @@ def test_blank_oversized_or_ambiguous_display_names_are_rejected(
         _manifest(display_name=display_name)
 
 
-def test_runtime_objects_are_rejected_without_leaking_repr() -> None:
+def test_external_runtime_object_is_rejected_without_leaking_repr() -> None:
     class RuntimeObject:
         def __repr__(self) -> str:
             return "RuntimeObject(secret=runtime-secret-marker)"
 
     payload = _manifest().to_dict()
-    payload["display_name"] = RuntimeObject()
+    runtime_object = RuntimeObject()
+    payload["display_name"] = runtime_object
 
-    with pytest.raises(ValidationError) as captured:
-        ProductPackManifest.from_dict(payload)
+    error, formatted = _external_validation_error(payload)
 
-    assert "runtime-secret-marker" not in str(captured.value)
+    assert payload["display_name"] is runtime_object
+    assert "runtime-secret-marker" not in formatted
+    assert "RuntimeObject" not in formatted
+    assert str(error) == "invalid Product Pack manifest"
 
 
 @pytest.mark.parametrize(
@@ -237,11 +246,12 @@ def test_sensitive_or_runtime_fields_cannot_enter_manifest(
 ) -> None:
     payload = _manifest().to_dict()
     payload[unexpected_field] = "runtime-secret-marker"
+    original = copy.deepcopy(payload)
 
-    with pytest.raises(ValidationError) as captured:
-        ProductPackManifest.from_dict(payload)
+    _, formatted = _external_validation_error(payload)
 
-    assert "runtime-secret-marker" not in str(captured.value)
+    assert payload == original
+    assert "runtime-secret-marker" not in formatted
 
 
 def test_validated_copy_update_cannot_bypass_validation() -> None:
@@ -278,6 +288,86 @@ def test_caller_owned_input_is_not_modified() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"unexpected": "external-secret-marker"},
+        {"capabilities": ["invalid-external-secret-marker"]},
+        {"schema_version": "2"},
+        {"product_pack_api_version": "2"},
+        {"pack_version": "v1-external-secret-marker"},
+        {"pack_id": "Invalid Pack"},
+        {"product_id": "invalid/product"},
+        {"capabilities": {"test_generation": True}},
+    ],
+)
+def test_external_manifest_failures_use_only_safe_domain_error(updates) -> None:
+    payload = _manifest().to_dict()
+    payload.update(updates)
+    original = copy.deepcopy(payload)
+
+    error, formatted = _external_validation_error(payload)
+
+    assert payload == original
+    assert str(error) == "invalid Product Pack manifest"
+    assert error.args == ("invalid Product Pack manifest",)
+    assert vars(error) == {}
+    assert not hasattr(error, "errors")
+    assert not hasattr(error, "json")
+    assert "external-secret-marker" not in formatted
+    assert "pydantic_core" not in formatted
+    assert "validation errors for ProductPackManifest" not in formatted
+    assert "input_value" not in formatted
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [None, [], "external-secret-marker", 1, True],
+)
+def test_wrong_external_top_level_json_type_fails_safely(payload) -> None:
+    original = copy.deepcopy(payload)
+
+    error, formatted = _external_validation_error(payload)
+
+    assert payload == original
+    assert error.args == ("invalid Product Pack manifest",)
+    assert "external-secret-marker" not in formatted
+    assert "pydantic_core" not in formatted
+    assert "validation errors for ProductPackManifest" not in formatted
+
+
+def test_trusted_constructor_keeps_detailed_pydantic_validation() -> None:
+    with pytest.raises(ValidationError, match="pack_version"):
+        _manifest(pack_version="not-semver")
+
+
+@pytest.mark.parametrize(
+    "unexpected_error",
+    [
+        RuntimeError("programming error"),
+        MemoryError(),
+        KeyboardInterrupt(),
+        SystemExit(),
+    ],
+)
+def test_external_boundary_does_not_catch_unexpected_failures(
+    monkeypatch,
+    unexpected_error,
+) -> None:
+    def fail_validation(cls, value):
+        _ = cls, value
+        raise unexpected_error
+
+    monkeypatch.setattr(
+        ProductPackManifest,
+        "model_validate",
+        classmethod(fail_validation),
+    )
+
+    with pytest.raises(type(unexpected_error)):
+        ProductPackManifest.from_dict({})
+
+
 def test_non_array_capabilities_are_rejected_safely() -> None:
     for invalid in ("test_generation", {"test_generation"}, object()):
         with pytest.raises(ValidationError) as captured:
@@ -297,3 +387,24 @@ def _manifest(**updates) -> ProductPackManifest:
     }
     values.update(updates)
     return ProductPackManifest(**values)
+
+
+def _external_validation_error(payload):
+    with pytest.raises(ProductPackManifestValidationError) as captured:
+        ProductPackManifest.from_dict(payload)
+
+    error = captured.value
+    formatted = "".join(
+        traceback.format_exception(
+            type(error),
+            error,
+            error.__traceback__,
+        )
+    )
+    assert str(error) == "invalid Product Pack manifest"
+    assert error.args == ("invalid Product Pack manifest",)
+    assert not hasattr(error, "errors")
+    assert not hasattr(error, "json")
+    assert error.__context__ is None
+    assert error.__cause__ is None
+    return error, formatted

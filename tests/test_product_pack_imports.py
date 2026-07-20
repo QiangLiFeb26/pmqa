@@ -11,6 +11,7 @@ def test_product_pack_import_is_neutral_and_side_effect_free() -> None:
             "import pmqa.product_pack",
             "assert pmqa.product_pack.ProductPackManifest",
             "assert pmqa.product_pack.ProductPackCapability",
+            "assert pmqa.product_pack.ProductPackManifestValidationError",
             "blocked = ('products.demo', 'playwright', 'langgraph', "
             "'pmqa.runtime', 'pmqa.supervisor', 'pmqa.orchestration')",
             "for prefix in blocked:",

@@ -2,9 +2,9 @@
 
 import re
 from enum import Enum
-from typing import Any, Dict, Literal, Mapping, Optional, Tuple
+from typing import Any, Dict, Literal, Optional, Tuple
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 
 _IDENTIFIER_PATTERN = re.compile(
@@ -23,6 +23,14 @@ _SEMANTIC_VERSION_PATTERN = re.compile(
 _MAX_IDENTIFIER_LENGTH = 64
 _MAX_SEMANTIC_VERSION_LENGTH = 128
 _MAX_DISPLAY_NAME_LENGTH = 120
+_INVALID_MANIFEST_MESSAGE = "invalid Product Pack manifest"
+
+
+class ProductPackManifestValidationError(ValueError):
+    """Reports a safe, bounded external manifest validation failure."""
+
+    def __init__(self) -> None:
+        super().__init__(_INVALID_MANIFEST_MESSAGE)
 
 
 class ProductPackCapability(str, Enum):
@@ -135,10 +143,14 @@ class ProductPackManifest(BaseModel):
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, Any]) -> "ProductPackManifest":
-        """Validate a JSON-decoded manifest without mutating caller input."""
+    def from_dict(cls, value: Any) -> "ProductPackManifest":
+        """Safely validate an untrusted JSON-decoded manifest object."""
 
-        return cls.model_validate(value)
+        try:
+            return cls.model_validate(value)
+        except ValidationError:
+            pass
+        raise ProductPackManifestValidationError() from None
 
     def model_copy(
         self,
