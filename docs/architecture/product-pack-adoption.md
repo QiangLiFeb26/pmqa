@@ -239,20 +239,25 @@ Publication uses an operating-system atomic no-replace directory primitive on
 macOS and Linux where available, and the native no-replace rename behavior on
 Windows. If a safe primitive is unavailable, scaffolding fails closed before
 publication rather than using a clobber-capable fallback. A target that appears
-during the final race window is preserved byte-for-byte and by identity; only
-the invocation-owned private temporary sibling is cleaned up. Atomic visibility
-is therefore claimed only where the supported no-replace primitive succeeds.
+during the final race window is preserved byte-for-byte and by identity. Atomic
+visibility is therefore claimed only where the supported no-replace primitive
+succeeds.
 
-Temporary cleanup is authorized by an invocation-owned directory descriptor
-and recorded device/inode identity, not by the temporary path or its
-`.pmqa-scaffold-` prefix. On descriptor-capable platforms, recursive cleanup is
-directory-descriptor-relative, rejects symlinks, and rechecks identity before
-removing directory entries. If the original temporary directory is moved or
-its pathname is replaced, PMQA preserves the replacement object and may leave
-the moved invocation-owned directory as a conservative orphan. Identity or
-cleanup inspection failures likewise preserve the questionable path. The
-primary invariant is that PMQA never deletes an unowned replacement object;
-ordinary non-adversarial failures still remove the owned temporary directory.
+The temporary directory is created as an unpredictable, restrictive
+`.pmqa-scaffold-*` sibling under the explicitly selected output parent. PMQA
+records ownership descriptors and closes each exactly once. Successful
+publication moves the directory into place and leaves no temporary sibling.
+After any failure following temporary creation, PMQA deliberately performs no
+recursive deletion, unlink, removal, rename, or replacement: it closes its
+descriptors and preserves the private tree as a conservative orphan. This rule
+also covers write failures, target races, unavailable publication primitives,
+unexpected publication failures, and control-flow exceptions, eliminating a
+check-to-delete race entirely. The orphan contains only generated scaffold
+source; credentials, environment files, browser state, traces, runtime output,
+and error details are never written there. Its path is not part of the public
+result or safe error surface. Operators may inspect and manually remove an
+orphan from the selected parent; PMQA provides no automatic orphan-cleanup
+command.
 
 ## Adoption sequence
 

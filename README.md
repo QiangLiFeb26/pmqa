@@ -230,14 +230,18 @@ prohibited. Product Pack `pack_version` stays SemVer, while the required
 `--distribution-version` is an independent canonical PEP 440 version used by
 the Python distribution. Publication uses atomic no-replace primitives on
 supported systems and fails closed when safe publication is unavailable, so a
-racing target is never overwritten. Temporary cleanup also requires the
-invocation's recorded filesystem identity; a substituted object is preserved,
-even when that means leaving the moved owned directory as an orphan. A separate
-private Product Pack source location remains recommended. Neither scaffolding
-nor validation launches a browser or external pack. This remains experimental,
-not a stable Product Pack SDK v1. Task 5A.5 remains under architecture review;
-Task 5A.6 will validate the shape by migrating SauceDemo. Task 6 and Task 7 have
-not started.
+racing target is never overwritten. A successful publication moves the private
+temporary sibling into place and leaves no temporary sibling. Any failure after
+temporary creation closes PMQA-owned descriptors but intentionally performs no
+automatic deletion; the restrictive `.pmqa-scaffold-*` directory remains as a
+conservative orphan containing only generated scaffold source, never
+credentials or runtime/browser output. Its path is not exposed through the
+public result or safe errors. Operators may inspect and manually remove such an
+orphan from the explicitly selected output parent. A separate private Product
+Pack source location remains recommended. Neither scaffolding nor validation
+launches a browser or external pack. This remains experimental, not a stable
+Product Pack SDK v1. Task 5A.5 remains under architecture review; Task 5A.6 will
+validate the shape by migrating SauceDemo. Task 6 and Task 7 have not started.
 See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)

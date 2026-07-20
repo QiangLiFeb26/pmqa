@@ -2,6 +2,7 @@
 
 import copy
 from dataclasses import FrozenInstanceError
+import inspect
 import json
 import os
 from pathlib import Path
@@ -78,6 +79,62 @@ def _file_bytes(root: Path):
     }
 
 
+def _temporary_siblings(parent: Path):
+    return tuple(parent.glob(".pmqa-scaffold-*"))
+
+
+def _assert_private_generated_orphan(parent: Path) -> Path:
+    (orphan,) = _temporary_siblings(parent)
+    assert orphan.parent == parent
+    assert orphan.is_dir()
+    assert not orphan.is_symlink()
+    assert stat.S_IMODE(orphan.lstat().st_mode) == 0o700
+    generated = _file_bytes(orphan)
+    assert generated
+    forbidden_parts = {
+        ".env",
+        "credentials",
+        "node_modules",
+        "artifacts",
+        "screenshots",
+        "traces",
+        "generated_tests",
+        "storage_state",
+        "__pycache__",
+    }
+    assert not any(
+        forbidden_parts.intersection(Path(name).parts) for name in generated
+    )
+    assert b"runtime-secret-marker" not in b"\n".join(generated.values())
+    return orphan
+
+
+def _observe_ownership(monkeypatch):
+    observed = []
+    original_capture = scaffold_module._capture_temporary_directory_ownership
+
+    def capture(path):
+        ownership = original_capture(path)
+        observed.append(ownership)
+        return ownership
+
+    monkeypatch.setattr(
+        scaffold_module,
+        "_capture_temporary_directory_ownership",
+        capture,
+    )
+    return observed
+
+
+def _assert_descriptors_closed(ownership) -> None:
+    for descriptor in (
+        ownership.directory_descriptor,
+        ownership.parent_descriptor,
+    ):
+        with pytest.raises(OSError):
+            os.fstat(descriptor)
+
+
 def _write_bridge_package(target: Path, update) -> None:
     path = target / "bridge/package.json"
     value = json.loads(path.read_text(encoding="utf-8"))
@@ -144,23 +201,39 @@ def test_publication_uses_one_atomic_no_replace_operation(
     monkeypatch,
 ) -> None:
     calls = []
+    ownerships = _observe_ownership(monkeypatch)
+    release_calls = []
     original_publish = scaffold_module._publish_directory_no_replace
+    original_release = scaffold_module._release_temporary_directory_ownership
 
     def observed_publish(source, target):
         calls.append((Path(source), Path(target)))
         return original_publish(source, target)
+
+    def observed_release(ownership):
+        release_calls.append(ownership)
+        return original_release(ownership)
 
     monkeypatch.setattr(
         scaffold_module,
         "_publish_directory_no_replace",
         observed_publish,
     )
+    monkeypatch.setattr(
+        scaffold_module,
+        "_release_temporary_directory_ownership",
+        observed_release,
+    )
     _, target, _ = _scaffold(tmp_path)
 
+    assert ownerships == release_calls
+    assert len(ownerships) == 1
+    _assert_descriptors_closed(ownerships[0])
     assert len(calls) == 1
     assert calls[0][0].parent == target.parent
     assert calls[0][0].name.startswith(".pmqa-scaffold-")
     assert calls[0][1] == target
+    assert not _temporary_siblings(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -172,6 +245,7 @@ def test_publication_race_never_clobbers_a_new_target(
     monkeypatch,
     target_kind: str,
 ) -> None:
+    ownerships = _observe_ownership(monkeypatch)
     target = tmp_path / "racing-target"
     symlink_destination = tmp_path / "symlink-destination"
     original_publish = scaffold_module._publish_directory_no_replace
@@ -219,7 +293,8 @@ def test_publication_race_never_clobbers_a_new_target(
         assert target.is_symlink()
         assert target.readlink() == symlink_destination
         assert tuple(symlink_destination.iterdir()) == ()
-    assert not tuple(tmp_path.glob(".pmqa-scaffold-*"))
+    _assert_private_generated_orphan(tmp_path)
+    _assert_descriptors_closed(ownerships[0])
 
 
 @pytest.mark.parametrize(
@@ -232,6 +307,7 @@ def test_publication_memory_and_control_flow_errors_propagate(
     error_type,
 ) -> None:
     target = tmp_path / "target"
+    ownerships = _observe_ownership(monkeypatch)
 
     def fail_publication(source, destination):
         raise error_type()
@@ -246,14 +322,15 @@ def test_publication_memory_and_control_flow_errors_propagate(
             ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
         )
     assert not target.exists()
-    assert not tuple(tmp_path.glob(".pmqa-scaffold-*"))
+    _assert_private_generated_orphan(tmp_path)
+    _assert_descriptors_closed(ownerships[0])
 
 
 @pytest.mark.parametrize(
     "replacement_kind",
     ["empty-directory", "nonempty-directory", "file", "symlink"],
 )
-def test_temporary_path_substitution_never_deletes_replacement(
+def test_late_temporary_root_substitution_performs_no_destructive_cleanup(
     tmp_path,
     monkeypatch,
     replacement_kind: str,
@@ -262,12 +339,12 @@ def test_temporary_path_substitution_never_deletes_replacement(
     moved_original = tmp_path / ("moved-original-" + replacement_kind)
     symlink_destination = tmp_path / "external-directory"
     observed = {}
-    recursive_calls = []
-    original_remove = scaffold_module._remove_owned_directory_contents
+    destructive_calls = []
+    cleanup_guard = pytest.MonkeyPatch()
 
-    def observed_remove(descriptor):
-        recursive_calls.append(descriptor)
-        return original_remove(descriptor)
+    def forbidden_destructive_operation(*args, **kwargs):
+        destructive_calls.append((args, kwargs))
+        raise AssertionError("failure handling attempted a destructive operation")
 
     def substitute_then_fail(source, destination):
         source.rename(moved_original)
@@ -293,23 +370,24 @@ def test_temporary_path_substitution_never_deletes_replacement(
         observed["path"] = source
         observed["inode"] = identity.st_ino
         observed["mode"] = stat.S_IMODE(identity.st_mode)
+        for name in ("unlink", "remove", "rmdir", "rename", "replace"):
+            cleanup_guard.setattr(os, name, forbidden_destructive_operation)
+        cleanup_guard.setattr(shutil, "rmtree", forbidden_destructive_operation)
         raise OSError("runtime-secret-marker publication detail")
 
-    monkeypatch.setattr(
-        scaffold_module,
-        "_remove_owned_directory_contents",
-        observed_remove,
-    )
     monkeypatch.setattr(
         scaffold_module,
         "_publish_directory_no_replace",
         substitute_then_fail,
     )
 
-    with pytest.raises(ProductPackScaffoldError) as captured:
-        scaffold_product_pack(
-            ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
-        )
+    try:
+        with pytest.raises(ProductPackScaffoldError) as captured:
+            scaffold_product_pack(
+                ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
+            )
+    finally:
+        cleanup_guard.undo()
 
     replacement = observed["path"]
     formatted = "".join(
@@ -344,16 +422,86 @@ def test_temporary_path_substitution_never_deletes_replacement(
         assert _file_bytes(symlink_destination) == {
             "operator-owned.txt": b"operator-owned-marker"
         }
-    assert recursive_calls == []
+    assert destructive_calls == []
     assert moved_original.is_dir()
     assert target.exists() is False
 
 
-def test_ordinary_publication_failure_removes_owned_temporary_directory(
+def test_late_child_substitutions_survive_without_destructive_cleanup(
     tmp_path,
     monkeypatch,
 ) -> None:
     target = tmp_path / "target"
+    observed = {}
+    destructive_calls = []
+    cleanup_guard = pytest.MonkeyPatch()
+
+    def forbidden_destructive_operation(*args, **kwargs):
+        destructive_calls.append((args, kwargs))
+        raise AssertionError("failure handling attempted a destructive operation")
+
+    def substitute_children_then_fail(source, destination):
+        original_file = source / "product-pack.json"
+        saved_file = source / "saved-product-pack.json"
+        original_file.rename(saved_file)
+        original_file.write_text("operator-file-marker", encoding="utf-8")
+        original_file.chmod(0o640)
+
+        original_directory = source / "bridge"
+        saved_directory = source / "saved-bridge"
+        original_directory.rename(saved_directory)
+        original_directory.mkdir(mode=0o750)
+        (original_directory / "operator-owned.txt").write_text(
+            "operator-directory-marker",
+            encoding="utf-8",
+        )
+        observed.update(
+            root=source,
+            file_inode=original_file.lstat().st_ino,
+            directory_inode=original_directory.lstat().st_ino,
+        )
+        for name in ("unlink", "remove", "rmdir", "rename", "replace"):
+            cleanup_guard.setattr(os, name, forbidden_destructive_operation)
+        cleanup_guard.setattr(shutil, "rmtree", forbidden_destructive_operation)
+        raise OSError("runtime-secret-marker publication detail")
+
+    monkeypatch.setattr(
+        scaffold_module,
+        "_publish_directory_no_replace",
+        substitute_children_then_fail,
+    )
+
+    try:
+        with pytest.raises(ProductPackScaffoldError) as captured:
+            scaffold_product_pack(
+                ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
+            )
+    finally:
+        cleanup_guard.undo()
+
+    orphan = observed["root"]
+    assert captured.value.code is ProductPackScaffoldErrorCode.GENERATION_FAILED
+    assert destructive_calls == []
+    assert orphan.lstat().st_ino == _temporary_siblings(tmp_path)[0].lstat().st_ino
+    assert (orphan / "product-pack.json").lstat().st_ino == observed["file_inode"]
+    assert (orphan / "product-pack.json").read_text(encoding="utf-8") == (
+        "operator-file-marker"
+    )
+    assert (orphan / "bridge").lstat().st_ino == observed["directory_inode"]
+    assert (orphan / "bridge/operator-owned.txt").read_text(encoding="utf-8") == (
+        "operator-directory-marker"
+    )
+    assert (orphan / "saved-product-pack.json").is_file()
+    assert (orphan / "saved-bridge/src/main.ts").is_file()
+    assert not target.exists()
+
+
+def test_ordinary_publication_failure_preserves_one_private_orphan(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    target = tmp_path / "target"
+    ownerships = _observe_ownership(monkeypatch)
 
     def fail_publication(source, destination):
         raise OSError("runtime-secret-marker")
@@ -369,33 +517,37 @@ def test_ordinary_publication_failure_removes_owned_temporary_directory(
         )
 
     assert captured.value.code is ProductPackScaffoldErrorCode.GENERATION_FAILED
-    assert not tuple(tmp_path.glob(".pmqa-scaffold-*"))
+    _assert_private_generated_orphan(tmp_path)
+    _assert_descriptors_closed(ownerships[0])
     assert not target.exists()
 
 
-def test_identity_inspection_failure_preserves_questionable_temporary_path(
+def test_post_creation_capture_failure_preserves_one_private_orphan(
     tmp_path,
     monkeypatch,
 ) -> None:
     target = tmp_path / "target"
-    cleanup_started = []
-    original_stat = scaffold_module.os.stat
+    created = []
+    original_mkdtemp = scaffold_module.tempfile.mkdtemp
 
-    def fail_publication(source, destination):
-        cleanup_started.append(True)
-        raise OSError("publication detail")
+    def observed_mkdtemp(*args, **kwargs):
+        path = original_mkdtemp(*args, **kwargs)
+        created.append(Path(path))
+        return path
 
-    def guarded_stat(*args, **kwargs):
-        if cleanup_started and kwargs.get("dir_fd") is not None:
-            raise OSError("identity detail")
-        return original_stat(*args, **kwargs)
+    def fail_capture(path):
+        raise OSError("runtime-secret-marker capture detail")
 
     monkeypatch.setattr(
-        scaffold_module,
-        "_publish_directory_no_replace",
-        fail_publication,
+        scaffold_module.tempfile,
+        "mkdtemp",
+        observed_mkdtemp,
     )
-    monkeypatch.setattr(scaffold_module.os, "stat", guarded_stat)
+    monkeypatch.setattr(
+        scaffold_module,
+        "_capture_temporary_directory_ownership",
+        fail_capture,
+    )
 
     with pytest.raises(ProductPackScaffoldError) as captured:
         scaffold_product_pack(
@@ -403,75 +555,143 @@ def test_identity_inspection_failure_preserves_questionable_temporary_path(
         )
 
     assert captured.value.code is ProductPackScaffoldErrorCode.GENERATION_FAILED
-    assert len(tuple(tmp_path.glob(".pmqa-scaffold-*"))) == 1
+    assert _temporary_siblings(tmp_path) == tuple(created)
+    assert stat.S_IMODE(created[0].lstat().st_mode) == 0o700
     assert not target.exists()
 
 
-@pytest.mark.parametrize("cleanup_error", [OSError, MemoryError])
-def test_cleanup_errors_do_not_mask_control_flow_exception(
+def test_descriptor_release_error_does_not_mask_active_control_flow(
     tmp_path,
     monkeypatch,
-    cleanup_error,
 ) -> None:
     target = tmp_path / "target"
+    ownerships = _observe_ownership(monkeypatch)
+    original_close = scaffold_module.os.close
+    close_calls = []
 
     def interrupt_publication(source, destination):
-        raise KeyboardInterrupt()
+        raise SystemExit("active-control-flow")
 
-    def fail_cleanup(ownership):
-        raise cleanup_error()
+    def interrupt_after_close(descriptor):
+        close_calls.append(descriptor)
+        original_close(descriptor)
+        if len(close_calls) == 1:
+            raise KeyboardInterrupt("release-control-flow")
 
     monkeypatch.setattr(
         scaffold_module,
         "_publish_directory_no_replace",
         interrupt_publication,
     )
-    monkeypatch.setattr(
-        scaffold_module,
-        "_remove_owned_temporary_directory",
-        fail_cleanup,
-    )
+    monkeypatch.setattr(scaffold_module.os, "close", interrupt_after_close)
 
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(SystemExit, match="active-control-flow"):
         scaffold_product_pack(
             ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
         )
-    assert len(tuple(tmp_path.glob(".pmqa-scaffold-*"))) == 1
+    assert close_calls == [
+        ownerships[0].directory_descriptor,
+        ownerships[0].parent_descriptor,
+    ]
+    _assert_private_generated_orphan(tmp_path)
     assert not target.exists()
 
 
-@pytest.mark.parametrize(
-    "cleanup_error",
-    [MemoryError, KeyboardInterrupt, SystemExit, GeneratorExit],
-)
-def test_cleanup_control_flow_errors_propagate_without_active_control_flow(
+def test_expected_descriptor_close_errors_are_suppressed_once_per_descriptor(
     tmp_path,
     monkeypatch,
-    cleanup_error,
 ) -> None:
     target = tmp_path / "target"
+    ownerships = _observe_ownership(monkeypatch)
+    original_close = scaffold_module.os.close
+    close_calls = []
 
     def fail_publication(source, destination):
-        raise OSError()
+        raise OSError("runtime-secret-marker publication detail")
 
-    def interrupt_cleanup(ownership):
-        raise cleanup_error()
+    def error_after_close(descriptor):
+        close_calls.append(descriptor)
+        original_close(descriptor)
+        raise OSError("runtime-secret-marker close detail")
 
     monkeypatch.setattr(
         scaffold_module,
         "_publish_directory_no_replace",
         fail_publication,
     )
-    monkeypatch.setattr(
-        scaffold_module,
-        "_remove_owned_temporary_directory",
-        interrupt_cleanup,
-    )
+    monkeypatch.setattr(scaffold_module.os, "close", error_after_close)
 
-    with pytest.raises(cleanup_error):
+    with pytest.raises(ProductPackScaffoldError) as captured:
         scaffold_product_pack(
             ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
         )
+
+    assert captured.value.code is ProductPackScaffoldErrorCode.GENERATION_FAILED
+    assert close_calls == [
+        ownerships[0].directory_descriptor,
+        ownerships[0].parent_descriptor,
+    ]
+    _assert_private_generated_orphan(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "release_error",
+    [MemoryError, KeyboardInterrupt, SystemExit, GeneratorExit],
+)
+def test_descriptor_release_control_flow_propagates_without_active_control_flow(
+    tmp_path,
+    monkeypatch,
+    release_error,
+) -> None:
+    target = tmp_path / "target"
+    original_close = scaffold_module.os.close
+    close_calls = []
+
+    def fail_publication(source, destination):
+        raise OSError()
+
+    def interrupt_after_close(descriptor):
+        close_calls.append(descriptor)
+        original_close(descriptor)
+        if len(close_calls) == 1:
+            raise release_error()
+
+    monkeypatch.setattr(
+        scaffold_module,
+        "_publish_directory_no_replace",
+        fail_publication,
+    )
+    monkeypatch.setattr(scaffold_module.os, "close", interrupt_after_close)
+
+    with pytest.raises(release_error):
+        scaffold_product_pack(
+            ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
+        )
+    assert len(close_calls) == 2
+    _assert_private_generated_orphan(tmp_path)
+
+
+def test_recursive_cleanup_machinery_is_absent() -> None:
+    assert not hasattr(scaffold_module, "_remove_owned_directory_contents")
+    assert not hasattr(scaffold_module, "_remove_owned_temporary_directory")
+    assert not hasattr(scaffold_module, "_cleanup_temporary_directory_safely")
+    failure_sources = "\n".join(
+        (
+            inspect.getsource(scaffold_module.scaffold_product_pack),
+            inspect.getsource(
+                scaffold_module._release_temporary_directory_ownership
+            ),
+        )
+    )
+    for destructive_call in (
+        "os.unlink(",
+        "os.remove(",
+        "os.rmdir(",
+        "os.rename(",
+        "os.replace(",
+        "shutil.rmtree(",
+    ):
+        assert destructive_call not in failure_sources
 
 
 def test_platform_without_no_replace_primitive_fails_closed(
@@ -479,6 +699,7 @@ def test_platform_without_no_replace_primitive_fails_closed(
     monkeypatch,
 ) -> None:
     target = tmp_path / "target"
+    ownerships = _observe_ownership(monkeypatch)
     monkeypatch.setattr(scaffold_module.sys, "platform", "unsupported-os")
 
     with pytest.raises(ProductPackScaffoldError) as captured:
@@ -488,7 +709,8 @@ def test_platform_without_no_replace_primitive_fails_closed(
 
     assert captured.value.code is ProductPackScaffoldErrorCode.GENERATION_FAILED
     assert not target.exists()
-    assert not tuple(tmp_path.glob(".pmqa-scaffold-*"))
+    _assert_private_generated_orphan(tmp_path)
+    _assert_descriptors_closed(ownerships[0])
 
 
 def test_windows_publication_uses_native_no_replace_rename(
@@ -579,6 +801,7 @@ def test_existing_target_is_rejected_without_modification(
     assert captured.value.code is ProductPackScaffoldErrorCode.TARGET_EXISTS
     after = target.read_bytes() if target.is_file() else _file_bytes(target)
     assert after == before
+    assert not _temporary_siblings(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -623,16 +846,19 @@ def test_symlink_target_and_parent_are_rejected(tmp_path) -> None:
     assert tuple(real.iterdir()) == ()
 
 
-def test_expected_generation_failure_cleans_only_private_temporary_directory(
+def test_expected_write_failure_preserves_only_generated_private_orphan(
     tmp_path,
     monkeypatch,
 ) -> None:
     outside = tmp_path / "outside.txt"
     outside.write_text("untouched", encoding="utf-8")
     target = tmp_path / "target"
+    ownerships = _observe_ownership(monkeypatch)
+
+    original_write = scaffold_module._write_files
 
     def fail_write(root, files):
-        (root / "partial.txt").write_text("partial", encoding="utf-8")
+        original_write(root, files)
         raise OSError("runtime-secret-marker")
 
     monkeypatch.setattr(scaffold_module, "_write_files", fail_write)
@@ -647,7 +873,11 @@ def test_expected_generation_failure_cleans_only_private_temporary_directory(
     assert captured.value.__context__ is None
     assert not target.exists()
     assert outside.read_text(encoding="utf-8") == "untouched"
-    assert not tuple(tmp_path.glob(".pmqa-scaffold-*"))
+    orphan = _assert_private_generated_orphan(tmp_path)
+    _assert_descriptors_closed(ownerships[0])
+    assert tuple(sorted(_file_bytes(orphan))) == tuple(
+        sorted(scaffold_module._render_files(_manifest(), "2.4.0"))
+    )
 
 
 def test_generated_tree_has_exact_allowlist_and_no_runtime_outputs(tmp_path) -> None:
