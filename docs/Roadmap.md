@@ -13,7 +13,8 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 3 — Reasoning trust boundary | Complete | Added provider-independent reasoning contracts, scrubbing, deterministic/manual/Copilot CLI providers, prompt packages, and SQLite trace storage. |
 | Task 4 — Multi-agent runtime | Complete | Added typed state, agent and tool contracts, deterministic reduction and routing, runtime execution, validated recovery, and LangGraph assembly. |
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
-| Task 5 — Real agent composition | In progress | Tasks 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; the cumulative branch is ready for review. |
+| Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
+| Task 5A — Product Pack Adoption Foundation | Not started | Establish a reusable Product Pack contract, external/private pack support, a safe versioned TypeScript Playwright bridge, and pack validation/scaffolding before validating the abstraction with SauceDemo and then a future MDE pilot. |
 
 ## Task 4 closure
 
@@ -58,6 +59,23 @@ static migration stubs. They cannot access product capabilities or knowledge;
 only `task5-demo` may create authoritative knowledge or generate new tests.
 The underlying Task 2 components remain reusable library/test infrastructure,
 and `test-generated` only executes the committed/generated regression tests.
-The cumulative branch is ready for architecture review and remains unmerged;
-the final Task 5 PR will not be created until that review passes. Reasoning-
-provider integration and Tasks 6 and 7 are outside the current scope.
+Task 5 passed cumulative architecture review and is complete across checkpoints
+5.1 through 5.9. It was merged into `main` through PR #20 from final branch
+head `fdba63e3525f055b395a4b40775b42d284541af3`; the merge commit is
+`c9167fd4409b22ac89899f0010cda986982e04fe`. `task5-demo` is the
+authoritative SauceDemo workflow, while the legacy `explore` and `generate`
+commands remain retired. Tasks 6 and 7 have not started.
+
+## Task 5A — Product Pack Adoption Foundation
+
+**Status: Not started.** Task 5A is planned before the existing recommendation
+work in Task 6. At a high level, it will:
+
+- establish a reusable Product Pack contract;
+- support explicit external/private Product Packs;
+- define a safe, versioned TypeScript Playwright bridge;
+- provide Product Pack validation and scaffolding; and
+- validate the abstraction with SauceDemo before a future MDE pilot.
+
+No Product Pack SDK, external loader, TypeScript bridge, MDE integration, or
+new CLI command is implemented by this placeholder.

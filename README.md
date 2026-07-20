@@ -71,7 +71,7 @@ Knowledge, and Validator agent implementations plus a `ToolRegistry`.
 `python -m pmqa.workflow` is intentionally unsupported because silently
 constructing placeholder dependencies would misrepresent the active graph.
 
-Task 5 is at its final implementation checkpoint. The product-owned
+Task 5 is complete across checkpoints 5.1 through 5.9. The product-owned
 `products.demo.application.run_saucedemo_demo` API composes the real SauceDemo
 exploration Tool, Explorer, Knowledge agent, Validator, Task 4 graph, strict
 verified-artifact handoff, storage, and deterministic test generation. Its
@@ -191,6 +191,17 @@ candidate remains unchanged and is never stored as approved memory.
 Reasoning-provider integration remains a future checkpoint; Tasks 6 and 7 have
 not started.
 
-See the [authoritative roadmap](docs/Roadmap.md) for phase status. Task 5.9 is
-ready for cumulative architecture review; Task 5 remains unmerged, and its
-final PR will not be created until that review passes.
+Task 5 passed cumulative architecture review and was merged into `main`
+through PR #20. Its final branch head was
+`fdba63e3525f055b395a4b40775b42d284541af3`, and the merge commit is
+`c9167fd4409b22ac89899f0010cda986982e04fe`. `task5-demo` remains the
+authoritative SauceDemo workflow, and the legacy `explore` and `generate`
+commands remain retired.
+
+Task 5A — Product Pack Adoption Foundation is the next planned phase before
+the existing Task 6 recommendation work. It has not started; its high-level
+scope is a reusable Product Pack contract, explicit external/private Product
+Packs, a safe versioned TypeScript Playwright bridge, pack validation and
+scaffolding, and validation with SauceDemo before a future MDE pilot. Task 6
+and Task 7 have not started. See the
+[authoritative roadmap](docs/Roadmap.md) for phase status.
