@@ -3,10 +3,10 @@
 ## Status
 
 Task 5A.1 records the experimental architecture decision and manifest contract,
-and Task 5A.2 completes explicit external manifest loading. Task 5A.3 defines
-Bridge Protocol v1 contracts and is ready for architecture review. These
-checkpoints are not a stable Product Pack SDK or a commitment that API version
-1 is complete.
+Task 5A.2 completes explicit external manifest loading, and Task 5A.3 completes
+Bridge Protocol v1 contracts on the cumulative branch. Task 5A.4 adds bounded
+process transport and is ready for architecture review. These checkpoints are
+not a stable Product Pack SDK or a commitment that API version 1 is complete.
 
 ## Decision
 
@@ -170,10 +170,31 @@ and Product Pack version are independent compatibility axes. The canonical
 versioned JSON schema is mechanically checked against the Python contracts and
 packaged with PMQA.
 
-Task 5A.4 will implement the bounded TypeScript/Node execution bridge.
-Credentials must be resolved inside that future private TypeScript/product
-execution boundary. No runner, subprocess, Node.js invocation, Playwright
-execution, or execution isolation is implemented by Task 5A.3.
+## Bounded bridge process transport
+
+Task 5A.4 runs one explicitly operator-selected executable and compiled bridge
+artifact without shell expansion, PATH search, fallback commands, working
+directory search, or manifest-provided commands. Its deterministic argument
+vector contains only those two approved absolute paths. One compact canonical
+Bridge Protocol v1 request is written to stdin; stdout must contain exactly one
+bounded canonical protocol response. Stderr is bounded and drained but never
+crosses the public boundary.
+
+Default limits are 30 seconds, 256 KiB request bytes, 2 MiB stdout, and 256 KiB
+stderr. Configuration caps are 300 seconds, 1 MiB request bytes, 8 MiB stdout,
+and 1 MiB stderr. Timeout and stream-limit failures terminate and reap the
+process, with process-group descendant cleanup on POSIX systems.
+
+Process configuration is runtime-only trusted operator input. It has no
+serialization API and cannot enter the manifest, protocol payloads,
+`WorkflowState`, persisted knowledge, or public errors. The child inherits its
+normal execution environment; PMQA neither inspects credentials nor serializes
+environment data. The private product boundary remains responsible for
+credential resolution. This transport provides bounded execution and strict
+validation, not a security sandbox.
+
+No Playwright Product Pack, template, scaffold, SauceDemo migration, or MDE
+integration is implemented by Task 5A.4.
 
 ## Adoption sequence
 
@@ -187,6 +208,6 @@ The planned evidence-driven sequence is:
 6. company-side, read-only MDE pilot; and
 7. API v1 stabilization after evidence from both SauceDemo and MDE.
 
-Task 5A.3 is ready for architecture review and is not merged or complete on
-`main`. Task 5A.4 and later steps have not started. Task 6 and Task 7 have not
+Task 5A.4 is ready for architecture review and is not merged or complete on
+`main`. Task 5A.5 and later steps have not started. Task 6 and Task 7 have not
 started.

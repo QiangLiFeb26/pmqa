@@ -120,6 +120,7 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         assert "pmqa/product_pack/manifest.py" in names
         assert "pmqa/product_pack/loader.py" in names
         assert "pmqa/product_pack/bridge_protocol.py" in names
+        assert "pmqa/product_pack/bridge_runner.py" in names
         assert (
             "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json" in names
         )

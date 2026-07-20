@@ -13,6 +13,16 @@ from pmqa.product_pack.bridge_protocol import (
     bridge_protocol_v1_schema,
     validate_product_pack_bridge_response,
 )
+from pmqa.product_pack.bridge_runner import (
+    DEFAULT_BRIDGE_TIMEOUT_SECONDS,
+    DEFAULT_MAX_REQUEST_BYTES,
+    DEFAULT_MAX_STDERR_BYTES,
+    DEFAULT_MAX_STDOUT_BYTES,
+    ProductPackBridgeExecutionError,
+    ProductPackBridgeExecutionErrorCode,
+    ProductPackBridgeProcessConfig,
+    run_product_pack_bridge,
+)
 from pmqa.product_pack.manifest import (
     ProductPackCapability,
     ProductPackManifest,
@@ -30,6 +40,10 @@ from pmqa.product_pack.loader import (
 __all__ = [
     "BRIDGE_PROTOCOL_VERSION",
     "MAX_BRIDGE_ACTION_COUNT",
+    "DEFAULT_BRIDGE_TIMEOUT_SECONDS",
+    "DEFAULT_MAX_REQUEST_BYTES",
+    "DEFAULT_MAX_STDERR_BYTES",
+    "DEFAULT_MAX_STDOUT_BYTES",
     "ProductPackCapability",
     "ProductPackManifest",
     "ProductPackManifestValidationError",
@@ -48,4 +62,8 @@ __all__ = [
     "ProductPackBridgeStatus",
     "bridge_protocol_v1_schema",
     "validate_product_pack_bridge_response",
+    "ProductPackBridgeExecutionError",
+    "ProductPackBridgeExecutionErrorCode",
+    "ProductPackBridgeProcessConfig",
+    "run_product_pack_bridge",
 ]

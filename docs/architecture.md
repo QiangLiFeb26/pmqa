@@ -118,12 +118,15 @@ ownership, version axes, external-pack direction, and future TypeScript
 execution trust boundary are defined in the
 [Product Pack adoption architecture](architecture/product-pack-adoption.md).
 
-Task 5A.3 defines Bridge Protocol v1 contracts and canonical JSON schema only.
+Task 5A.3 defines Bridge Protocol v1 contracts and canonical JSON schema.
 The request contains versioned identities plus a bounded ordered action plan;
 a successful response contains one existing `ExplorationEvidence` contract.
-Credentials and runtime objects never enter protocol payloads. No TypeScript,
-Node, subprocess, browser runner, or adapter execution exists yet; Task 5A.4
-will implement that bounded execution bridge.
+Credentials and runtime objects never enter protocol payloads. Task 5A.4 adds
+bounded process transport for one explicitly operator-selected compiled
+TypeScript/Node bridge: canonical JSON travels only over stdin/stdout, stderr
+is discarded behind fixed errors, and process configuration remains runtime
+only. The manifest cannot provide commands. The transport is not a security
+sandbox and no Playwright Product Pack or adapter implementation exists yet.
 
 ### Memory
 

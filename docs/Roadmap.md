@@ -14,7 +14,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 4 — Multi-agent runtime | Complete | Added typed state, agent and tool contracts, deterministic reduction and routing, runtime execution, validated recovery, and LangGraph assembly. |
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
-| Task 5A — Product Pack Adoption Foundation | In progress | Task 5A.1 defines the manifest boundary, Task 5A.2 completes explicit manifest loading, and Task 5A.3 defines Bridge Protocol v1 contracts for architecture review. Runtime bridge work has not started. |
+| Task 5A — Product Pack Adoption Foundation | In progress | Task 5A.1–5A.3 establish the manifest, explicit loading, and protocol contracts. Task 5A.4 adds bounded process transport for architecture review. Product implementation and migration have not started. |
 
 ## Task 4 closure
 
@@ -97,13 +97,19 @@ arbitrary-path loading, adapter execution, browser execution, or sandboxing;
 the selected Python distribution is trusted code. Task 5A.2 is complete on
 this cumulative Task 5A branch.
 
-Task 5A.3 defines immutable Bridge Protocol v1 request and response contracts,
+Task 5A.3 completes immutable Bridge Protocol v1 request and response contracts,
 safe reconstruction and correlation, and a mechanically verified packaged JSON
 schema. It carries only bounded actions and existing structured exploration
-evidence; credentials remain inside the future private product execution
-boundary. Task 5A.3 is ready for architecture review and is not merged or
-complete on `main`. It is not a stable public SDK.
+evidence; credentials remain inside the private product execution boundary. It
+is complete on this cumulative Task 5A branch and is not a stable public SDK.
 
-Task 5A.4 will implement the bounded TypeScript/Node execution bridge. No Node,
-subprocess, TypeScript, Playwright runner, scaffolding, SauceDemo migration, or
-future read-only MDE pilot work has started. Task 6 and Task 7 have not started.
+Task 5A.4 adds bounded transport for one explicitly configured compiled
+TypeScript/Node bridge process. The manifest cannot specify commands; canonical
+Bridge Protocol v1 JSON travels through stdin/stdout, while bounded stderr and
+raw process details remain behind fixed safe errors. Credentials stay in the
+inherited private execution environment and are never inspected or serialized
+by PMQA. The runner is transport isolation, not a security sandbox. Task 5A.4
+is ready for architecture review and is not merged or complete on `main`.
+
+No Playwright Product Pack, scaffolding, SauceDemo migration, future read-only
+MDE pilot, or Task 5A.5 work has started. Task 6 and Task 7 have not started.

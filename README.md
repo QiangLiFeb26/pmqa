@@ -199,7 +199,7 @@ authoritative SauceDemo workflow, and the legacy `explore` and `generate`
 commands remain retired.
 
 Task 5A — Product Pack Adoption Foundation is the next phase before the
-existing Task 6 recommendation work and is in progress through Task 5A.3.
+existing Task 6 recommendation work and is in progress through Task 5A.4.
 Task 5A.1 adds the experimental strict manifest and architecture contract;
 Task 5A.2 explicitly loads only manifest metadata from one approved installed
 distribution and requires complete equality with an expected manifest. It
@@ -211,9 +211,15 @@ language-neutral Bridge Protocol v1 contracts and packaged JSON schema:
 bounded actions cross
 the request boundary, and existing structured exploration evidence is the only
 product observation returned on success. Credentials remain outside protocol
-payloads. Task 5A.4 will implement the bounded TypeScript/Node execution
-bridge; no Node runtime or subprocess bridge exists yet. This is not a stable
-Product Pack SDK v1. Task 6 and Task 7 have not started. See the
+payloads. Task 5A.4 adds bounded process transport for one explicit
+operator-approved executable and compiled bridge artifact. Canonical protocol
+JSON travels only through stdin/stdout; stderr and raw process failures remain
+behind fixed safe errors, and the manifest cannot specify commands. Credentials
+remain in the inherited private execution environment and are not inspected or
+serialized by PMQA. The runner is not a security sandbox, and no Playwright
+Product Pack, scaffold, SauceDemo migration, or MDE integration exists yet.
+This is not a stable Product Pack SDK v1. Task 6 and Task 7 have not started.
+See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)
 for the dependency, ownership, trust-boundary, and versioning decisions.
