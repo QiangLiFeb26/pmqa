@@ -13,6 +13,7 @@ import traceback
 
 import pytest
 
+import pmqa.product_pack.bridge_runner as bridge_runner
 from pmqa.models import ExplorationEvidence, ExplorationSource
 from pmqa.product_pack import (
     ProductPackBridgeExecutionError,
@@ -393,6 +394,140 @@ def test_duplicate_json_keys_are_rejected_at_every_level(
     )
 
 
+@pytest.mark.parametrize(
+    "stdout",
+    [
+        b"[" * 2000 + b"0" + b"]" * 2000,
+        b'{"nested":' * 2000 + b"0" + b"}" * 2000,
+    ],
+)
+def test_excessively_nested_stdout_is_safely_rejected(
+    process_config,
+    stdout: bytes,
+) -> None:
+    error = _assert_error(
+        ProductPackBridgeExecutionErrorCode.INVALID_STDOUT,
+        _request(),
+        process_config,
+        lambda *args: _outcome(stdout),
+    )
+
+    assert error.args == ("Product Pack bridge stdout is invalid",)
+    assert error.__cause__ is None
+    assert error.__context__ is None
+
+
+def test_excessive_nesting_under_object_shaped_response_is_safely_rejected(
+    process_config,
+) -> None:
+    response = _json_bytes(_response().to_dict())
+    marker = b"runtime-secret-marker"
+    stdout = (
+        response[:-1]
+        + b',"unexpected":'
+        + b"[" * 2000
+        + b'"'
+        + marker
+        + b'"'
+        + b"]" * 2000
+        + b"}"
+    )
+
+    error = _assert_error(
+        ProductPackBridgeExecutionErrorCode.INVALID_STDOUT,
+        _request(),
+        process_config,
+        lambda *args: _outcome(stdout),
+    )
+    formatted = "".join(
+        traceback.format_exception(type(error), error, error.__traceback__)
+    )
+
+    assert error.args == ("Product Pack bridge stdout is invalid",)
+    assert "runtime-secret-marker" not in formatted
+    assert "recursion" not in formatted.lower()
+    assert error.__cause__ is None
+    assert error.__context__ is None
+
+
+@pytest.mark.parametrize("parser_error", [ValueError, OverflowError])
+def test_parser_conversion_failures_are_safely_classified(
+    process_config,
+    monkeypatch,
+    parser_error,
+) -> None:
+    def fail_decode(*args, **kwargs):
+        raise parser_error("runtime-secret-marker parser implementation detail")
+
+    monkeypatch.setattr(bridge_runner.json, "loads", fail_decode)
+    error = _assert_error(
+        ProductPackBridgeExecutionErrorCode.INVALID_STDOUT,
+        _request(),
+        process_config,
+        lambda *args: _outcome(b"{}"),
+    )
+    formatted = "".join(
+        traceback.format_exception(type(error), error, error.__traceback__)
+    )
+
+    assert error.args == ("Product Pack bridge stdout is invalid",)
+    assert vars(error) == {
+        "code": ProductPackBridgeExecutionErrorCode.INVALID_STDOUT
+    }
+    assert "runtime-secret-marker" not in formatted
+    assert "parser implementation detail" not in formatted
+    assert error.__cause__ is None
+    assert error.__context__ is None
+
+
+def test_integer_digit_limit_failure_is_safely_classified_when_supported(
+    process_config,
+) -> None:
+    get_limit = getattr(sys, "get_int_max_str_digits", None)
+    if get_limit is None:
+        pytest.skip("interpreter does not enforce an integer digit limit")
+    limit = get_limit()
+    if limit == 0:
+        pytest.skip("integer digit limit is disabled")
+    stdout = b'{"number":' + b"9" * (limit + 1) + b"}"
+
+    error = _assert_error(
+        ProductPackBridgeExecutionErrorCode.INVALID_STDOUT,
+        _request(),
+        process_config,
+        lambda *args: _outcome(stdout),
+    )
+    formatted = "".join(
+        traceback.format_exception(type(error), error, error.__traceback__)
+    )
+
+    assert error.args == ("Product Pack bridge stdout is invalid",)
+    assert "9" * 100 not in formatted
+    assert error.__cause__ is None
+    assert error.__context__ is None
+
+
+@pytest.mark.parametrize(
+    "parser_error",
+    [MemoryError, KeyboardInterrupt, SystemExit, GeneratorExit],
+)
+def test_decoder_control_flow_and_memory_errors_propagate(
+    process_config,
+    monkeypatch,
+    parser_error,
+) -> None:
+    def fail_decode(*args, **kwargs):
+        raise parser_error()
+
+    monkeypatch.setattr(bridge_runner.json, "loads", fail_decode)
+    with pytest.raises(parser_error):
+        run_product_pack_bridge(
+            _request(),
+            process_config,
+            executor=lambda *args: _outcome(b"{}"),
+        )
+
+
 def test_unknown_and_noncanonical_protocol_payloads_are_rejected(
     process_config,
 ) -> None:
@@ -580,6 +715,42 @@ json.dump(response, sys.stdout, separators=(",", ":"))
     assert calls[0][1]["shell"] is False
     assert "env" not in calls[0][1]
     assert "cwd" not in calls[0][1]
+
+
+def test_real_process_excessive_nesting_is_reaped_and_safely_rejected(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    script = """
+import sys
+sys.stdin.buffer.read()
+sys.stdout.write("[" * 2000 + "0" + "]" * 2000)
+"""
+    config = _write_bridge(tmp_path, script)
+    original_popen = subprocess.Popen
+    processes = []
+
+    def observed_popen(*args, **kwargs):
+        process = original_popen(*args, **kwargs)
+        processes.append(process)
+        return process
+
+    monkeypatch.setattr(subprocess, "Popen", observed_popen)
+    started = time.monotonic()
+
+    error = _assert_error(
+        ProductPackBridgeExecutionErrorCode.INVALID_STDOUT,
+        _request(),
+        config,
+        None,
+    )
+
+    assert time.monotonic() - started < 3
+    assert len(processes) == 1
+    assert processes[0].poll() is not None
+    assert error.args == ("Product Pack bridge stdout is invalid",)
+    assert error.__cause__ is None
+    assert error.__context__ is None
 
 
 @pytest.mark.parametrize(

@@ -259,7 +259,7 @@ def _decode_single_json_object(stdout: bytes) -> Optional[Dict[str, object]]:
             object_pairs_hook=_unique_object,
             parse_constant=_reject_json_constant,
         )
-    except (json.JSONDecodeError, _InvalidJSON):
+    except (ValueError, RecursionError, OverflowError):
         return None
     if type(value) is not dict:
         return None
