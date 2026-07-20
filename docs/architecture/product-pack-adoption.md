@@ -2,10 +2,11 @@
 
 ## Status
 
-Task 5A.1 records the experimental architecture decision and manifest contract.
-Task 5A.2 adds explicit external manifest loading and is ready for architecture
-review. These checkpoints are not a stable Product Pack SDK or a commitment
-that API version 1 is complete.
+Task 5A.1 records the experimental architecture decision and manifest contract,
+and Task 5A.2 completes explicit external manifest loading. Task 5A.3 defines
+Bridge Protocol v1 contracts and is ready for architecture review. These
+checkpoints are not a stable Product Pack SDK or a commitment that API version
+1 is complete.
 
 ## Decision
 
@@ -155,14 +156,24 @@ or registration.
 
 ## Future TypeScript execution boundary
 
-Task 5A.3 will define the direction of a versioned TypeScript Playwright
-bridge. Credentials must be resolved inside the TypeScript/product execution
-boundary. Python PMQA must not receive credentials, cookies, storage state,
-complete DOM content, or browser handles. Only versioned, structured, bounded,
-safe JSON observations may cross that boundary.
+Task 5A.3 defines the language-neutral Bridge Protocol v1 contracts. Version 1
+supports only `exploration_capture`: an immutable, bounded action plan crosses
+to the future product boundary, with at most 32 canonical action identifiers,
+and exactly one validated
+`ExplorationEvidence` may return on success. Credentials, arbitrary
+configuration or environment data, raw DOM/HTML, browser handles, commands,
+paths, and runtime objects are not protocol fields. Structured locator
+observations already permitted by `ExplorationEvidence` remain valid evidence.
 
-Bridge runner selection, timeouts, output bounds, process isolation, and the
-protocol itself belong to Task 5A.3 and are not implemented here.
+Bridge protocol version, manifest schema version, Product Pack API version,
+and Product Pack version are independent compatibility axes. The canonical
+versioned JSON schema is mechanically checked against the Python contracts and
+packaged with PMQA.
+
+Task 5A.4 will implement the bounded TypeScript/Node execution bridge.
+Credentials must be resolved inside that future private TypeScript/product
+execution boundary. No runner, subprocess, Node.js invocation, Playwright
+execution, or execution isolation is implemented by Task 5A.3.
 
 ## Adoption sequence
 
@@ -176,4 +187,6 @@ The planned evidence-driven sequence is:
 6. company-side, read-only MDE pilot; and
 7. API v1 stabilization after evidence from both SauceDemo and MDE.
 
-Task 5A.3 and later steps have not started. Task 6 and Task 7 have not started.
+Task 5A.3 is ready for architecture review and is not merged or complete on
+`main`. Task 5A.4 and later steps have not started. Task 6 and Task 7 have not
+started.

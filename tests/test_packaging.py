@@ -119,6 +119,10 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         assert "pmqa/product_pack/__init__.py" in names
         assert "pmqa/product_pack/manifest.py" in names
         assert "pmqa/product_pack/loader.py" in names
+        assert "pmqa/product_pack/bridge_protocol.py" in names
+        assert (
+            "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json" in names
+        )
         assert REQUIRED_PRODUCT_MODULES <= names
         assert "products/demo/config/product.json" in names
         assert len(entry_point_files) == 1
@@ -147,7 +151,9 @@ def test_actual_wheel_excludes_runtime_outputs_and_unrelated_files(
         assert path.name != ".env" and not path.name.startswith(".env.")
         assert "credential" not in path.name.casefold()
         if root == "pmqa":
-            assert path.suffix == ".py"
+            assert path.suffix == ".py" or name == (
+                "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json"
+            )
         elif root == "products":
             assert name in REQUIRED_PRODUCT_MODULES | {
                 "products/demo/config/product.json"

@@ -1,0 +1,514 @@
+{
+  "$id": "https://pmqa.invalid/schemas/product-pack-bridge-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "protocol_version": "1",
+  "request": {
+    "$defs": {
+      "ProductPackBridgeOperation": {
+        "description": "Bounded operation vocabulary for Bridge Protocol v1.",
+        "enum": [
+          "exploration_capture"
+        ],
+        "title": "ProductPackBridgeOperation",
+        "type": "string"
+      }
+    },
+    "$id": "product-pack-bridge-v1-request.json",
+    "additionalProperties": false,
+    "description": "One bounded request to an explicitly selected Product Pack bridge.",
+    "properties": {
+      "action_plan": {
+        "items": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "maxItems": 32,
+        "minItems": 1,
+        "title": "Action Plan",
+        "type": "array"
+      },
+      "operation": {
+        "$ref": "#/$defs/ProductPackBridgeOperation"
+      },
+      "pack_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "title": "Pack Id",
+        "type": "string"
+      },
+      "product_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "title": "Product Id",
+        "type": "string"
+      },
+      "protocol_version": {
+        "const": "1",
+        "title": "Protocol Version",
+        "type": "string"
+      },
+      "request_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "title": "Request Id",
+        "type": "string"
+      },
+      "requested_at": {
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{6})?Z$",
+        "title": "Requested At",
+        "type": "string"
+      },
+      "tool_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "title": "Tool Id",
+        "type": "string"
+      },
+      "workflow_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "title": "Workflow Id",
+        "type": "string"
+      }
+    },
+    "required": [
+      "protocol_version",
+      "request_id",
+      "workflow_id",
+      "product_id",
+      "pack_id",
+      "tool_id",
+      "operation",
+      "requested_at",
+      "action_plan"
+    ],
+    "title": "ProductPackBridgeRequest",
+    "type": "object"
+  },
+  "response": {
+    "$defs": {
+      "ExplorationEvidence": {
+        "additionalProperties": false,
+        "description": "Aggregates one correlated batch of structured exploration evidence.",
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "elements": {
+            "items": {
+              "$ref": "#/$defs/ObservedElement"
+            },
+            "title": "Elements",
+            "type": "array"
+          },
+          "evidence_id": {
+            "minLength": 1,
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "interactions": {
+            "items": {
+              "$ref": "#/$defs/InteractionObservation"
+            },
+            "title": "Interactions",
+            "type": "array"
+          },
+          "locator_candidates": {
+            "items": {
+              "$ref": "#/$defs/LocatorCandidateObservation"
+            },
+            "title": "Locator Candidates",
+            "type": "array"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/$defs/ObservedPage"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "product_id": {
+            "minLength": 1,
+            "title": "Product Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "minLength": 1,
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/$defs/ExplorationSource"
+          },
+          "workflow_id": {
+            "minLength": 1,
+            "title": "Workflow Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "evidence_id",
+          "workflow_id",
+          "product_id",
+          "source",
+          "captured_at"
+        ],
+        "title": "ExplorationEvidence",
+        "type": "object"
+      },
+      "ExplorationSource": {
+        "additionalProperties": false,
+        "description": "Attributes an evidence batch to one capture tool invocation.",
+        "properties": {
+          "capture_id": {
+            "minLength": 1,
+            "title": "Capture Id",
+            "type": "string"
+          },
+          "source_type": {
+            "minLength": 1,
+            "title": "Source Type",
+            "type": "string"
+          },
+          "tool_id": {
+            "minLength": 1,
+            "title": "Tool Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_type",
+          "tool_id",
+          "capture_id"
+        ],
+        "title": "ExplorationSource",
+        "type": "object"
+      },
+      "InteractionObservation": {
+        "additionalProperties": false,
+        "description": "Records one action and its observed outcome without runtime handles.",
+        "properties": {
+          "action": {
+            "minLength": 1,
+            "title": "Action",
+            "type": "string"
+          },
+          "interaction_id": {
+            "minLength": 1,
+            "title": "Interaction Id",
+            "type": "string"
+          },
+          "outcome_type": {
+            "minLength": 1,
+            "title": "Outcome Type",
+            "type": "string"
+          },
+          "outcome_value": {
+            "minLength": 1,
+            "title": "Outcome Value",
+            "type": "string"
+          },
+          "source_page_id": {
+            "minLength": 1,
+            "title": "Source Page Id",
+            "type": "string"
+          },
+          "target_element_id": {
+            "minLength": 1,
+            "title": "Target Element Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "interaction_id",
+          "source_page_id",
+          "target_element_id",
+          "action",
+          "outcome_type",
+          "outcome_value"
+        ],
+        "title": "InteractionObservation",
+        "type": "object"
+      },
+      "LocatorCandidateObservation": {
+        "additionalProperties": false,
+        "description": "Records a serializable strategy candidate for an observed element.",
+        "properties": {
+          "element_id": {
+            "minLength": 1,
+            "title": "Element Id",
+            "type": "string"
+          },
+          "locator_candidate_id": {
+            "minLength": 1,
+            "title": "Locator Candidate Id",
+            "type": "string"
+          },
+          "priority": {
+            "minimum": 1,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "strategy": {
+            "minLength": 1,
+            "title": "Strategy",
+            "type": "string"
+          },
+          "value": {
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "locator_candidate_id",
+          "element_id",
+          "strategy",
+          "value",
+          "priority"
+        ],
+        "title": "LocatorCandidateObservation",
+        "type": "object"
+      },
+      "ObservedAttribute": {
+        "additionalProperties": false,
+        "description": "Records one safe element attribute without an unrestricted mapping.",
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "title": "ObservedAttribute",
+        "type": "object"
+      },
+      "ObservedElement": {
+        "additionalProperties": false,
+        "description": "Records accessible, serializable facts observed about one element.",
+        "properties": {
+          "accessible_name": {
+            "minLength": 1,
+            "title": "Accessible Name",
+            "type": "string"
+          },
+          "attributes": {
+            "items": {
+              "$ref": "#/$defs/ObservedAttribute"
+            },
+            "title": "Attributes",
+            "type": "array"
+          },
+          "element_id": {
+            "minLength": 1,
+            "title": "Element Id",
+            "type": "string"
+          },
+          "page_id": {
+            "minLength": 1,
+            "title": "Page Id",
+            "type": "string"
+          },
+          "role": {
+            "minLength": 1,
+            "title": "Role",
+            "type": "string"
+          },
+          "visible_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Visible Text"
+          }
+        },
+        "required": [
+          "element_id",
+          "page_id",
+          "role",
+          "accessible_name"
+        ],
+        "title": "ObservedElement",
+        "type": "object"
+      },
+      "ObservedPage": {
+        "additionalProperties": false,
+        "description": "Records stable, runtime-free facts observed about one page.",
+        "properties": {
+          "page_id": {
+            "minLength": 1,
+            "title": "Page Id",
+            "type": "string"
+          },
+          "structural_fingerprint": {
+            "minLength": 1,
+            "title": "Structural Fingerprint",
+            "type": "string"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_id",
+          "url",
+          "title",
+          "structural_fingerprint"
+        ],
+        "title": "ObservedPage",
+        "type": "object"
+      },
+      "ProductPackBridgeFailureCode": {
+        "description": "Bounded product-neutral failures returned by an external bridge.",
+        "enum": [
+          "exploration_failed",
+          "action_plan_rejected",
+          "protocol_failure"
+        ],
+        "title": "ProductPackBridgeFailureCode",
+        "type": "string"
+      },
+      "ProductPackBridgeOperation": {
+        "description": "Bounded operation vocabulary for Bridge Protocol v1.",
+        "enum": [
+          "exploration_capture"
+        ],
+        "title": "ProductPackBridgeOperation",
+        "type": "string"
+      },
+      "ProductPackBridgeStatus": {
+        "description": "Terminal response status vocabulary.",
+        "enum": [
+          "succeeded",
+          "failed"
+        ],
+        "title": "ProductPackBridgeStatus",
+        "type": "string"
+      }
+    },
+    "$id": "product-pack-bridge-v1-response.json",
+    "additionalProperties": false,
+    "description": "One terminal, correlated Bridge Protocol v1 response.",
+    "properties": {
+      "completed_at": {
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{6})?Z$",
+        "title": "Completed At",
+        "type": "string"
+      },
+      "evidence": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ExplorationEvidence"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "failure_code": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ProductPackBridgeFailureCode"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "operation": {
+        "$ref": "#/$defs/ProductPackBridgeOperation"
+      },
+      "pack_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "title": "Pack Id",
+        "type": "string"
+      },
+      "product_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "title": "Product Id",
+        "type": "string"
+      },
+      "protocol_version": {
+        "const": "1",
+        "title": "Protocol Version",
+        "type": "string"
+      },
+      "request_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "title": "Request Id",
+        "type": "string"
+      },
+      "status": {
+        "$ref": "#/$defs/ProductPackBridgeStatus"
+      },
+      "tool_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "title": "Tool Id",
+        "type": "string"
+      },
+      "workflow_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "title": "Workflow Id",
+        "type": "string"
+      }
+    },
+    "required": [
+      "protocol_version",
+      "request_id",
+      "workflow_id",
+      "product_id",
+      "pack_id",
+      "tool_id",
+      "operation",
+      "status",
+      "completed_at",
+      "evidence",
+      "failure_code"
+    ],
+    "title": "ProductPackBridgeResponse",
+    "type": "object"
+  },
+  "title": "PMQA Product Pack Bridge Protocol v1"
+}

@@ -14,7 +14,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 4 — Multi-agent runtime | Complete | Added typed state, agent and tool contracts, deterministic reduction and routing, runtime execution, validated recovery, and LangGraph assembly. |
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
-| Task 5A — Product Pack Adoption Foundation | In progress | Task 5A.1 defines the experimental manifest and architecture boundary; Task 5A.2 adds explicit distribution-scoped manifest loading. The TypeScript bridge and later work have not started. |
+| Task 5A — Product Pack Adoption Foundation | In progress | Task 5A.1 defines the manifest boundary, Task 5A.2 completes explicit manifest loading, and Task 5A.3 defines Bridge Protocol v1 contracts for architecture review. Runtime bridge work has not started. |
 
 ## Task 4 closure
 
@@ -77,15 +77,15 @@ work in Task 6. At a high level, it will:
 - provide Product Pack validation and scaffolding; and
 - validate the abstraction with SauceDemo before a future MDE pilot.
 
-No stable Product Pack SDK, TypeScript bridge, MDE integration, or new CLI
-command is implemented by these checkpoints.
+No stable Product Pack SDK, TypeScript execution bridge, MDE integration, or
+new CLI command is implemented by these checkpoints.
 
 Task 5A.1 is the experimental Product Pack manifest and architecture-contract
 implementation checkpoint. It defines a frozen, strict, JSON-compatible
 manifest with exact version, identity, display-name, and bounded-capability
 fields, plus the long-term ownership, dependency, trust-boundary, and adoption
-decisions. It is ready for architecture review and is not a stable Product Pack
-SDK v1. See the
+decisions. It is complete on this cumulative Task 5A branch and is not a stable
+Product Pack SDK v1. See the
 [Product Pack adoption architecture](architecture/product-pack-adoption.md).
 
 Task 5A.2 adds an explicit loader for manifest metadata from one
@@ -94,9 +94,16 @@ operator-approved installed distribution. It uses the fixed
 `pack_id`, and requires the loaded plain dictionary to equal the complete
 expected manifest after safe reconstruction. It performs no global discovery,
 arbitrary-path loading, adapter execution, browser execution, or sandboxing;
-the selected Python distribution is trusted code. Task 5A.2 is ready for
-architecture review.
+the selected Python distribution is trusted code. Task 5A.2 is complete on
+this cumulative Task 5A branch.
 
-Task 5A.3 and every later Task 5A checkpoint have not started. The TypeScript
-bridge, scaffolding, SauceDemo migration, and future read-only MDE pilot remain
-planned work. Task 6 and Task 7 have not started.
+Task 5A.3 defines immutable Bridge Protocol v1 request and response contracts,
+safe reconstruction and correlation, and a mechanically verified packaged JSON
+schema. It carries only bounded actions and existing structured exploration
+evidence; credentials remain inside the future private product execution
+boundary. Task 5A.3 is ready for architecture review and is not merged or
+complete on `main`. It is not a stable public SDK.
+
+Task 5A.4 will implement the bounded TypeScript/Node execution bridge. No Node,
+subprocess, TypeScript, Playwright runner, scaffolding, SauceDemo migration, or
+future read-only MDE pilot work has started. Task 6 and Task 7 have not started.

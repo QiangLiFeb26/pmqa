@@ -34,3 +34,4 @@ namespaces = false
 
 [tool.setuptools.package-data]
 "products.demo" = ["config/product.json"]
+"pmqa.product_pack" = ["schemas/*.json"]

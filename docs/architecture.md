@@ -118,6 +118,13 @@ ownership, version axes, external-pack direction, and future TypeScript
 execution trust boundary are defined in the
 [Product Pack adoption architecture](architecture/product-pack-adoption.md).
 
+Task 5A.3 defines Bridge Protocol v1 contracts and canonical JSON schema only.
+The request contains versioned identities plus a bounded ordered action plan;
+a successful response contains one existing `ExplorationEvidence` contract.
+Credentials and runtime objects never enter protocol payloads. No TypeScript,
+Node, subprocess, browser runner, or adapter execution exists yet; Task 5A.4
+will implement that bounded execution bridge.
+
 ### Memory
 
 Memory is durable product knowledge represented by the JSON-compatible models

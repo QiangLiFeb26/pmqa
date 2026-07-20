@@ -7,8 +7,9 @@ from typing import Any, Dict, Literal, Optional, Tuple
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 
+PRODUCT_PACK_IDENTIFIER_PATTERN = r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
 _IDENTIFIER_PATTERN = re.compile(
-    r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+    PRODUCT_PACK_IDENTIFIER_PATTERN,
     flags=re.ASCII,
 )
 _SEMANTIC_VERSION_PATTERN = re.compile(
@@ -20,7 +21,7 @@ _SEMANTIC_VERSION_PATTERN = re.compile(
     r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$",
     flags=re.ASCII,
 )
-_MAX_IDENTIFIER_LENGTH = 64
+PRODUCT_PACK_IDENTIFIER_MAX_LENGTH = 64
 _MAX_SEMANTIC_VERSION_LENGTH = 128
 _MAX_DISPLAY_NAME_LENGTH = 120
 _INVALID_MANIFEST_MESSAGE = "invalid Product Pack manifest"
@@ -60,12 +61,20 @@ class ProductPackManifest(BaseModel):
 
     schema_version: Literal["1"]
     product_pack_api_version: Literal["1"]
-    pack_id: str = Field(min_length=1, max_length=_MAX_IDENTIFIER_LENGTH)
+    pack_id: str = Field(
+        min_length=1,
+        max_length=PRODUCT_PACK_IDENTIFIER_MAX_LENGTH,
+        pattern=PRODUCT_PACK_IDENTIFIER_PATTERN,
+    )
     pack_version: str = Field(
         min_length=1,
         max_length=_MAX_SEMANTIC_VERSION_LENGTH,
     )
-    product_id: str = Field(min_length=1, max_length=_MAX_IDENTIFIER_LENGTH)
+    product_id: str = Field(
+        min_length=1,
+        max_length=PRODUCT_PACK_IDENTIFIER_MAX_LENGTH,
+        pattern=PRODUCT_PACK_IDENTIFIER_PATTERN,
+    )
     display_name: str = Field(
         min_length=1,
         max_length=_MAX_DISPLAY_NAME_LENGTH,
@@ -77,9 +86,7 @@ class ProductPackManifest(BaseModel):
     def validate_identifier(cls, value: str) -> str:
         """Require a canonical, cross-platform lowercase ASCII identifier."""
 
-        if _IDENTIFIER_PATTERN.fullmatch(value) is None:
-            raise ValueError("identifier must use canonical lowercase ASCII")
-        return value
+        return validate_product_pack_identifier(value)
 
     @field_validator("pack_version")
     @classmethod
@@ -164,3 +171,11 @@ class ProductPackManifest(BaseModel):
         values = self.to_dict()
         values.update(update or {})
         return type(self).model_validate(values)
+
+
+def validate_product_pack_identifier(value: str) -> str:
+    """Apply the shared canonical identifier policy used at pack boundaries."""
+
+    if _IDENTIFIER_PATTERN.fullmatch(value) is None:
+        raise ValueError("identifier must use canonical lowercase ASCII")
+    return value
