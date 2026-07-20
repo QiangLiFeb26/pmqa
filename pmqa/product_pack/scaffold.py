@@ -775,8 +775,9 @@ def scaffold_product_pack(
         if _path_exists_or_is_symlink(target):
             _raise_scaffold_error(ProductPackScaffoldErrorCode.TARGET_EXISTS)
         _publish_directory_no_replace(temporary.path, target)
-        _release_temporary_directory_ownership(temporary)
+        published_ownership = temporary
         temporary = None
+        _release_temporary_directory_ownership(published_ownership)
     except ProductPackScaffoldError:
         raise
     except MemoryError:

@@ -237,6 +237,103 @@ def test_publication_uses_one_atomic_no_replace_operation(
 
 
 @pytest.mark.parametrize(
+    "release_error",
+    [MemoryError, KeyboardInterrupt, SystemExit, GeneratorExit],
+)
+def test_successful_publication_releases_each_descriptor_once_before_control_flow(
+    tmp_path,
+    monkeypatch,
+    capsys,
+    release_error,
+) -> None:
+    target = tmp_path / "target"
+    ownerships = _observe_ownership(monkeypatch)
+    original_release = scaffold_module._release_temporary_directory_ownership
+    original_close = scaffold_module.os.close
+    release_calls = []
+    close_calls = []
+
+    def observed_release(ownership):
+        release_calls.append(ownership)
+        return original_release(ownership)
+
+    def interrupt_after_close(descriptor):
+        close_calls.append(descriptor)
+        original_close(descriptor)
+        if len(close_calls) == 1:
+            raise release_error()
+
+    monkeypatch.setattr(
+        scaffold_module,
+        "_release_temporary_directory_ownership",
+        observed_release,
+    )
+    monkeypatch.setattr(scaffold_module.os, "close", interrupt_after_close)
+
+    with pytest.raises(release_error) as captured:
+        scaffold_product_pack(
+            ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
+        )
+
+    assert release_calls == ownerships
+    assert len(release_calls) == 1
+    assert close_calls == [
+        ownerships[0].directory_descriptor,
+        ownerships[0].parent_descriptor,
+    ]
+    assert captured.value.args == ()
+    assert tuple(sorted(_file_bytes(target))) == tuple(
+        sorted(scaffold_module._render_files(_manifest(), "2.4.0"))
+    )
+    assert not _temporary_siblings(tmp_path)
+    assert capsys.readouterr() == ("", "")
+
+
+def test_successful_publication_suppresses_close_oserror_without_double_release(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    target = tmp_path / "target"
+    ownerships = _observe_ownership(monkeypatch)
+    original_release = scaffold_module._release_temporary_directory_ownership
+    original_close = scaffold_module.os.close
+    release_calls = []
+    close_calls = []
+
+    def observed_release(ownership):
+        release_calls.append(ownership)
+        return original_release(ownership)
+
+    def error_after_close(descriptor):
+        close_calls.append(descriptor)
+        original_close(descriptor)
+        raise OSError("runtime-secret-marker close detail")
+
+    monkeypatch.setattr(
+        scaffold_module,
+        "_release_temporary_directory_ownership",
+        observed_release,
+    )
+    monkeypatch.setattr(scaffold_module.os, "close", error_after_close)
+
+    result = scaffold_product_pack(
+        ProductPackScaffoldRequest(_manifest(), str(target), "2.4.0")
+    )
+
+    assert release_calls == ownerships
+    assert len(release_calls) == 1
+    assert close_calls == [
+        ownerships[0].directory_descriptor,
+        ownerships[0].parent_descriptor,
+    ]
+    assert result.generated_files == tuple(sorted(_file_bytes(target)))
+    assert "runtime-secret-marker" not in repr(result)
+    assert not _temporary_siblings(tmp_path)
+    assert capsys.readouterr() == ("", "")
+
+
+@pytest.mark.parametrize(
     "target_kind",
     ["empty-directory", "nonempty-directory", "file", "symlink"],
 )
