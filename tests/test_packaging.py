@@ -121,6 +121,7 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         assert "pmqa/product_pack/loader.py" in names
         assert "pmqa/product_pack/bridge_protocol.py" in names
         assert "pmqa/product_pack/bridge_runner.py" in names
+        assert "pmqa/product_pack/scaffold.py" in names
         assert (
             "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json" in names
         )
@@ -144,6 +145,7 @@ def test_actual_wheel_excludes_runtime_outputs_and_unrelated_files(
     assert FORBIDDEN_EXACT_ENTRIES.isdisjoint(names)
     assert not any("external_demo_pack" in name for name in names)
     assert not any("external-demo-fixture" in name for name in names)
+    assert not any("pmqa_product_pack_external_demo" in name for name in names)
     for name in names:
         path = PurePosixPath(name)
         root = path.parts[0]

@@ -4,9 +4,10 @@
 
 Task 5A.1 records the experimental architecture decision and manifest contract,
 Task 5A.2 completes explicit external manifest loading, and Task 5A.3 completes
-Bridge Protocol v1 contracts on the cumulative branch. Task 5A.4 adds bounded
-process transport and is ready for architecture review. These checkpoints are
-not a stable Product Pack SDK or a commitment that API version 1 is complete.
+Bridge Protocol v1 contracts on the cumulative branch. Task 5A.4 completes
+bounded process transport, and Task 5A.5 adds deterministic scaffolding and
+offline source conformance for architecture review. These checkpoints are not
+a stable Product Pack SDK or a commitment that API version 1 is complete.
 
 ## Decision
 
@@ -196,6 +197,33 @@ validation, not a security sandbox.
 No Playwright Product Pack, template, scaffold, SauceDemo migration, or MDE
 integration is implemented by Task 5A.4.
 
+## External source scaffolding and conformance
+
+Task 5A.5 creates a minimal external Python manifest distribution and direct
+TypeScript bridge source tree only in the absolute target explicitly selected
+by the operator. It builds in a private sibling temporary directory and
+publishes with a final rename; it never merges into or overwrites an existing
+target. A separate private Product Pack source location is recommended, and
+the scaffold never writes into a product repository unless the operator
+deliberately selects that location.
+
+The generated Python entry point exposes only the canonical plain manifest
+dictionary. The TypeScript source fixes Bridge Protocol v1 and exposes a
+product-owned capture-backend interface. Its placeholder always returns a
+correlated `protocol_failure`; it cannot fabricate successful evidence and is
+not operational until the consumer implements and explicitly builds an
+approved direct Playwright TypeScript backend. Playwright versions remain a
+consumer dependency decision. No IDE, Copilot, Playwright MCP, install hook,
+browser download, or dependency installation is generated or required.
+
+Offline source conformance reads only scaffold-owned required control files. It
+checks the manifest, deterministic Python identity and entry point, supported
+protocol vocabulary, fail-closed backend, and absence of install/MCP drift
+without importing or running product code. It does not recursively inspect
+arbitrary consumer source for secrets. Credentials remain exclusively in the
+consumer execution environment. Scaffolding and conformance launch no browser,
+Node process, external Product Pack, or network operation.
+
 ## Adoption sequence
 
 The planned evidence-driven sequence is:
@@ -208,6 +236,7 @@ The planned evidence-driven sequence is:
 6. company-side, read-only MDE pilot; and
 7. API v1 stabilization after evidence from both SauceDemo and MDE.
 
-Task 5A.4 is ready for architecture review and is not merged or complete on
-`main`. Task 5A.5 and later steps have not started. Task 6 and Task 7 have not
-started.
+Task 5A.4 is complete on the cumulative branch. Task 5A.5 is ready for
+architecture review and is not merged or complete on `main`. Task 5A.6 will
+validate the abstraction by migrating SauceDemo to the external Product Pack
+shape; that work, the future MDE pilot, Task 6, and Task 7 have not started.

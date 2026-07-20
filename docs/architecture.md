@@ -126,7 +126,12 @@ bounded process transport for one explicitly operator-selected compiled
 TypeScript/Node bridge: canonical JSON travels only over stdin/stdout, stderr
 is discarded behind fixed errors, and process configuration remains runtime
 only. The manifest cannot provide commands. The transport is not a security
-sandbox and no Playwright Product Pack or adapter implementation exists yet.
+sandbox. Task 5A.5 adds deterministic external source scaffolding and offline
+conformance without executing product code. Its TypeScript backend interface
+is a fail-closed placeholder for consumer-owned direct Playwright integration;
+Playwright MCP, IDE configuration, and Copilot configuration are not baseline
+dependencies. Scaffolding writes only beneath an explicit target and neither
+scaffolding nor validation launches a browser or Product Pack.
 
 ### Memory
 

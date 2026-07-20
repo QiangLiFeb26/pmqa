@@ -36,6 +36,17 @@ from pmqa.product_pack.loader import (
     ProductPackLoadRequest,
     load_product_pack_manifest,
 )
+from pmqa.product_pack.scaffold import (
+    PRODUCT_PACK_SCAFFOLD_VERSION,
+    ProductPackScaffoldError,
+    ProductPackScaffoldErrorCode,
+    ProductPackScaffoldRequest,
+    ProductPackScaffoldResult,
+    ProductPackSourceConformanceErrorCode,
+    ProductPackSourceConformanceResult,
+    scaffold_product_pack,
+    validate_product_pack_source,
+)
 
 __all__ = [
     "BRIDGE_PROTOCOL_VERSION",
@@ -66,4 +77,13 @@ __all__ = [
     "ProductPackBridgeExecutionErrorCode",
     "ProductPackBridgeProcessConfig",
     "run_product_pack_bridge",
+    "PRODUCT_PACK_SCAFFOLD_VERSION",
+    "ProductPackScaffoldError",
+    "ProductPackScaffoldErrorCode",
+    "ProductPackScaffoldRequest",
+    "ProductPackScaffoldResult",
+    "ProductPackSourceConformanceErrorCode",
+    "ProductPackSourceConformanceResult",
+    "scaffold_product_pack",
+    "validate_product_pack_source",
 ]

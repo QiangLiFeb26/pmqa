@@ -14,7 +14,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 4 — Multi-agent runtime | Complete | Added typed state, agent and tool contracts, deterministic reduction and routing, runtime execution, validated recovery, and LangGraph assembly. |
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
-| Task 5A — Product Pack Adoption Foundation | In progress | Task 5A.1–5A.3 establish the manifest, explicit loading, and protocol contracts. Task 5A.4 adds bounded process transport for architecture review. Product implementation and migration have not started. |
+| Task 5A — Product Pack Adoption Foundation | In progress | Task 5A.1–5A.4 establish the manifest, explicit loading, protocol, and bounded transport. Task 5A.5 adds deterministic scaffolding and offline source conformance for architecture review. Product implementation and migration have not started. |
 
 ## Task 4 closure
 
@@ -77,8 +77,8 @@ work in Task 6. At a high level, it will:
 - provide Product Pack validation and scaffolding; and
 - validate the abstraction with SauceDemo before a future MDE pilot.
 
-No stable Product Pack SDK, TypeScript execution bridge, MDE integration, or
-new CLI command is implemented by these checkpoints.
+No stable Product Pack SDK, MDE integration, runtime bridge-execution CLI, or
+product migration is implemented by these checkpoints.
 
 Task 5A.1 is the experimental Product Pack manifest and architecture-contract
 implementation checkpoint. It defines a frozen, strict, JSON-compatible
@@ -109,7 +109,19 @@ Bridge Protocol v1 JSON travels through stdin/stdout, while bounded stderr and
 raw process details remain behind fixed safe errors. Credentials stay in the
 inherited private execution environment and are never inspected or serialized
 by PMQA. The runner is transport isolation, not a security sandbox. Task 5A.4
-is ready for architecture review and is not merged or complete on `main`.
+is complete on this cumulative Task 5A branch and is not merged into `main`.
 
-No Playwright Product Pack, scaffolding, SauceDemo migration, future read-only
-MDE pilot, or Task 5A.5 work has started. Task 6 and Task 7 have not started.
+Task 5A.5 provides a deterministic minimal external Python distribution and
+direct TypeScript bridge source scaffold, plus offline source-conformance and
+product-neutral CLI commands. It writes only to an explicit operator-selected
+target, recommends a separate private Product Pack source location, and
+generates a non-operational backend that fails closed. Consumer credentials
+remain in the execution environment. The baseline is consumer-approved direct
+TypeScript Playwright integration; no IDE, Copilot, or Playwright MCP setup is
+required. Scaffolding and validation launch no browser or external Product
+Pack. The API remains experimental rather than stable SDK v1. Task 5A.5 is
+ready for architecture review and is not merged or complete on `main`.
+
+Task 5A.6 will validate the abstraction by migrating SauceDemo to the external
+Product Pack shape. That migration, the future read-only MDE pilot, Task 6, and
+Task 7 have not started.

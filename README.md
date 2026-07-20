@@ -199,14 +199,14 @@ authoritative SauceDemo workflow, and the legacy `explore` and `generate`
 commands remain retired.
 
 Task 5A — Product Pack Adoption Foundation is the next phase before the
-existing Task 6 recommendation work and is in progress through Task 5A.4.
+existing Task 6 recommendation work and is in progress through Task 5A.5.
 Task 5A.1 adds the experimental strict manifest and architecture contract;
 Task 5A.2 explicitly loads only manifest metadata from one approved installed
 distribution and requires complete equality with an expected manifest. It
 does not discover packs globally, load arbitrary paths, run adapters or
 browsers, or provide sandboxing. The selected distribution is trusted Python
-code. The TypeScript execution bridge, scaffolding, SauceDemo migration, and
-future MDE pilot have not started. Task 5A.3 defines only the immutable,
+code. SauceDemo migration and the future MDE pilot have not started. Task
+5A.3 defines only the immutable,
 language-neutral Bridge Protocol v1 contracts and packaged JSON schema:
 bounded actions cross
 the request boundary, and existing structured exploration evidence is the only
@@ -216,9 +216,18 @@ operator-approved executable and compiled bridge artifact. Canonical protocol
 JSON travels only through stdin/stdout; stderr and raw process failures remain
 behind fixed safe errors, and the manifest cannot specify commands. Credentials
 remain in the inherited private execution environment and are not inspected or
-serialized by PMQA. The runner is not a security sandbox, and no Playwright
-Product Pack, scaffold, SauceDemo migration, or MDE integration exists yet.
-This is not a stable Product Pack SDK v1. Task 6 and Task 7 have not started.
+serialized by PMQA. The runner is not a security sandbox. Task 5A.5 adds
+deterministic external-pack source scaffolding, offline conformance, and the
+product-neutral `pmqa product-pack scaffold` and
+`pmqa product-pack validate-source` commands. Generated bridge placeholders
+are deliberately non-operational and fail closed. Consumer teams add an
+approved direct TypeScript Playwright backend and keep credentials in their
+execution environment; no IDE, Copilot, or Playwright MCP configuration is
+required. Scaffolding writes only to the explicit operator-selected target,
+and a separate private Product Pack source location is recommended. Neither
+scaffolding nor validation launches a browser or external pack. This remains
+experimental, not a stable Product Pack SDK v1. Task 5A.6 will validate the
+shape by migrating SauceDemo. Task 6 and Task 7 have not started.
 See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)
