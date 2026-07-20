@@ -105,12 +105,10 @@ def test_generator_fails_without_assertion_evidence(tmp_path) -> None:
         generate_tests(broken, tmp_path)
 
 
-def test_persisted_artifact_contains_no_demo_credential_values() -> None:
+def test_direct_artifact_serialization_contains_no_demo_credentials() -> None:
     root = Path(__file__).resolve().parents[1]
     config = load_config(root)
-    artifact_text = (config.artifact_output_location / "knowledge.json").read_text(
-        encoding="utf-8"
-    )
+    artifact_text = json.dumps(_artifact().to_dict())
 
     assert config.demo_only_default_credentials["username"] not in artifact_text
     assert config.demo_only_default_credentials["password"] not in artifact_text

@@ -1,4 +1,4 @@
-"""Generated from products/demo/artifacts/knowledge.json."""
+"""Generated from verified SauceDemo knowledge."""
 
 import json
 import os
@@ -9,8 +9,8 @@ from playwright.sync_api import Page, sync_playwright
 
 
 ROOT = Path(__file__).resolve().parents[3]
-ARTIFACT = json.loads((ROOT / "products/demo/artifacts/knowledge.json").read_text())
 CONFIG = json.loads((ROOT / "products/demo/config/product.json").read_text())
+LOCATORS = {"element.inventory_title": {"strategy": "data-test", "value": "title"}, "element.login": {"strategy": "data-test", "value": "login-button"}, "element.password": {"strategy": "data-test", "value": "password"}, "element.username": {"strategy": "data-test", "value": "username"}}
 
 USERNAME_ELEMENT_ID = "element.username"
 PASSWORD_ELEMENT_ID = "element.password"
@@ -21,10 +21,9 @@ EXPECTED_INVENTORY_TEXT = "Products"
 
 
 def _locator(page: Page, element_id: str):
-    known = [item for item in ARTIFACT["locators"] if item["element_id"] == element_id]
-    if not known:
+    locator = LOCATORS.get(element_id)
+    if locator is None:
         raise AssertionError(f"No stored locator for artifact element: {element_id}")
-    locator = sorted(known, key=lambda item: item["priority"])[0]
     if locator["strategy"] == "data-test":
         return page.locator(f"[data-test='{locator['value']}']")
     raise AssertionError(f"Unsupported stored locator strategy: {locator['strategy']}")

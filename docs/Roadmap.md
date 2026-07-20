@@ -12,8 +12,8 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 2 — SauceDemo vertical slice | Complete | Added bounded Playwright exploration, persisted product knowledge, and deterministic artifact-driven test generation. |
 | Task 3 — Reasoning trust boundary | Complete | Added provider-independent reasoning contracts, scrubbing, deterministic/manual/Copilot CLI providers, prompt packages, and SQLite trace storage. |
 | Task 4 — Multi-agent runtime | Complete | Added typed state, agent and tool contracts, deterministic reduction and routing, runtime execution, validated recovery, and LangGraph assembly. |
-| Task 4.8 — Closure cleanup | Ready for review | Consolidates prohibited-key policy and retires the misleading Task 1 graph entry point before Task 5. |
-| Task 5 | Not started | Next approved phase; implementation scope will be defined before work begins. |
+| Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
+| Task 5 — Real agent composition | In progress | Tasks 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; the cumulative branch is ready for review. |
 
 ## Task 4 closure
 
@@ -39,8 +39,25 @@ policy at a neutral dependency layer, preserves explicit workflow-only runtime
 restrictions, and retires the disconnected Task 1 no-op graph and executable
 entry point. It does not add agents, tools, or Task 5 behavior.
 
-## Next phase
+## Task 5 checkpoints
 
-Task 5 is not started. Its branch should be based on `main` only after Task 4.8
-passes review and is merged. No Task 5 implementation details are committed by
-this cleanup.
+Tasks 5.1–5.6 completed the neutral exploration-evidence boundary, the
+product-owned Playwright exploration Tool, the real SauceDemo Explorer, and
+deterministic Knowledge and Validator behavior with failed-validation recovery.
+The product-owned composition API wires the real Tool and all three real agents
+through the existing Task 4 graph and supports deterministic offline execution.
+Task 5.7 is the strict verified-artifact handoff checkpoint: only the
+Validator's independent VERIFIED snapshot may pass through the existing
+storage boundary and deterministic test generator. The stored NEW candidate is
+never persisted as approved memory. Task 5.8 is the final Task 5 implementation
+checkpoint: a product-owned application composes workflow, handoff, storage,
+and generation, while the generic CLI dynamically loads it only for
+`--product demo`. The command never runs generated tests automatically. The
+Task 5.9 checkpoint retires the legacy `explore` and `generate` CLI paths as
+static migration stubs. They cannot access product capabilities or knowledge;
+only `task5-demo` may create authoritative knowledge or generate new tests.
+The underlying Task 2 components remain reusable library/test infrastructure,
+and `test-generated` only executes the committed/generated regression tests.
+The cumulative branch is ready for architecture review and remains unmerged;
+the final Task 5 PR will not be created until that review passes. Reasoning-
+provider integration and Tasks 6 and 7 are outside the current scope.

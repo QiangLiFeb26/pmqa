@@ -1,5 +1,13 @@
 # Task 2 Validation
 
+> **Historical record only.** This document records the Task 2 milestone as it
+> behaved on 2026-07-18. The `explore` and `generate` commands shown below are
+> retired compatibility stubs as of Task 5.9 and must not be used as current
+> workflow instructions. They now return exit code 2 and perform no product,
+> storage, or generator access. The current authoritative command is
+> `pmqa task5-demo --product demo`; `test-generated` only executes existing
+> generated regressions.
+
 This record validates implementation commit
 `a4dc889da605cc387e25f4832e6c971e55305d7c`. The tracked working tree was
 clean when validation began. Pre-existing, unrelated planning documents were
@@ -26,7 +34,7 @@ commands were validated:
 Result: successful. Pip was upgraded from 21.2.4 to 26.0.1 before the editable
 PEP 517 installation.
 
-## Exploration
+## Historical exploration result
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pmqa.cli explore --product demo
@@ -35,7 +43,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pmqa.cli explore --product demo
 Result: successful. The artifact was written to
 `products/demo/artifacts/knowledge.json`.
 
-## Generation
+## Historical generation result
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pmqa.cli generate --product demo
@@ -53,7 +61,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q tests
 Result: `11 passed` in 0.14 seconds. One dependency deprecation warning was
 reported by LangGraph; it did not affect execution.
 
-## Generated Playwright tests
+## Generated Playwright tests (still supported)
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pmqa.cli test-generated --product demo
@@ -73,7 +81,9 @@ The generated tests cover successful login and inventory-page verification.
 ## Known limitations
 
 - Exploration is a bounded four-step SauceDemo product-pack flow, not a crawler.
-- The Task 2 CLI vertical slice is not orchestrated by the LangGraph skeleton.
+- The historical Task 2 CLI vertical slice was not orchestrated by LangGraph
+  and is now retired; its underlying libraries remain available for direct
+  regression coverage.
 - The normalizer is a basic sensitive-key boundary, not an enterprise scrubber.
 - GitHub Copilot and external LLM reasoning are not implemented.
 - Patrol and stale detection remain Task 3 work and were not started here.

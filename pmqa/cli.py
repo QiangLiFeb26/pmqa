@@ -5,10 +5,9 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Sequence
+from typing import NoReturn, Sequence
 from uuid import uuid4
 
-from pmqa.core import RunContext, Task
 from pmqa.models import KnowledgeArtifact
 from pmqa.reasoning import (
     CopilotCliConfig,
@@ -29,67 +28,35 @@ from pmqa.storage import JsonFileStorage
 from pmqa.trace import SQLiteTraceStore, TraceRecord
 
 
+_TASK5_DEMO_FAILURE_CODE = "task5_demo_failed"
+LEGACY_SAUCEDEMO_CLI_RETIREMENT_MESSAGE = (
+    "legacy explore and generate commands are retired; run: "
+    "pmqa task5-demo --product demo"
+)
+
+
+class LegacySauceDemoCommandRetiredError(RuntimeError):
+    """Reports a bounded deterministic legacy CLI retirement."""
+
+
 def _root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
-def explore(product: str) -> Path:
-    """Run bounded exploration for a configured product."""
+def explore(product: str) -> NoReturn:
+    """Reject the retired legacy exploration path without product access."""
 
-    if product != "demo":
-        raise ValueError("Only the demo product pack is configured")
-    from products.demo.config import load_config
-    from products.demo.execution import SauceDemoExecutionProvider
-    from products.demo.reasoning import DeterministicDemoReasoningProvider
-
-    config = load_config(_root())
-    context = RunContext(run_id="demo-exploration", product=product)
-    task = Task("explore", "Explore the configured product within its safe bounds")
-    reasoning = DeterministicDemoReasoningProvider()
-    scrub_result = DeterministicReasoningScrubber().scrub(
-        ScrubInput(
-            request_id="demo-exploration-plan",
-            workflow_id=context.run_id,
-            task_type=task.task_id,
-            provider_hint="deterministic",
-            product_id=product,
-            artifact_version="1",
-            constraints={
-                "maximum_steps": config.maximum_exploration_steps,
-                "allowed_safe_actions": config.allowed_safe_actions,
-                "blocked_destructive_actions": config.blocked_destructive_actions,
-            },
-        )
-    )
-    plan = reasoning.reason(scrub_result.request)
-    provider = SauceDemoExecutionProvider(
-        config=config,
-        actions=[decision.value["action"] for decision in plan.decisions],
-        provenance=plan.provider,
-    )
-    result = provider.execute(task, context)
-    if not result.succeeded or result.artifact is None:
-        raise RuntimeError("Exploration did not produce an artifact")
-    JsonFileStorage(config.artifact_output_location).save(result.artifact)
-    return config.artifact_output_location / "knowledge.json"
+    raise LegacySauceDemoCommandRetiredError(
+        LEGACY_SAUCEDEMO_CLI_RETIREMENT_MESSAGE
+    ) from None
 
 
-def generate(product: str) -> Path:
-    """Generate product tests from the latest persisted artifact."""
+def generate(product: str) -> NoReturn:
+    """Reject the retired legacy generation path without product access."""
 
-    if product != "demo":
-        raise ValueError("Only the demo product pack is configured")
-    from products.demo.config import load_config
-    from products.demo.generator import generate_tests
-
-    config = load_config(_root())
-    stored = JsonFileStorage(config.artifact_output_location).load("knowledge")
-    if stored is None:
-        raise FileNotFoundError("Run explore before generate; knowledge.json is missing")
-    return generate_tests(
-        KnowledgeArtifact.from_dict(stored.data),
-        config.generated_test_output_location,
-    )
+    raise LegacySauceDemoCommandRetiredError(
+        LEGACY_SAUCEDEMO_CLI_RETIREMENT_MESSAGE
+    ) from None
 
 
 def test_generated(product: str) -> int:
@@ -114,7 +81,10 @@ def reason_manual(product: str) -> int:
     config = load_config(_root())
     stored = JsonFileStorage(config.artifact_output_location).load("knowledge")
     if stored is None:
-        raise FileNotFoundError("Run explore before reason-manual; knowledge.json is missing")
+        raise FileNotFoundError(
+            "Run task5-demo successfully before reason-manual; "
+            "knowledge.json is missing"
+        )
     knowledge = KnowledgeArtifact.from_dict(stored.data)
     scrubbed = DeterministicReasoningScrubber().scrub(
         ScrubInput(
@@ -153,7 +123,8 @@ def reason_copilot_cli(
     stored = JsonFileStorage(config.artifact_output_location).load("knowledge")
     if stored is None:
         raise FileNotFoundError(
-            "Run explore before reason-copilot-cli; knowledge.json is missing"
+            "Run task5-demo successfully before reason-copilot-cli; "
+            "knowledge.json is missing"
         )
     knowledge = KnowledgeArtifact.from_dict(stored.data)
     scrubbed = DeterministicReasoningScrubber().scrub(
@@ -260,6 +231,76 @@ def task3_demo(database: Path) -> int:
     return 0
 
 
+def task5_demo(
+    product: str,
+    *,
+    workflow_id: str,
+    product_version: str,
+    goal: str,
+    max_iterations: int,
+    headed: bool,
+    _config_loader=None,
+    _application_runner=None,
+    _clock=None,
+) -> int:
+    """Run the real Task 5 workflow, handoff, persistence, and generation."""
+
+    if product != "demo":
+        print(_TASK5_DEMO_FAILURE_CODE, file=sys.stderr)
+        return 2
+    from products.demo.application import (
+        SauceDemoApplicationError,
+        run_saucedemo_demo,
+    )
+    from products.demo.config import load_config, validate_config
+
+    config_loader = load_config if _config_loader is None else _config_loader
+    application_runner = (
+        run_saucedemo_demo
+        if _application_runner is None
+        else _application_runner
+    )
+    creation_clock = (
+        _clock
+        if _clock is not None
+        else lambda: datetime.now(timezone.utc)
+    )
+    created_at = creation_clock()
+
+    try:
+        config = validate_config(config_loader(_root()))
+    except (OSError, ValueError, KeyError, TypeError):
+        print(_TASK5_DEMO_FAILURE_CODE, file=sys.stderr)
+        return 2
+
+    try:
+        result = application_runner(
+            config=config,
+            workflow_id=workflow_id,
+            product_version=product_version,
+            goal=goal,
+            max_iterations=max_iterations,
+            created_at=created_at,
+            headless=not headed,
+        )
+    except SauceDemoApplicationError:
+        print(_TASK5_DEMO_FAILURE_CODE, file=sys.stderr)
+        return 2
+
+    state = result.final_state
+    artifact_path = result.persisted_artifact_path
+    print(
+        f"workflow_id={state.workflow_id} status={state.status.value} "
+        f"termination_reason={state.termination_reason.value} "
+        f"iteration={state.iteration} evidence_count={len(state.evidence)} "
+        f"candidate_count={len(state.knowledge_candidates)} "
+        f"validation_result_count={len(state.validation_results)} "
+        f"artifact_path={artifact_path} "
+        f"generated_test_path={result.generated_test_path}"
+    )
+    return 0
+
+
 def main(argv: Sequence[str] = ()) -> int:
     """Parse and execute one PMQA command."""
 
@@ -281,13 +322,29 @@ def main(argv: Sequence[str] = ()) -> int:
     task3_parser.add_argument(
         "--database", type=Path, default=Path("pmqa-traces.sqlite3")
     )
+    task5_parser = subparsers.add_parser("task5-demo")
+    task5_parser.add_argument("--product", required=True)
+    task5_parser.add_argument(
+        "--workflow-id", default="saucedemo-task5-demo"
+    )
+    task5_parser.add_argument("--product-version", default="1")
+    task5_parser.add_argument(
+        "--goal", default="Build verified SauceDemo product memory"
+    )
+    task5_parser.add_argument("--max-iterations", type=int, default=1)
+    task5_parser.add_argument("--headed", action="store_true")
     args = parser.parse_args(list(argv) if argv else None)
-    if args.command == "explore":
-        print(explore(args.product))
-        return 0
-    if args.command == "generate":
-        print(generate(args.product))
-        return 0
+    if args.command in {"explore", "generate"}:
+        retired_command = explore if args.command == "explore" else generate
+        try:
+            retired_command(args.product)
+        except LegacySauceDemoCommandRetiredError:
+            print(
+                LEGACY_SAUCEDEMO_CLI_RETIREMENT_MESSAGE,
+                file=sys.stderr,
+            )
+            return 2
+        raise AssertionError("retired command returned unexpectedly")
     if args.command == "test-generated":
         return test_generated(args.product)
     if args.command == "reason-manual":
@@ -296,6 +353,15 @@ def main(argv: Sequence[str] = ()) -> int:
         return trace_demo(args.database)
     if args.command == "task3-demo":
         return task3_demo(args.database)
+    if args.command == "task5-demo":
+        return task5_demo(
+            args.product,
+            workflow_id=args.workflow_id,
+            product_version=args.product_version,
+            goal=args.goal,
+            max_iterations=args.max_iterations,
+            headed=args.headed,
+        )
     return reason_copilot_cli(
         args.product,
         args.copilot_executable,

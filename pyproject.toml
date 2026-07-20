@@ -18,11 +18,19 @@ pmqa = "pmqa.cli:main"
 
 [project.optional-dependencies]
 dev = [
+    "build>=1,<2",
     "pytest>=8,<9",
+    "setuptools>=68",
+    "wheel>=0.41,<1",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
-include = ["pmqa*"]
+include = ["pmqa*", "products*"]
+exclude = ["products.demo.artifacts*", "products.demo.generated_tests*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"products.demo" = ["config/product.json"]

@@ -96,8 +96,8 @@ domain state remain independently testable and do not import LangGraph.
 `build_pmqa_graph` and `run_pmqa_workflow` are the active Task 4 graph APIs;
 callers must inject Explorer, Knowledge, and Validator agents and a
 `ToolRegistry`. The Task 1 no-op graph is retired, and the workflow package is
-not a runnable substitute for application composition. Task 5 will provide
-real domain agents and tools.
+not a runnable substitute for application composition. Task 5 provides real
+domain agents and tools through a product-owned application boundary.
 
 ### Product Pack
 
@@ -112,6 +112,104 @@ Memory is durable product knowledge represented by the JSON-compatible models
 in `pmqa/models/`. Its lifecycle and persistence are future concerns. Keeping
 the models independent from storage allows local, database, or enterprise
 storage implementations to be introduced without changing workflow contracts.
+
+Exploration evidence is distinct from verified product knowledge. Evidence is
+an immutable, runtime-free record of what an external capture tool observed;
+it does not carry `Lifecycle` verification state and is not a
+`KnowledgeArtifact`. The intended flow is:
+
+```text
+external capture tool
+    -> immutable exploration evidence
+    -> serialized WorkflowState evidence payload
+    -> Knowledge agent
+    -> existing Page, Element, Locator, Interaction, and KnowledgeArtifact models
+```
+
+Task 5.1 defines only the evidence contracts and their explicit workflow
+serialization boundary. Concrete Playwright tools belong to product packs;
+`products/demo` contains the bounded SauceDemo capture and Tool adapter. All
+Browser, Page, Locator, credential, and Playwright objects remain inside that
+product-owned capture boundary. Only serialized `ExplorationEvidence` crosses
+the Tool boundary into workflow payloads.
+
+The product-owned SauceDemo Explorer depends only on an injected Tool-dispatch
+callable. It neither imports nor instantiates Playwright, the concrete Tool, or
+the capture implementation. It validates the returned evidence and requests
+an append-only serialized evidence update through `AgentResult` and
+`WorkflowStatePatch`; the reducer remains the state mutation boundary.
+
+The Tool and Explorer are independently executable through the existing
+runtime contracts. The product-owned Knowledge agent consumes exactly one
+unprocessed serialized evidence batch and deterministically maps it into the
+existing `Page`, `Element`, `Locator`, `Interaction`, and `KnowledgeArtifact`
+models. A correlated candidate envelope, rather than a live domain object, is
+appended through `WorkflowStatePatch.knowledge_candidates_to_add`.
+
+All mapped candidate items have `ArtifactStatus.NEW` with no verification
+timestamp. The product-owned Validator deterministically compares exactly one
+unvalidated candidate with the candidate rebuilt from its source evidence. A
+matching candidate appends a passed result containing a separate
+`KnowledgeArtifact` snapshot whose items are `ArtifactStatus.VERIFIED`; the
+stored NEW candidate is not mutated.
+
+A structurally valid candidate mismatch appends a domain-level failed result
+with completed Validator history and no fatal workflow error. The unchanged
+Supervisor policy therefore starts its existing Explorer, Knowledge,
+Validator recovery sequence. Malformed or ambiguous state instead produces a
+failed Validator invocation, no validation result, and the stable fatal error
+`validator_execution_failed`.
+
+This baseline Validator does not invoke a reasoning provider. Production
+composition is provided by the thin product-owned
+`products.demo.workflow.run_saucedemo_workflow` API. It creates one exploration
+Tool and Tool registry, injects registry-backed dispatch into the real
+Explorer, registers the real Knowledge and Validator agents, and invokes the
+unchanged Task 4 graph. The capture-runner seam supports deterministic offline
+end-to-end execution; live Playwright execution remains explicit.
+
+The composition root contains no exploration, mapping, validation, routing,
+reduction, or graph policy.
+
+After successful workflow completion, the product-owned artifact-handoff
+boundary reconstructs every strict evidence, candidate, and validation result
+and recomputes their deterministic correlation. Only the latest passed
+Validator result's independent VERIFIED `KnowledgeArtifact` snapshot can be
+wrapped as the existing core `Artifact`, stored under the stable `knowledge`
+key through `StorageProvider`, or passed to the existing SauceDemo test
+generator. The stored candidate remains NEW and is never persisted as approved
+memory. Failed or inconsistent handoff validation performs no persistence or
+generation.
+
+`products.demo.application.run_saucedemo_demo` is the Task 5 application
+boundary. It validates inputs, creates the canonical empty state, runs the real
+workflow, invokes the strict handoff for persistence, and then invokes the same
+strict handoff for deterministic generation. Its injected capture runner,
+single-sample Tool clock, storage provider, and output-directory seams remain
+outside WorkflowState. It returns only the final serializable state, stored
+artifact identifier, and user-facing output paths; it never runs generated
+tests.
+
+The generic `pmqa.cli` module checks `--product demo` before dynamically
+importing that product application. `task5-demo` is therefore the supported
+real multi-agent demo entry point without making `products.demo` a framework
+dependency. Expected failures collapse to the stable `task5_demo_failed`
+message and exit code 2. It is the only CLI path permitted to create or persist
+authoritative SauceDemo knowledge and to generate new tests from that handoff.
+
+The legacy `explore` and `generate` command names are retained only as static
+retirement stubs. Their CLI and direct Python callables cannot import a product
+pack, load configuration, capture, access storage, or invoke generation. Both
+CLI stubs return exit code 2 and direct contributors to `task5-demo` through
+one shared bounded policy. The underlying Task 2 provider, capture, storage,
+and generator implementations remain independently reusable libraries and
+test infrastructure; they are not authoritative CLI composition roots.
+
+`test-generated` only executes the existing generated regression file. That
+file embeds the verified locator inputs supplied to the generator, so a fresh
+checkout does not need a tracked runtime `knowledge.json`. Reasoning CLI
+demonstrations may read only the artifact created by a successful `task5-demo`.
+Reasoning-provider selection is not part of this application boundary.
 
 ## Dependency direction
 
@@ -133,6 +231,7 @@ miscellaneous helpers without a concrete shared use case.
 | --- | --- |
 | Runtime coordination data | `pmqa/core/` |
 | Product-knowledge schema | `pmqa/models/` |
+| Structured exploration-evidence schema | `pmqa/models/exploration.py` |
 | External capability contract | `pmqa/providers/` |
 | Reasoning trust boundary and execution | `pmqa/reasoning/` |
 | Shared serializable-boundary policy | `pmqa/security/` |

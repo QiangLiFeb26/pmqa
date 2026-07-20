@@ -70,11 +70,20 @@ The active Task 4 orchestration APIs are
 Knowledge, and Validator agent implementations plus a `ToolRegistry`.
 `python -m pmqa.workflow` is intentionally unsupported because silently
 constructing placeholder dependencies would misrepresent the active graph.
-Task 5 will provide real domain agents and tools; it is not started.
 
-The Task 2 SauceDemo CLI and Task 3 reasoning service are not yet composed into
-the Task 4 multi-agent graph. The graph is an executable framework boundary
-with injected agents and tools, not the path used by the demo CLI commands.
+Task 5 is at its final implementation checkpoint. The product-owned
+`products.demo.application.run_saucedemo_demo` API composes the real SauceDemo
+exploration Tool, Explorer, Knowledge agent, Validator, Task 4 graph, strict
+verified-artifact handoff, storage, and deterministic test generation. Its
+capture-runner seam supports deterministic offline end-to-end execution; using
+the default real Playwright capture is an explicit live operation.
+
+The `task5-demo` command is the only supported CLI path that creates verified
+SauceDemo knowledge or generates new tests. The legacy Task 2 `explore` and
+`generate` names remain recognizable only as retired compatibility stubs; they
+cannot capture, persist, load, or generate anything. `test-generated` remains
+available only to execute the already generated regression file. Task 3
+reasoning providers are not selected by `task5-demo`.
 
 ## Prerequisites
 
@@ -99,25 +108,48 @@ export PMQA_DEMO_USERNAME='standard_user'
 export PMQA_DEMO_PASSWORD='secret_sauce'
 ```
 
-## Explore, generate, and test
+## Run the authoritative workflow and tests
 
-Run the bounded deterministic exploration, generate tests from its persisted
-knowledge, and execute the generated tests:
+Run the complete real Task 5 multi-agent workflow, persist its independently
+verified knowledge, and generate the two deterministic Playwright tests:
 
 ```bash
-python -m pmqa.cli explore --product demo
-python -m pmqa.cli generate --product demo
-python -m pmqa.cli test-generated --product demo
+pmqa task5-demo --product demo
+# equivalent: python -m pmqa.cli task5-demo --product demo
 ```
 
-Exploration writes `products/demo/artifacts/knowledge.json`. Generation writes
-`products/demo/generated_tests/test_saucedemo_generated.py`. The generated
-tests load their selectors from the stored artifact at runtime.
+The command defaults to headless capture. Pass `--headed` to show the browser,
+or use `--workflow-id`, `--product-version`, `--goal`, and `--max-iterations`
+to set the bounded workflow inputs explicitly. It writes
+`products/demo/artifacts/knowledge.json` and
+`products/demo/generated_tests/test_saucedemo_generated.py`. It intentionally
+does not run pytest; execute the generated tests separately:
+
+```bash
+pmqa test-generated --product demo
+```
+
+The retired names return exit code 2 with static guidance to use the
+authoritative command:
+
+```bash
+pmqa explore --product demo   # retired; performs no capture or persistence
+pmqa generate --product demo  # retired; performs no load or generation
+```
+
+The Task 2 execution provider, capture implementation, storage provider, and
+generator remain reusable library and regression-test infrastructure. They are
+not alternate CLI routes around Task 5 validation. The committed generated
+test fixture embeds the verified locator inputs used to create it, so
+`test-generated` can run in a fresh checkout without a tracked runtime
+knowledge artifact.
 
 The public demo uses the `ReasoningProvider` boundary with a deterministic,
 rule-based implementation and records `deterministic-rule-based` provenance in
 the artifact. Manual Copilot and Copilot CLI provider boundaries exist, but the
-default validation path remains fully offline.
+default validation path remains fully offline. The `reason-manual` and
+`reason-copilot-cli` demonstrations require knowledge produced by a successful
+`task5-demo` run first.
 
 Run the completed Task 3 flow offline with:
 
@@ -135,11 +167,10 @@ pytest tests
 
 Exploration is SauceDemo-specific, headless, capped at four known-safe steps,
 and is not a crawler. The normalizer only enforces a basic sensitive-key
-boundary; it is not an enterprise PHI scrubber. The Task 4 LangGraph adapter
-uses injected contract implementations and is not connected to the Task 2 CLI
-or Task 3 reasoning service. Patrol, stale detection, review, self-healing,
-prompt repositories, replay, and provider-selection policies remain out of
-scope.
+boundary; it is not an enterprise PHI scrubber. The Task 5 graph does not
+invoke the Task 3 reasoning service. Patrol, stale detection, review,
+self-healing, prompt repositories, replay, and provider-selection policies
+remain out of scope.
 
 ## Roadmap checkpoint
 
@@ -147,13 +178,19 @@ Task 4 is complete at implementation checkpoint
 `86214d76d2f12a2b70793b6ca28da4e1e5f3d858`, which includes supervisor and
 recovery routing from PR #15 and LangGraph assembly plus final-cycle iteration
 semantics from PR #16. Task 4.8 closes review findings around shared boundary
-policy and the retired Task 1 graph before Task 5 begins.
+policy and the retired Task 1 graph before Task 5.
 
-Future work can compose real agent implementations with the Task 4 runtime,
-add persistent memory, and integrate enterprise Playwright automation. Each
-product remains isolated in its own product pack while the framework stays
-product-agnostic. These are extension points, not commitments to a specific
-implementation.
-
-See the [authoritative roadmap](docs/Roadmap.md) for phase status. Task 5 is
+Task 5.6 provides the real SauceDemo product composition API while keeping the
+framework product-agnostic. Task 5.7 adds a strict post-workflow handoff that
+persists only the Validator's independent VERIFIED snapshot through the
+existing `StorageProvider` boundary and passes that snapshot to the existing
+deterministic SauceDemo generator. Task 5.8 adds the product-owned application
+composition and supported `task5-demo` CLI. Task 5.9 retires the unvalidated
+legacy CLI write/read paths and removes their tracked runtime artifact. The NEW
+candidate remains unchanged and is never stored as approved memory.
+Reasoning-provider integration remains a future checkpoint; Tasks 6 and 7 have
 not started.
+
+See the [authoritative roadmap](docs/Roadmap.md) for phase status. Task 5.9 is
+ready for cumulative architecture review; Task 5 remains unmerged, and its
+final PR will not be created until that review passes.
