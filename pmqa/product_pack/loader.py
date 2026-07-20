@@ -25,7 +25,9 @@ class ProductPackLoadFailureCode(str, Enum):
     """Stable, product-neutral reasons an explicit manifest load can fail."""
 
     INVALID_LOAD_REQUEST = "invalid_load_request"
+    INVALID_LOADED_PRODUCT_PACK = "invalid_loaded_product_pack"
     DISTRIBUTION_NOT_FOUND = "distribution_not_found"
+    DISTRIBUTION_METADATA_INVALID = "distribution_metadata_invalid"
     MATCHING_ENTRY_POINT_MISSING = "matching_entry_point_missing"
     MATCHING_ENTRY_POINT_AMBIGUOUS = "matching_entry_point_ambiguous"
     ENTRY_POINT_LOAD_FAILED = "entry_point_load_failed"
@@ -38,8 +40,14 @@ _FAILURE_MESSAGES = {
     ProductPackLoadFailureCode.INVALID_LOAD_REQUEST: (
         "invalid Product Pack load request"
     ),
+    ProductPackLoadFailureCode.INVALID_LOADED_PRODUCT_PACK: (
+        "invalid loaded Product Pack"
+    ),
     ProductPackLoadFailureCode.DISTRIBUTION_NOT_FOUND: (
         "Product Pack distribution was not found"
+    ),
+    ProductPackLoadFailureCode.DISTRIBUTION_METADATA_INVALID: (
+        "Product Pack distribution metadata is invalid"
     ),
     ProductPackLoadFailureCode.MATCHING_ENTRY_POINT_MISSING: (
         "Product Pack manifest entry point is missing"
@@ -70,22 +78,21 @@ class ProductPackLoadError(ValueError):
         super().__init__(_FAILURE_MESSAGES[code])
 
 
-def _canonical_distribution_name(value: object) -> str:
+def _canonical_distribution_name(
+    value: object,
+    failure_code: ProductPackLoadFailureCode,
+) -> str:
     if (
         type(value) is not str
         or not value
         or len(value) > _MAX_DISTRIBUTION_NAME_LENGTH
         or _DISTRIBUTION_NAME_PATTERN.fullmatch(value) is None
     ):
-        raise ProductPackLoadError(
-            ProductPackLoadFailureCode.INVALID_LOAD_REQUEST
-        ) from None
+        raise ProductPackLoadError(failure_code) from None
 
     canonical = _DISTRIBUTION_ALIAS_PATTERN.sub("-", value).lower()
     if len(canonical) > _MAX_DISTRIBUTION_NAME_LENGTH:
-        raise ProductPackLoadError(
-            ProductPackLoadFailureCode.INVALID_LOAD_REQUEST
-        ) from None
+        raise ProductPackLoadError(failure_code) from None
     return canonical
 
 
@@ -97,7 +104,10 @@ class ProductPackLoadRequest:
     expected_manifest: ProductPackManifest
 
     def __post_init__(self) -> None:
-        canonical = _canonical_distribution_name(self.distribution_name)
+        canonical = _canonical_distribution_name(
+            self.distribution_name,
+            ProductPackLoadFailureCode.INVALID_LOAD_REQUEST,
+        )
         if type(self.expected_manifest) is not ProductPackManifest:
             raise ProductPackLoadError(
                 ProductPackLoadFailureCode.INVALID_LOAD_REQUEST
@@ -112,11 +122,40 @@ class LoadedProductPack:
     distribution_name: str
     manifest: ProductPackManifest
 
+    def __post_init__(self) -> None:
+        canonical = _canonical_distribution_name(
+            self.distribution_name,
+            ProductPackLoadFailureCode.INVALID_LOADED_PRODUCT_PACK,
+        )
+        if type(self.manifest) is not ProductPackManifest:
+            raise ProductPackLoadError(
+                ProductPackLoadFailureCode.INVALID_LOADED_PRODUCT_PACK
+            ) from None
+        object.__setattr__(self, "distribution_name", canonical)
+
 
 DistributionResolver = Callable[[str], object]
 _LoadAttempt = Tuple[
     Optional[LoadedProductPack], Optional[ProductPackLoadFailureCode]
 ]
+
+
+def _inspect_distribution_metadata(
+    distribution: object,
+    expected_pack_id: str,
+) -> Tuple[Optional[Tuple[object, ...]], Optional[ProductPackLoadFailureCode]]:
+    try:
+        matching_entry_points = tuple(
+            entry_point
+            for entry_point in distribution.entry_points
+            if entry_point.group == PRODUCT_PACK_ENTRY_POINT_GROUP
+            and entry_point.name == expected_pack_id
+        )
+    except MemoryError:
+        raise
+    except Exception:
+        return None, ProductPackLoadFailureCode.DISTRIBUTION_METADATA_INVALID
+    return matching_entry_points, None
 
 
 def _attempt_manifest_load(
@@ -130,12 +169,14 @@ def _attempt_manifest_load(
     except (metadata.PackageNotFoundError, OSError):
         return None, ProductPackLoadFailureCode.DISTRIBUTION_NOT_FOUND
 
-    matching_entry_points = tuple(
-        entry_point
-        for entry_point in distribution.entry_points
-        if entry_point.group == PRODUCT_PACK_ENTRY_POINT_GROUP
-        and entry_point.name == request.expected_manifest.pack_id
+    matching_entry_points, metadata_failure = _inspect_distribution_metadata(
+        distribution,
+        request.expected_manifest.pack_id,
     )
+    if metadata_failure is not None:
+        return None, metadata_failure
+    if matching_entry_points is None:  # pragma: no cover - internal invariant
+        raise RuntimeError("Product Pack metadata inspection returned no result")
     if not matching_entry_points:
         return None, ProductPackLoadFailureCode.MATCHING_ENTRY_POINT_MISSING
     if len(matching_entry_points) != 1:

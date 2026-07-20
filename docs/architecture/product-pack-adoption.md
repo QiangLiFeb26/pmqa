@@ -83,7 +83,14 @@ manifest's `pack_id`. Its value must resolve to a plain dictionary. PMQA
 reconstructs that dictionary through `ProductPackManifest.from_dict()` and
 requires complete contract equality with the operator-approved expected
 manifest. The immutable result retains only the canonical distribution name
-and validated manifest; it is not workflow state.
+and validated manifest; it is not workflow state. The result contract enforces
+the same canonical distribution-name policy and requires an exact
+`ProductPackManifest` even when constructed directly.
+
+Resolved distribution metadata is also external boundary data. Failures while
+accessing or iterating entry points, or while reading their group and name,
+become one bounded product-neutral loader failure without exposing the
+distribution, entry point, path, or underlying exception.
 
 The manifest payload is untrusted serialized data. In contrast, the explicitly
 selected installed Python distribution is operator-approved trusted code:

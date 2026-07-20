@@ -85,6 +85,8 @@ from pmqa.product_pack import (
     ProductPackManifest,
     load_product_pack_manifest,
 )
+import pmqa
+import pmqa.product_pack.loader as loader_module
 
 target = Path(sys.argv[1]).resolve()
 repository = Path(sys.argv[2]).resolve()
@@ -109,6 +111,12 @@ loaded = load_product_pack_manifest(
 assert loaded.manifest == expected
 assert loaded.manifest is not expected
 assert "products.demo" not in sys.modules
+
+pmqa_path = Path(pmqa.__file__).resolve()
+loader_path = Path(loader_module.__file__).resolve()
+pmqa_path.relative_to(repository)
+loader_path.relative_to(repository)
+assert loader_path == repository / "pmqa/product_pack/loader.py"
 
 import external_demo_pack
 module_path = Path(external_demo_pack.__file__).resolve()
@@ -135,7 +143,9 @@ else:
         for key, value in os.environ.items()
         if key not in {"PYTHONHOME", "PYTHONPATH"}
     }
-    environment["PYTHONPATH"] = str(target)
+    environment["PYTHONPATH"] = os.pathsep.join(
+        (str(REPOSITORY_ROOT), str(target))
+    )
     completed = subprocess.run(
         [sys.executable, "-c", statement, str(target), str(REPOSITORY_ROOT)],
         cwd=unrelated,

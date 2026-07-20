@@ -47,6 +47,55 @@ class FakeDistribution:
         self.entry_points = tuple(entry_points)
 
 
+class RaisingEntryPointsDistribution:
+    def __init__(self, error: BaseException) -> None:
+        self._error = error
+
+    @property
+    def entry_points(self):
+        raise self._error
+
+
+class RaisingEntryPointCollection:
+    def __init__(self, error: BaseException) -> None:
+        self._error = error
+
+    def __iter__(self):
+        raise self._error
+
+
+class RawEntryPointsDistribution:
+    def __init__(self, entry_points) -> None:
+        self.entry_points = entry_points
+
+
+class RaisingEntryPointMetadata:
+    def __init__(self, attribute: str, error: BaseException) -> None:
+        self._attribute = attribute
+        self._error = error
+
+    @property
+    def group(self):
+        if self._attribute == "group":
+            raise self._error
+        return PRODUCT_PACK_ENTRY_POINT_GROUP
+
+    @property
+    def name(self):
+        if self._attribute == "name":
+            raise self._error
+        return "external-demo"
+
+
+class ManifestRuntimeObject:
+    def __repr__(self) -> str:
+        return "ManifestRuntimeObject(runtime-secret-marker)"
+
+
+class ProductPackManifestSubclass(ProductPackManifest):
+    pass
+
+
 def _manifest(**updates) -> ProductPackManifest:
     values = {
         "schema_version": "1",
@@ -130,6 +179,102 @@ def test_request_and_result_are_frozen_and_deeply_immutable() -> None:
         "distribution_name",
         "expected_manifest",
     )
+
+
+def test_loaded_product_pack_direct_construction_enforces_invariants() -> None:
+    manifest = _manifest()
+
+    loaded = LoadedProductPack(
+        distribution_name="External_demo..Pack",
+        manifest=manifest,
+    )
+
+    assert loaded.distribution_name == "external-demo-pack"
+    assert loaded.manifest is manifest
+    assert tuple(LoadedProductPack.__dataclass_fields__) == (
+        "distribution_name",
+        "manifest",
+    )
+
+
+@pytest.mark.parametrize(
+    "invalid_name",
+    ["../external-pack", "external pack", "https://example.invalid/pack"],
+)
+def test_loaded_product_pack_rejects_malformed_distribution_name(
+    invalid_name: str,
+) -> None:
+    with pytest.raises(ProductPackLoadError) as captured:
+        LoadedProductPack(
+            distribution_name=invalid_name,
+            manifest=_manifest(),
+        )
+    assert (
+        captured.value.code
+        is ProductPackLoadFailureCode.INVALID_LOADED_PRODUCT_PACK
+    )
+
+
+@pytest.mark.parametrize(
+    "invalid_manifest",
+    [
+        _manifest().to_dict(),
+        {"mutable": []},
+        ManifestRuntimeObject(),
+    ],
+)
+def test_loaded_product_pack_rejects_manifest_like_and_runtime_objects(
+    invalid_manifest,
+) -> None:
+    with pytest.raises(ProductPackLoadError) as captured:
+        LoadedProductPack(
+            distribution_name="external-demo-pack",
+            manifest=invalid_manifest,
+        )
+    assert (
+        captured.value.code
+        is ProductPackLoadFailureCode.INVALID_LOADED_PRODUCT_PACK
+    )
+
+
+def test_loaded_product_pack_rejects_manifest_subclasses() -> None:
+    subclass = ProductPackManifestSubclass(**_manifest().to_dict())
+
+    with pytest.raises(ProductPackLoadError) as captured:
+        LoadedProductPack(
+            distribution_name="external-demo-pack",
+            manifest=subclass,
+        )
+    assert (
+        captured.value.code
+        is ProductPackLoadFailureCode.INVALID_LOADED_PRODUCT_PACK
+    )
+
+
+def test_loaded_product_pack_error_is_fixed_safe_and_bounded() -> None:
+    marker = "runtime-secret-marker"
+    invalid_manifest = ManifestRuntimeObject()
+
+    with pytest.raises(ProductPackLoadError) as captured:
+        LoadedProductPack(
+            distribution_name="external-demo-pack",
+            manifest=invalid_manifest,
+        )
+    error = captured.value
+    formatted = "".join(
+        traceback.format_exception(type(error), error, error.__traceback__)
+    )
+
+    assert error.args == ("invalid loaded Product Pack",)
+    assert vars(error) == {
+        "code": ProductPackLoadFailureCode.INVALID_LOADED_PRODUCT_PACK
+    }
+    assert error.__cause__ is None
+    assert error.__context__ is None
+    assert marker not in str(error)
+    assert marker not in formatted
+    assert "ManifestRuntimeObject" not in formatted
+    assert formatted.count("File ") <= 4
 
 
 @pytest.mark.parametrize(
@@ -237,6 +382,81 @@ def test_missing_matching_entry_point_is_rejected() -> None:
         resolver=lambda name: FakeDistribution(entry_points),
     )
     assert all(entry_point.load_calls == 0 for entry_point in entry_points)
+
+
+def _malformed_metadata_distribution(stage: str, error: BaseException):
+    if stage == "resolved_object":
+        return object()
+    if stage == "entry_points_access":
+        return RaisingEntryPointsDistribution(error)
+    if stage == "entry_points_iteration":
+        return RawEntryPointsDistribution(RaisingEntryPointCollection(error))
+    return FakeDistribution([RaisingEntryPointMetadata(stage, error)])
+
+
+@pytest.mark.parametrize(
+    "stage",
+    [
+        "resolved_object",
+        "entry_points_access",
+        "entry_points_iteration",
+        "group",
+        "name",
+    ],
+)
+def test_malformed_distribution_metadata_is_a_safe_distinct_failure(
+    stage: str,
+) -> None:
+    marker = "runtime-secret-marker"
+    distribution = _malformed_metadata_distribution(
+        stage,
+        RuntimeError(marker),
+    )
+
+    error = _assert_failure(
+        ProductPackLoadFailureCode.DISTRIBUTION_METADATA_INVALID,
+        resolver=lambda name: distribution,
+    )
+    formatted = "".join(
+        traceback.format_exception(type(error), error, error.__traceback__)
+    )
+
+    assert error.args == ("Product Pack distribution metadata is invalid",)
+    assert vars(error) == {
+        "code": ProductPackLoadFailureCode.DISTRIBUTION_METADATA_INVALID
+    }
+    assert error.__cause__ is None
+    assert error.__context__ is None
+    assert marker not in str(error)
+    assert marker not in formatted
+    assert formatted.count("File ") <= 4
+
+
+@pytest.mark.parametrize(
+    "stage",
+    [
+        "entry_points_access",
+        "entry_points_iteration",
+        "group",
+        "name",
+    ],
+)
+@pytest.mark.parametrize(
+    "error_type",
+    [KeyboardInterrupt, SystemExit, GeneratorExit, MemoryError],
+)
+def test_excluded_exceptions_propagate_from_metadata_inspection(
+    stage: str,
+    error_type,
+) -> None:
+    error = error_type()
+    distribution = _malformed_metadata_distribution(stage, error)
+
+    with pytest.raises(error_type):
+        load_product_pack_manifest(
+            _request(),
+            resolver=lambda name: distribution,
+        )
 
 
 def test_duplicate_matching_entry_points_are_rejected_without_loading() -> None:
