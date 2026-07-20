@@ -1,6 +1,7 @@
 """Tests for language-neutral Product Pack Bridge Protocol v1 contracts."""
 
 import copy
+from collections import UserDict
 from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
@@ -42,6 +43,14 @@ SCHEMA_PATH = (
 class RuntimeObject:
     def __repr__(self) -> str:
         return "RuntimeObject(runtime-secret-marker)"
+
+
+class DictionarySubclass(dict):
+    pass
+
+
+class ListSubclass(list):
+    pass
 
 
 def _time(minutes: int = 0) -> datetime:
@@ -506,6 +515,189 @@ def test_safe_protocol_error_has_fixed_bounded_public_state() -> None:
     assert error.__context__ is None
     assert "runtime-secret-marker" not in formatted
     assert formatted.count("File ") <= 3
+
+
+def _assert_wire_rejected(
+    contract_type,
+    payload,
+) -> ProductPackBridgeProtocolError:
+    expected_code = (
+        ProductPackBridgeProtocolErrorCode.INVALID_REQUEST
+        if contract_type is ProductPackBridgeRequest
+        else ProductPackBridgeProtocolErrorCode.INVALID_RESPONSE
+    )
+    with pytest.raises(ProductPackBridgeProtocolError) as captured:
+        contract_type.from_dict(payload)
+    assert captured.value.code is expected_code
+    return captured.value
+
+
+def test_wire_request_rejects_tuple_action_plan() -> None:
+    payload = _request().to_dict()
+    payload["action_plan"] = tuple(payload["action_plan"])
+
+    _assert_wire_rejected(ProductPackBridgeRequest, payload)
+
+
+@pytest.mark.parametrize(
+    "collection_field",
+    ["pages", "elements", "locator_candidates", "interactions"],
+)
+def test_wire_response_rejects_tuple_evidence_collections(
+    collection_field: str,
+) -> None:
+    payload = _response().to_dict()
+    payload["evidence"][collection_field] = tuple(
+        payload["evidence"][collection_field]
+    )
+
+    _assert_wire_rejected(ProductPackBridgeResponse, payload)
+
+
+@pytest.mark.parametrize(
+    "invalid_value",
+    [
+        b"runtime-secret-marker",
+        bytearray(b"runtime-secret-marker"),
+        memoryview(b"runtime-secret-marker"),
+        {"inspect"},
+        frozenset({"inspect"}),
+        _time(),
+        ProductPackBridgeOperation.EXPLORATION_CAPTURE,
+        lambda: "runtime-secret-marker",
+        RuntimeObject(),
+    ],
+)
+def test_wire_request_rejects_non_json_runtime_values(invalid_value) -> None:
+    payload = _request().to_dict()
+    payload["action_plan"] = ["inspect", invalid_value]
+
+    error = _assert_wire_rejected(ProductPackBridgeRequest, payload)
+    formatted = "".join(
+        traceback.format_exception(type(error), error, error.__traceback__)
+    )
+    assert "runtime-secret-marker" not in formatted
+    assert "RuntimeObject" not in formatted
+
+
+def test_wire_response_rejects_nested_bytes_without_string_coercion() -> None:
+    payload = _response().to_dict()
+    payload["evidence"]["pages"][0]["title"] = b"runtime-secret-marker"
+
+    _assert_wire_rejected(ProductPackBridgeResponse, payload)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        DictionarySubclass(_request().to_dict()),
+        UserDict(_request().to_dict()),
+    ],
+)
+def test_wire_request_rejects_mapping_subclasses(payload) -> None:
+    _assert_wire_rejected(ProductPackBridgeRequest, payload)
+
+
+def test_wire_request_rejects_nested_list_subclass() -> None:
+    payload = _request().to_dict()
+    payload["action_plan"] = ListSubclass(payload["action_plan"])
+
+    _assert_wire_rejected(ProductPackBridgeRequest, payload)
+
+
+def test_wire_response_rejects_non_string_dictionary_keys() -> None:
+    payload = _response().to_dict()
+    payload["evidence"]["pages"][0][1] = "runtime-secret-marker"
+
+    _assert_wire_rejected(ProductPackBridgeResponse, payload)
+
+
+@pytest.mark.parametrize("number", [float("nan"), float("inf"), float("-inf")])
+def test_wire_response_rejects_non_finite_numbers(number: float) -> None:
+    payload = _response().to_dict()
+    payload["evidence"]["locator_candidates"][0]["priority"] = number
+
+    _assert_wire_rejected(ProductPackBridgeResponse, payload)
+
+
+@pytest.mark.parametrize("number", [1.0, True])
+def test_wire_response_rejects_numeric_type_coercion(number) -> None:
+    payload = _response().to_dict()
+    payload["evidence"]["locator_candidates"][0]["priority"] = number
+
+    _assert_wire_rejected(ProductPackBridgeResponse, payload)
+
+
+@pytest.mark.parametrize(
+    "defaulted_field",
+    ["pages", "elements", "locator_candidates", "interactions"],
+)
+def test_wire_response_rejects_omitted_evidence_defaults(
+    defaulted_field: str,
+) -> None:
+    payload = _response().to_dict()
+    del payload["evidence"][defaulted_field]
+
+    _assert_wire_rejected(ProductPackBridgeResponse, payload)
+
+
+@pytest.mark.parametrize("container_type", [dict, list])
+def test_wire_reconstruction_rejects_cyclic_containers_safely(
+    container_type,
+) -> None:
+    payload = _request().to_dict()
+    cyclic = container_type()
+    if container_type is dict:
+        cyclic["self"] = cyclic
+    else:
+        cyclic.append(cyclic)
+    payload["nested"] = cyclic
+
+    error = _assert_wire_rejected(ProductPackBridgeRequest, payload)
+    assert error.__cause__ is None
+    assert error.__context__ is None
+
+
+def test_wire_reconstruction_rejects_excessive_nesting_safely() -> None:
+    payload = _request().to_dict()
+    nested = []
+    current = nested
+    for _ in range(34):
+        child = []
+        current.append(child)
+        current = child
+    payload["nested"] = nested
+
+    _assert_wire_rejected(ProductPackBridgeRequest, payload)
+
+
+def test_rejected_wire_input_is_not_mutated_or_exposed() -> None:
+    marker = "runtime-secret-marker"
+    payload = _response().to_dict()
+    payload["evidence"]["pages"][0]["title"] = RuntimeObject()
+    original_keys = tuple(payload["evidence"]["pages"][0])
+
+    error = _assert_wire_rejected(ProductPackBridgeResponse, payload)
+    formatted = "".join(
+        traceback.format_exception(type(error), error, error.__traceback__)
+    )
+
+    assert tuple(payload["evidence"]["pages"][0]) == original_keys
+    assert isinstance(payload["evidence"]["pages"][0]["title"], RuntimeObject)
+    assert marker not in str(error)
+    assert marker not in formatted
+    assert "RuntimeObject" not in formatted
+    assert error.__cause__ is None
+    assert error.__context__ is None
+
+
+@pytest.mark.parametrize("contract", [_request(), _response(), _failed_response()])
+def test_canonical_json_round_trips_remain_accepted_after_hardening(
+    contract,
+) -> None:
+    canonical = json.loads(json.dumps(contract.to_dict()))
+
+    assert type(contract).from_dict(canonical) == contract
 
 
 def test_canonical_versioned_schema_matches_python_contracts() -> None:

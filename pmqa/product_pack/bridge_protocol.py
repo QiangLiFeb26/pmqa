@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 from enum import Enum
+import math
 from typing import Annotated, Any, Dict, Literal, Optional, Tuple
 
 from pydantic import (
@@ -28,6 +29,8 @@ from pmqa.security.boundary_policy import (
 
 BRIDGE_PROTOCOL_VERSION = "1"
 MAX_BRIDGE_ACTION_COUNT = 32
+# Wire trees deeper than this are rejected before typed reconstruction.
+_MAX_BRIDGE_JSON_NESTING_DEPTH = 32
 _CANONICAL_TIMESTAMP_PATTERN = (
     r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
     r"(?:\.[0-9]{6})?Z$"
@@ -219,14 +222,17 @@ class ProductPackBridgeRequest(_BridgeProtocolContract):
     def from_dict(cls, value: Any) -> "ProductPackBridgeRequest":
         """Safely reconstruct a request from untrusted JSON-decoded data."""
 
-        if type(value) is not dict:
+        if type(value) is not dict or not _is_plain_json(value):
             raise ProductPackBridgeProtocolError(
                 ProductPackBridgeProtocolErrorCode.INVALID_REQUEST
             ) from None
         try:
-            return cls.model_validate(dict(value))
+            request = cls.model_validate(dict(value))
         except ValidationError:
             pass
+        else:
+            if _plain_json_equal(value, request.to_dict()):
+                return request
         raise ProductPackBridgeProtocolError(
             ProductPackBridgeProtocolErrorCode.INVALID_REQUEST
         ) from None
@@ -379,7 +385,7 @@ class ProductPackBridgeResponse(_BridgeProtocolContract):
     def from_dict(cls, value: Any) -> "ProductPackBridgeResponse":
         """Safely reconstruct a response from untrusted JSON-decoded data."""
 
-        if type(value) is not dict:
+        if type(value) is not dict or not _is_plain_json(value):
             raise ProductPackBridgeProtocolError(
                 ProductPackBridgeProtocolErrorCode.INVALID_RESPONSE
             ) from None
@@ -404,9 +410,12 @@ class ProductPackBridgeResponse(_BridgeProtocolContract):
                     ProductPackBridgeProtocolErrorCode.INVALID_RESPONSE
                 ) from None
         try:
-            return cls.model_validate(candidate)
+            response = cls.model_validate(candidate)
         except ValidationError:
             pass
+        else:
+            if _plain_json_equal(value, response.to_dict()):
+                return response
         raise ProductPackBridgeProtocolError(
             ProductPackBridgeProtocolErrorCode.INVALID_RESPONSE
         ) from None
@@ -497,6 +506,72 @@ def _canonical_timestamp(value: Any, field_name: str) -> datetime:
 
 def _serialize_timestamp(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _is_plain_json(
+    value: Any,
+    *,
+    depth: int = 0,
+    active_containers: Optional[set] = None,
+) -> bool:
+    """Accept only bounded trees made from exact JSON-decoder built-in types."""
+
+    if depth > _MAX_BRIDGE_JSON_NESTING_DEPTH:
+        return False
+    value_type = type(value)
+    if value is None or value_type in {str, bool, int}:
+        return True
+    if value_type is float:
+        return math.isfinite(value)
+    if value_type not in {dict, list}:
+        return False
+
+    active = set() if active_containers is None else active_containers
+    identity = id(value)
+    if identity in active:
+        return False
+    active.add(identity)
+    try:
+        if value_type is list:
+            return all(
+                _is_plain_json(
+                    item,
+                    depth=depth + 1,
+                    active_containers=active,
+                )
+                for item in value
+            )
+        return all(
+            type(key) is str
+            and _is_plain_json(
+                item,
+                depth=depth + 1,
+                active_containers=active,
+            )
+            for key, item in value.items()
+        )
+    finally:
+        active.remove(identity)
+
+
+def _plain_json_equal(submitted: Any, canonical: Any) -> bool:
+    """Compare canonical wire trees without Python's cross-type equality."""
+
+    if type(submitted) is not type(canonical):
+        return False
+    if type(submitted) is dict:
+        if submitted.keys() != canonical.keys():
+            return False
+        return all(
+            _plain_json_equal(submitted[key], canonical[key])
+            for key in submitted
+        )
+    if type(submitted) is list:
+        return len(submitted) == len(canonical) and all(
+            _plain_json_equal(left, right)
+            for left, right in zip(submitted, canonical)
+        )
+    return submitted == canonical
 
 
 __all__ = [
