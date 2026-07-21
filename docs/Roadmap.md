@@ -14,7 +14,8 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 4 — Multi-agent runtime | Complete | Added typed state, agent and tool contracts, deterministic reduction and routing, runtime execution, validated recovery, and LangGraph assembly. |
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
-| Task 5A — Product Pack Adoption Foundation | Cumulative review complete; PR ready | Task 5A.1–5A.6 establish the experimental manifest, explicit loading, protocol, bounded transport, scaffolding/conformance, and external SauceDemo architecture-validation slice. |
+| Task 5A — Product Pack Adoption Foundation | Complete | Task 5A.1–5A.6 establish the experimental manifest, explicit loading, protocol, bounded transport, scaffolding/conformance, and external SauceDemo architecture-validation slice; merged through PR #22. |
+| Task 5B — Company-side MDE Read-Only Pilot | Not started | Validate Product Pack assumptions in a company-managed, private, read-only pilot before API v1 stabilization. |
 
 ## Task 4 closure
 
@@ -68,9 +69,16 @@ commands remain retired. Tasks 6 and 7 have not started.
 
 ## Task 5A — Product Pack Adoption Foundation
 
-**Status: Cumulative architecture review complete; ready for the final PR.**
-Task 5A is planned before the existing recommendation work in Task 6. Across
-checkpoints 5A.1–5A.6, it provides:
+**Status: Complete.** Task 5A.1–5A.6 completed cumulative architecture review
+and were merged into `main` through PR #22 using a merge commit. The final
+implementation branch head was
+`b52643067ce0dc01c9204acb10acbacdb51395e1`; the `main` merge commit is
+`2a1431e7cd93e059c904e44fc4cc30eafa122a0e`. The Product Pack foundation is
+now present on `main`, but the Product Pack API remains experimental and is
+not stable SDK v1.
+
+Task 5A precedes the existing recommendation work in Task 6. Across checkpoints
+5A.1–5A.6, it provides:
 
 - establish a reusable Product Pack contract;
 - support explicit external/private Product Packs;
@@ -85,8 +93,7 @@ Task 5A.1 is the experimental Product Pack manifest and architecture-contract
 implementation checkpoint. It defines a frozen, strict, JSON-compatible
 manifest with exact version, identity, display-name, and bounded-capability
 fields, plus the long-term ownership, dependency, trust-boundary, and adoption
-decisions. It is complete on this cumulative Task 5A branch and is not a stable
-Product Pack SDK v1. See the
+decisions. It is complete and is not a stable Product Pack SDK v1. See the
 [Product Pack adoption architecture](architecture/product-pack-adoption.md).
 
 Task 5A.2 adds an explicit loader for manifest metadata from one
@@ -95,14 +102,13 @@ operator-approved installed distribution. It uses the fixed
 `pack_id`, and requires the loaded plain dictionary to equal the complete
 expected manifest after safe reconstruction. It performs no global discovery,
 arbitrary-path loading, adapter execution, browser execution, or sandboxing;
-the selected Python distribution is trusted code. Task 5A.2 is complete on
-this cumulative Task 5A branch.
+the selected Python distribution is trusted code. Task 5A.2 is complete.
 
 Task 5A.3 completes immutable Bridge Protocol v1 request and response contracts,
 safe reconstruction and correlation, and a mechanically verified packaged JSON
 schema. It carries only bounded actions and existing structured exploration
 evidence; credentials remain inside the private product execution boundary. It
-is complete on this cumulative Task 5A branch and is not a stable public SDK.
+is complete and is not a stable public SDK.
 
 Task 5A.4 adds bounded transport for one explicitly configured compiled
 TypeScript/Node bridge process. The manifest cannot specify commands; canonical
@@ -110,7 +116,7 @@ Bridge Protocol v1 JSON travels through stdin/stdout, while bounded stderr and
 raw process details remain behind fixed safe errors. Credentials stay in the
 inherited private execution environment and are never inspected or serialized
 by PMQA. The runner is transport isolation, not a security sandbox. Task 5A.4
-is complete within the cumulatively reviewed Task 5A branch.
+is complete.
 
 Task 5A.5 provides a deterministic minimal external Python distribution and
 direct TypeScript bridge source scaffold, plus offline source-conformance and
@@ -125,7 +131,7 @@ credentials remain in the execution environment. The baseline is an explicitly
 versioned, consumer-approved direct TypeScript Playwright dependency;
 Playwright MCP remains prohibited. Scaffolding and validation launch no browser
 or external Product Pack. The API remains experimental rather than stable SDK
-v1. Task 5A.5 is complete within the cumulatively reviewed Task 5A branch.
+v1. Task 5A.5 is complete.
 
 Task 5A.6 validates the abstraction with an explicitly loaded external
 SauceDemo Product Pack example. A product-neutral exploration Tool maps the
@@ -142,12 +148,32 @@ established Task 5 domain identities without weakening manifest or action
 identifiers. Python and TypeScript use the same canonical key-sorted compact
 UTF-8 JSON SHA-256 structural fingerprint; a fixed vector and opt-in live
 comparison distinguish offline fake parity from real cross-language parity.
-Task 5A.1–5A.6 have completed cumulative architecture review and the branch is
-ready for its final PR. The public `pmqa task5-demo --product demo` command and
+Task 5A.1–5A.6 have completed cumulative architecture review. The public
+`pmqa task5-demo --product demo` command and
 direct Python SauceDemo implementation remain the authoritative stable Task 5
 baseline. The external SauceDemo Product Pack remains an architecture-
 validation example outside the PMQA wheel; it does not replace or redirect the
 public demo. Task 5A remains experimental and is not a stable Product Pack SDK
-v1. After Task 5A merges, the next evidence phase is a company-side, read-only
-MDE pilot; API v1 stabilization follows only after evidence from both SauceDemo
-and MDE. The MDE pilot, Task 6, and Task 7 have not started.
+v1. API v1 stabilization follows only after evidence from both SauceDemo and
+MDE.
+
+## Task 5B — Company-side MDE Read-Only Pilot
+
+**Status: Not started.** This future pilot will occur in the company-managed
+environment, use a private external Product Pack, and connect through the
+versioned bridge to the existing TypeScript Playwright E2E capability. It will
+begin with read-only exploration and evidence collection to validate Product
+Pack assumptions before API v1 stabilization.
+
+The initial pilot will not:
+
+- modify product source;
+- modify the existing E2E repository or folder;
+- create commits or pull requests;
+- write ADO test cases, tasks, or bugs;
+- perform destructive browser actions; or
+- copy company code, credentials, URLs, selectors, artifacts, or internal
+  metadata into the public PMQA repository.
+
+This placeholder does not start or implement the MDE pilot. Task 6 and Task 7
+remain Not started.

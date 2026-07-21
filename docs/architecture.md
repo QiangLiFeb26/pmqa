@@ -159,10 +159,13 @@ Playwright path. The original direct Task 5 path and public
 `pmqa task5-demo --product demo` command remain the authoritative stable
 baseline. The external pack remains an architecture-validation example outside
 the PMQA wheel and is not a public-CLI replacement. Task 5A.1–5A.6 have
-completed cumulative architecture review and are ready for the final Task 5A
-PR. The API remains experimental; stabilization waits for evidence from both
-SauceDemo and the subsequent company-side, read-only MDE pilot. The MDE pilot,
-Task 6, and Task 7 have not started.
+completed cumulative architecture review and were merged through PR #22 using
+a merge commit. The final implementation branch head was
+`b52643067ce0dc01c9204acb10acbacdb51395e1`, and the `main` merge commit is
+`2a1431e7cd93e059c904e44fc4cc30eafa122a0e`. The Product Pack foundation is
+present on `main`; the API remains experimental, and stabilization waits for
+evidence from both SauceDemo and the subsequent company-side, read-only MDE
+pilot. Task 5B, Task 6, and Task 7 have not started.
 
 ### Memory
 
