@@ -1,6 +1,5 @@
 """Product-owned Explorer agent for bounded SauceDemo evidence collection."""
 
-import hashlib
 from datetime import datetime
 from typing import Callable, Optional
 
@@ -168,10 +167,7 @@ class SauceDemoExplorerAgent:
 
 
 def _tool_invocation_id(agent_invocation_id: str) -> str:
-    correlation = (
-        agent_invocation_id + "\0" + SAUCEDEMO_EXPLORATION_TOOL_ID
-    ).encode("utf-8")
-    return "tool.saucedemo." + hashlib.sha256(correlation).hexdigest()[:40]
+    return f"{agent_invocation_id}:{SAUCEDEMO_EXPLORATION_TOOL_ID}"
 
 
 def _evidence_is_correlated(

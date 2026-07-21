@@ -52,9 +52,9 @@
         "type": "string"
       },
       "request_id": {
-        "maxLength": 64,
+        "maxLength": 256,
         "minLength": 1,
-        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[a-z0-9]+(?:[._-][a-z0-9]+)*)*$",
         "title": "Request Id",
         "type": "string"
       },
@@ -470,9 +470,9 @@
         "type": "string"
       },
       "request_id": {
-        "maxLength": 64,
+        "maxLength": 256,
         "minLength": 1,
-        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[a-z0-9]+(?:[._-][a-z0-9]+)*)*$",
         "title": "Request Id",
         "type": "string"
       },

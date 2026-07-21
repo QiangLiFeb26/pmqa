@@ -136,7 +136,13 @@ artifact handoff, storage, and generation. The consumer-owned backend uses one
 exact direct TypeScript Playwright dependency and child-environment
 credentials; it contains no MCP integration. Default verification is offline,
 while opt-in temporary builds prove the real Node bridge and live Playwright
-workflow. The direct Task 5 path remains authoritative until cumulative Task
+workflow. The Product Pack API and Bridge Protocol remain independent version
+axes. A separate bounded JSON-only bridge correlation identifier preserves the
+established Task 5 domain identities without weakening manifest or action
+identifiers. Python and TypeScript use the same canonical key-sorted compact
+UTF-8 JSON SHA-256 structural fingerprint; a fixed vector and opt-in live
+comparison distinguish offline fake parity from real cross-language parity.
+The direct Task 5 path remains authoritative until cumulative Task
 5A review decides whether to switch it. Task 5A.6 is ready for architecture
 review on the cumulative branch; Task 5A remains experimental and unmerged.
 The future read-only MDE pilot, Task 6, and Task 7 have not started.

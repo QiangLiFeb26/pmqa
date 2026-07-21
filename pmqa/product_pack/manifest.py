@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 
 PRODUCT_PACK_IDENTIFIER_PATTERN = r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+PRODUCT_PACK_API_VERSION = "1"
 _IDENTIFIER_PATTERN = re.compile(
     PRODUCT_PACK_IDENTIFIER_PATTERN,
     flags=re.ASCII,

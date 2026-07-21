@@ -112,8 +112,9 @@ Product Pack adoption has four independent version axes:
    not mean the API has been stabilized.
 3. `pack_version` versions the Product Pack itself and must be a canonical
    Semantic Versioning 2.0.0 value.
-4. A future TypeScript bridge protocol will have its own independent version.
-   No bridge field or protocol is defined in the manifest today.
+4. `protocol_version` versions the language-neutral TypeScript bridge wire
+   contract. Bridge Protocol v1 is independently enforced and is not a
+   manifest field.
 
 Keeping these axes separate prevents manifest-format, API, pack-release, and
 transport compatibility from being conflated.
@@ -171,6 +172,16 @@ Bridge protocol version, manifest schema version, Product Pack API version,
 and Product Pack version are independent compatibility axes. The canonical
 versioned JSON schema is mechanically checked against the Python contracts and
 packaged with PMQA.
+
+Manifest, product, pack, workflow, Tool, and action identifiers retain the
+strict lowercase Product Pack identifier policy. Bridge `request_id` is a
+transport correlation value with its own maximum of 256 ASCII characters. It
+accepts non-empty strict identifier components joined by `:` so the established
+Task 5 Tool invocation can cross the wire unchanged; it rejects empty
+components, whitespace, path separators, URLs, shell syntax, control
+characters, non-ASCII text, and prohibited semantic components. It remains
+JSON data only and is never selected as an executable, argument, path,
+environment-variable name, or shell command.
 
 ## Bounded bridge process transport
 
@@ -276,6 +287,24 @@ discovery, PATH search, environment inspection, agent construction, or product
 import. Each valid Tool invocation becomes exactly one Bridge Protocol v1
 request. The canonical Tool invocation ID is also the bridge request ID and
 must equal the returned evidence capture ID.
+
+Task 5 domain identities are compatibility data. The direct Explorer retains
+its established colon-composed Tool invocation ID, and both direct and
+external paths consequently retain the same evidence, candidate, knowledge
+artifact, and validation IDs. External composition prevalidates that transport
+correlation before any bridge process can launch.
+
+Both product-owned capture implementations fingerprint the bounded structural
+element array by preserving array order, sorting every object key
+lexicographically, serializing compact JSON with deterministic strings and
+nulls without ASCII escaping, encoding UTF-8, and emitting lowercase SHA-256
+hex. Credentials, HTML, browser objects, timestamps, and environment values are
+not hashed. A fixed non-sensitive vector covers null, empty, non-ASCII, login,
+inventory, and deliberately noncanonical insertion order. Default offline
+tests compare the direct path with a fake bridge; separate opt-in compiled Node
+and live Playwright tests prove the real TypeScript vector, structural
+fingerprints, timestamp-normalized verified knowledge, and byte-identical
+generated tests.
 
 The example consumer backend uses direct, exactly pinned TypeScript Playwright.
 It implements only the ordered bounded SauceDemo actions and emits runtime-free

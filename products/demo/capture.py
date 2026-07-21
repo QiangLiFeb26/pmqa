@@ -1,7 +1,5 @@
 """Shared bounded SauceDemo capture used by product-owned adapters."""
 
-import hashlib
-import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Protocol, Sequence, Tuple
 
@@ -17,6 +15,7 @@ from pmqa.models import (
 )
 from products.demo.config import DemoConfig
 from products.demo.exploration_contracts import SAUCEDEMO_EXPLORATION_ACTIONS
+from products.demo.fingerprint import saucedemo_structural_fingerprint
 
 
 @dataclass(frozen=True)
@@ -196,12 +195,11 @@ class PlaywrightSauceDemoCapture:
 
     @staticmethod
     def _page(page_id: str, snapshot: Dict[str, Any]) -> ObservedPage:
-        canonical = json.dumps(
-            snapshot["elements"], sort_keys=True, separators=(",", ":")
-        )
         return ObservedPage(
             page_id=page_id,
             url=snapshot["url"],
             title=snapshot["title"],
-            structural_fingerprint=hashlib.sha256(canonical.encode()).hexdigest(),
+            structural_fingerprint=saucedemo_structural_fingerprint(
+                snapshot["elements"]
+            ),
         )

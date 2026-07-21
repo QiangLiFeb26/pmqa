@@ -5,11 +5,13 @@ from typing import Optional
 from pmqa.product_pack import (
     BridgeRunner,
     LoadedProductPack,
+    PRODUCT_PACK_API_VERSION,
     ProductPackBridgeProcessConfig,
     ProductPackCapability,
     ProductPackExplorationTool,
     ProductPackExplorationToolError,
     ProductPackManifest,
+    validate_bridge_correlation_id,
 )
 from pmqa.workflow import WorkflowState
 from products.demo.config import DemoConfig
@@ -25,7 +27,7 @@ from products.demo.workflow import (
 SAUCEDEMO_PRODUCT_PACK_DISTRIBUTION = "pmqa-product-pack-saucedemo"
 SAUCEDEMO_PRODUCT_PACK_MANIFEST = ProductPackManifest(
     schema_version="1",
-    product_pack_api_version="1",
+    product_pack_api_version=PRODUCT_PACK_API_VERSION,
     pack_id="saucedemo",
     pack_version="0.1.0",
     product_id="demo",
@@ -68,6 +70,13 @@ def run_saucedemo_product_pack_workflow(
         or recursion_limit < 1
         or (bridge_runner is not None and not callable(bridge_runner))
     ):
+        raise SauceDemoProductPackWorkflowCompositionError() from None
+    try:
+        validate_bridge_correlation_id(
+            f"{initial_state.workflow_id}:1:explorer:"
+            f"{SAUCEDEMO_EXPLORATION_TOOL_ID}"
+        )
+    except ValueError:
         raise SauceDemoProductPackWorkflowCompositionError() from None
     try:
         tool = ProductPackExplorationTool(

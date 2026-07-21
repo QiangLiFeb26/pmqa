@@ -1,0 +1,24 @@
+{
+  "structure": [
+    {
+      "text": null,
+      "type": "text",
+      "dataTest": "username",
+      "tag": "input"
+    },
+    {
+      "tag": "div",
+      "dataTest": "inventory-item",
+      "type": null,
+      "text": "Café 商品"
+    },
+    {
+      "type": null,
+      "text": "",
+      "tag": "span",
+      "dataTest": ""
+    }
+  ],
+  "canonical_json": "[{\"dataTest\":\"username\",\"tag\":\"input\",\"text\":null,\"type\":\"text\"},{\"dataTest\":\"inventory-item\",\"tag\":\"div\",\"text\":\"Café 商品\",\"type\":null},{\"dataTest\":\"\",\"tag\":\"span\",\"text\":\"\",\"type\":null}]",
+  "sha256": "0ca343d0fa0931765481ea037e855633f7f839561da118d78cfd43fa7b56ebee"
+}

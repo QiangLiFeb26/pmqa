@@ -147,7 +147,14 @@ validated exploration evidence. A parallel product-owned composition reuses
 the existing SauceDemo agents, Task 4 graph, artifact handoff, storage, and
 generator. The TypeScript backend uses direct pinned Playwright and resolves
 credentials only in the child environment. Offline tests use an injected
-validated bridge response; opt-in tests compile into temporary output and
+validated bridge response. Product Pack API version and Bridge Protocol
+version are independently enforced; transport correlation IDs use a separate
+bounded JSON-only policy that accepts established colon-composed Task 5 Tool
+invocations without relaxing other identifiers. Both capture implementations
+hash canonical key-sorted compact UTF-8 JSON, preserving established Task 5
+evidence, candidate, artifact, and validation identities. Opt-in tests compile
+into temporary output and prove the fixed fingerprint vector plus live
+verified-knowledge and generated-test parity; they
 exercise the real Node and Playwright path. The original direct Task 5 path
 remains available pending cumulative review.
 

@@ -11,6 +11,16 @@ prefix `inspect_login_page`, `login`, `verify_inventory_page`, and
 `inspect_inventory_item`. Protocol JSON is written only to stdout; failures use
 the bounded bridge vocabulary and never include raw exception text.
 
+Product Pack API version and Bridge Protocol version are independent. The
+bridge request ID uses the bounded JSON-only transport-correlation policy so
+the established colon-composed Task 5 Tool invocation and downstream domain
+identities remain unchanged; manifest and action identifiers stay stricter.
+Structural fingerprints preserve array order, sort object keys, serialize
+compact JSON without ASCII escaping, encode UTF-8, and hash with SHA-256. The
+shared fixed vector is `tests/structural-fingerprint-v1.json`; default tests
+verify Python/offline parity, while opt-in compiled Node and live Playwright
+tests prove actual cross-language parity.
+
 The bridge reads credentials only from its child-process environment:
 
 - `SAUCEDEMO_USERNAME`

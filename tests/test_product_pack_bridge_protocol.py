@@ -20,6 +20,8 @@ from pmqa.models import (
     ObservedPage,
 )
 from pmqa.product_pack import (
+    BRIDGE_CORRELATION_ID_MAX_LENGTH,
+    BRIDGE_CORRELATION_ID_PATTERN,
     BRIDGE_PROTOCOL_VERSION,
     MAX_BRIDGE_ACTION_COUNT,
     ProductPackBridgeFailureCode,
@@ -31,7 +33,9 @@ from pmqa.product_pack import (
     ProductPackBridgeStatus,
     bridge_protocol_v1_schema,
     validate_product_pack_bridge_response,
+    validate_bridge_correlation_id,
 )
+from pmqa.product_pack.manifest import PRODUCT_PACK_IDENTIFIER_PATTERN
 
 
 SCHEMA_PATH = (
@@ -73,6 +77,55 @@ def _request(**updates) -> ProductPackBridgeRequest:
     }
     values.update(updates)
     return ProductPackBridgeRequest(**values)
+
+
+def test_bridge_correlation_ids_have_a_distinct_bounded_contract() -> None:
+    established = (
+        "saucedemo-task5-demo:1:explorer:"
+        "playwright.saucedemo_explore"
+    )
+
+    assert validate_bridge_correlation_id(established) == established
+    assert _request(request_id=established).request_id == established
+    assert _response(
+        request_id=established,
+        evidence=_evidence(
+            source=ExplorationSource(
+                source_type="typescript",
+                tool_id="exploration.capture",
+                capture_id=established,
+            )
+        ),
+    ).request_id == established
+    assert BRIDGE_CORRELATION_ID_MAX_LENGTH == 256
+    assert ":" in BRIDGE_CORRELATION_ID_PATTERN
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        ":request",
+        "request:",
+        "request::one",
+        "request one",
+        "request/one",
+        r"request\\one",
+        "https://example.invalid",
+        "request:$HOME",
+        "request:$(command)",
+        "request\nother",
+        "réquest:one",
+        "request:password",
+        "request:api-key",
+        "a" * 257,
+    ],
+)
+def test_unsafe_bridge_correlation_ids_are_rejected(value: str) -> None:
+    with pytest.raises((ValueError, ValidationError)):
+        validate_bridge_correlation_id(value)
+    with pytest.raises(ValidationError):
+        _request(request_id=value)
 
 
 def _evidence(**updates) -> ExplorationEvidence:
@@ -734,3 +787,10 @@ def test_canonical_versioned_schema_matches_python_contracts() -> None:
         ProductPackBridgeResponse.model_fields
     )
     assert stored["request"]["properties"]["action_plan"]["maxItems"] == 32
+    for contract in ("request", "response"):
+        request_id = stored[contract]["properties"]["request_id"]
+        assert request_id["maxLength"] == BRIDGE_CORRELATION_ID_MAX_LENGTH
+        assert request_id["pattern"] == BRIDGE_CORRELATION_ID_PATTERN
+        workflow_id = stored[contract]["properties"]["workflow_id"]
+        assert workflow_id["maxLength"] == 64
+        assert workflow_id["pattern"] == PRODUCT_PACK_IDENTIFIER_PATTERN

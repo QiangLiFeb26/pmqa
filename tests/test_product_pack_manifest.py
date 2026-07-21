@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from pmqa.product_pack import (
+    PRODUCT_PACK_API_VERSION,
     ProductPackCapability,
     ProductPackManifest,
     ProductPackManifestValidationError,
@@ -31,6 +32,7 @@ def test_valid_manifest_construction_and_public_exports() -> None:
     )
     assert manifest.schema_version == "1"
     assert manifest.product_pack_api_version == "1"
+    assert PRODUCT_PACK_API_VERSION == "1"
     assert manifest.pack_id == "demo-pack"
     assert manifest.product_id == "demo"
     assert manifest.capabilities == ALL_CAPABILITIES

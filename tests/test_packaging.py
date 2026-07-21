@@ -24,6 +24,7 @@ REQUIRED_PRODUCT_MODULES = {
     "products/demo/exploration_contracts.py",
     "products/demo/exploration_tool.py",
     "products/demo/explorer_agent.py",
+    "products/demo/fingerprint.py",
     "products/demo/generator.py",
     "products/demo/knowledge_agent.py",
     "products/demo/knowledge_mapping.py",

@@ -2,6 +2,8 @@
 
 from pmqa.product_pack.bridge_protocol import (
     BRIDGE_PROTOCOL_VERSION,
+    BRIDGE_CORRELATION_ID_MAX_LENGTH,
+    BRIDGE_CORRELATION_ID_PATTERN,
     MAX_BRIDGE_ACTION_COUNT,
     ProductPackBridgeFailureCode,
     ProductPackBridgeOperation,
@@ -12,6 +14,7 @@ from pmqa.product_pack.bridge_protocol import (
     ProductPackBridgeStatus,
     bridge_protocol_v1_schema,
     validate_product_pack_bridge_response,
+    validate_bridge_correlation_id,
 )
 from pmqa.product_pack.bridge_runner import (
     DEFAULT_BRIDGE_TIMEOUT_SECONDS,
@@ -24,6 +27,7 @@ from pmqa.product_pack.bridge_runner import (
     run_product_pack_bridge,
 )
 from pmqa.product_pack.manifest import (
+    PRODUCT_PACK_API_VERSION,
     ProductPackCapability,
     ProductPackManifest,
     ProductPackManifestValidationError,
@@ -58,6 +62,9 @@ from pmqa.product_pack.scaffold import (
 
 __all__ = [
     "BRIDGE_PROTOCOL_VERSION",
+    "BRIDGE_CORRELATION_ID_MAX_LENGTH",
+    "BRIDGE_CORRELATION_ID_PATTERN",
+    "PRODUCT_PACK_API_VERSION",
     "MAX_BRIDGE_ACTION_COUNT",
     "DEFAULT_BRIDGE_TIMEOUT_SECONDS",
     "DEFAULT_MAX_REQUEST_BYTES",
@@ -86,6 +93,7 @@ __all__ = [
     "ProductPackBridgeStatus",
     "bridge_protocol_v1_schema",
     "validate_product_pack_bridge_response",
+    "validate_bridge_correlation_id",
     "ProductPackBridgeExecutionError",
     "ProductPackBridgeExecutionErrorCode",
     "ProductPackBridgeProcessConfig",

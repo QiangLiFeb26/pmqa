@@ -21,6 +21,7 @@ from pmqa.product_pack.bridge_runner import (
 )
 from pmqa.product_pack.loader import LoadedProductPack
 from pmqa.product_pack.manifest import (
+    PRODUCT_PACK_API_VERSION,
     ProductPackCapability,
     ProductPackManifest,
     validate_product_pack_identifier,
@@ -82,7 +83,7 @@ class ProductPackExplorationTool:
             raise ProductPackExplorationToolError() from None
         manifest = loaded_product_pack.manifest
         if (
-            manifest.product_pack_api_version != BRIDGE_PROTOCOL_VERSION
+            manifest.product_pack_api_version != PRODUCT_PACK_API_VERSION
             or ProductPackCapability.EXPLORATION_CAPTURE
             not in manifest.capabilities
         ):

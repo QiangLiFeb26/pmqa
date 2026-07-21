@@ -1,6 +1,8 @@
 """Offline tests for the generic Product Pack exploration Tool adapter."""
 
 from datetime import datetime, timedelta, timezone
+import ast
+import inspect
 import os
 from pathlib import Path
 import subprocess
@@ -9,6 +11,7 @@ import sys
 import pytest
 
 from pmqa.models import ExplorationEvidence, ExplorationSource
+from pmqa.product_pack import exploration_tool as exploration_tool_module
 from pmqa.product_pack import (
     LoadedProductPack,
     PRODUCT_PACK_EXPLORATION_FAILURE_CODE,
@@ -172,6 +175,20 @@ def test_success_maps_one_exact_bridge_request_and_validated_evidence(
     }
 
 
+def test_product_pack_and_bridge_version_axes_are_referenced_independently() -> None:
+    source = inspect.getsource(exploration_tool_module)
+    tree = ast.parse(source)
+
+    assert "manifest.product_pack_api_version != PRODUCT_PACK_API_VERSION" in source
+    assert "protocol_version=BRIDGE_PROTOCOL_VERSION" in source
+    comparisons = [node for node in ast.walk(tree) if isinstance(node, ast.Compare)]
+    assert not any(
+        "product_pack_api_version" in ast.unparse(node)
+        and "BRIDGE_PROTOCOL_VERSION" in ast.unparse(node)
+        for node in comparisons
+    )
+
+
 @pytest.mark.parametrize(
     "construction",
     [
@@ -217,7 +234,7 @@ def test_invalid_construction_fails_before_runner(
         {"input": {"product_id": "demo", "actions": ("browser_context",)}},
         {"input": {"product_id": "demo", "actions": ("Unknown",)}},
         {"input": {"product_id": "demo", "actions": ("inspect_login_page",), "extra": True}},
-        {"invocation_id": "invalid:bridge-request"},
+        {"invocation_id": "invalid::bridge-request"},
     ],
 )
 def test_invalid_invocation_returns_safe_failure_before_bridge(

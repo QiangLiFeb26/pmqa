@@ -247,7 +247,16 @@ The example uses direct pinned TypeScript Playwright through the bounded Node
 bridge, never Playwright MCP. Credentials resolve only inside the child
 environment. Default tests use a validated offline bridge seam; opt-in tests
 compile into temporary output and verify the real Node and live Playwright
-paths. The direct Python `task5-demo` path remains authoritative pending
+paths. Product Pack API version and Bridge Protocol version remain independent
+compatibility axes. Manifest, product, workflow, Tool, and action identifiers
+keep the strict Product Pack identifier policy; the JSON-only bridge
+correlation ID has a separate bounded colon-composition policy so Task 5 Tool,
+evidence, candidate, artifact, and validation identities remain unchanged.
+Python and TypeScript captures use the same key-sorted, compact UTF-8 JSON
+SHA-256 structural fingerprint. Offline tests prove adapter parity with a fake
+bridge; opt-in compiled TypeScript and live-browser checks prove actual
+cross-language fingerprint and verified-knowledge parity. The direct Python
+`task5-demo` path remains authoritative pending
 cumulative review. Task 5A remains experimental and unmerged, not a stable
 Product Pack SDK v1. The future MDE pilot, Task 6, and Task 7 have not started.
 See the

@@ -317,6 +317,7 @@ def product_pack_scaffold(
     """Generate one experimental Product Pack scaffold without executing it."""
 
     from pmqa.product_pack import (
+        PRODUCT_PACK_API_VERSION,
         ProductPackManifest,
         ProductPackScaffoldError,
         ProductPackScaffoldRequest,
@@ -326,7 +327,7 @@ def product_pack_scaffold(
     try:
         manifest = ProductPackManifest(
             schema_version="1",
-            product_pack_api_version="1",
+            product_pack_api_version=PRODUCT_PACK_API_VERSION,
             pack_id=pack_id,
             pack_version=pack_version,
             product_id=product_id,

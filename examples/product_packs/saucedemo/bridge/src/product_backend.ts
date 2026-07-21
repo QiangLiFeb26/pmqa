@@ -16,6 +16,7 @@ import type {
   ObservedElementV1,
   ObservedPageV1,
 } from "./protocol.js";
+import { structuralFingerprint } from "./fingerprint.js";
 
 const ACTIONS = [
   "inspect_login_page",
@@ -24,6 +25,8 @@ const ACTIONS = [
   "inspect_inventory_item",
 ] as const;
 const IDENTIFIER = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+const CORRELATION_IDENTIFIER =
+  /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[a-z0-9]+(?:[._-][a-z0-9]+)*)*$/;
 const CANONICAL_TIME =
   /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{6})?Z$/;
 
@@ -147,7 +150,6 @@ function validRequest(request: BridgeRequestV1): boolean {
   ];
   if (JSON.stringify(keys) !== JSON.stringify(expected)) return false;
   const identifiers = [
-    request.request_id,
     request.workflow_id,
     request.product_id,
     request.pack_id,
@@ -158,6 +160,9 @@ function validRequest(request: BridgeRequestV1): boolean {
     && request.product_id === "demo"
     && request.pack_id === "saucedemo"
     && request.tool_id === "playwright.saucedemo_explore"
+    && typeof request.request_id === "string"
+    && request.request_id.length <= 256
+    && CORRELATION_IDENTIFIER.test(request.request_id)
     && identifiers.every((value) =>
       typeof value === "string" && value.length <= 64 && IDENTIFIER.test(value))
     && typeof request.requested_at === "string"
@@ -247,9 +252,7 @@ async function observedPage(page: Page, pageId: string): Promise<ObservedPageV1>
     page_id: pageId,
     url: page.url(),
     title: await page.title(),
-    structural_fingerprint: createHash("sha256")
-      .update(JSON.stringify(structure))
-      .digest("hex"),
+    structural_fingerprint: structuralFingerprint(structure),
   };
 }
 

@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 from enum import Enum
 import math
+import re
 from typing import Annotated, Any, Dict, Literal, Optional, Tuple
 
 from pydantic import (
@@ -29,6 +30,11 @@ from pmqa.security.boundary_policy import (
 
 BRIDGE_PROTOCOL_VERSION = "1"
 MAX_BRIDGE_ACTION_COUNT = 32
+BRIDGE_CORRELATION_ID_MAX_LENGTH = 256
+BRIDGE_CORRELATION_ID_PATTERN = (
+    r"^[a-z0-9]+(?:[._-][a-z0-9]+)*"
+    r"(?::[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
+)
 # Wire trees deeper than this are rejected before typed reconstruction.
 _MAX_BRIDGE_JSON_NESTING_DEPTH = 32
 _CANONICAL_TIMESTAMP_PATTERN = (
@@ -41,6 +47,14 @@ _BridgeActionIdentifier = Annotated[
         min_length=1,
         max_length=PRODUCT_PACK_IDENTIFIER_MAX_LENGTH,
         pattern=PRODUCT_PACK_IDENTIFIER_PATTERN,
+    ),
+]
+_BridgeCorrelationIdentifier = Annotated[
+    str,
+    Field(
+        min_length=1,
+        max_length=BRIDGE_CORRELATION_ID_MAX_LENGTH,
+        pattern=BRIDGE_CORRELATION_ID_PATTERN,
     ),
 ]
 
@@ -121,11 +135,7 @@ class ProductPackBridgeRequest(_BridgeProtocolContract):
     """One bounded request to an explicitly selected Product Pack bridge."""
 
     protocol_version: Literal["1"]
-    request_id: str = Field(
-        min_length=1,
-        max_length=PRODUCT_PACK_IDENTIFIER_MAX_LENGTH,
-        pattern=PRODUCT_PACK_IDENTIFIER_PATTERN,
-    )
+    request_id: _BridgeCorrelationIdentifier
     workflow_id: str = Field(
         min_length=1,
         max_length=PRODUCT_PACK_IDENTIFIER_MAX_LENGTH,
@@ -156,7 +166,6 @@ class ProductPackBridgeRequest(_BridgeProtocolContract):
     )
 
     @field_validator(
-        "request_id",
         "workflow_id",
         "product_id",
         "pack_id",
@@ -165,6 +174,11 @@ class ProductPackBridgeRequest(_BridgeProtocolContract):
     @classmethod
     def validate_identifier(cls, value: str) -> str:
         return validate_product_pack_identifier(value)
+
+    @field_validator("request_id")
+    @classmethod
+    def validate_request_id(cls, value: str) -> str:
+        return validate_bridge_correlation_id(value)
 
     @field_validator("operation", mode="before")
     @classmethod
@@ -242,11 +256,7 @@ class ProductPackBridgeResponse(_BridgeProtocolContract):
     """One terminal, correlated Bridge Protocol v1 response."""
 
     protocol_version: Literal["1"]
-    request_id: str = Field(
-        min_length=1,
-        max_length=PRODUCT_PACK_IDENTIFIER_MAX_LENGTH,
-        pattern=PRODUCT_PACK_IDENTIFIER_PATTERN,
-    )
+    request_id: _BridgeCorrelationIdentifier
     workflow_id: str = Field(
         min_length=1,
         max_length=PRODUCT_PACK_IDENTIFIER_MAX_LENGTH,
@@ -276,7 +286,6 @@ class ProductPackBridgeResponse(_BridgeProtocolContract):
     failure_code: Optional[ProductPackBridgeFailureCode]
 
     @field_validator(
-        "request_id",
         "workflow_id",
         "product_id",
         "pack_id",
@@ -285,6 +294,11 @@ class ProductPackBridgeResponse(_BridgeProtocolContract):
     @classmethod
     def validate_identifier(cls, value: str) -> str:
         return validate_product_pack_identifier(value)
+
+    @field_validator("request_id")
+    @classmethod
+    def validate_request_id(cls, value: str) -> str:
+        return validate_bridge_correlation_id(value)
 
     @field_validator("operation", mode="before")
     @classmethod
@@ -495,6 +509,23 @@ def bridge_protocol_v1_schema() -> Dict[str, Any]:
     }
 
 
+def validate_bridge_correlation_id(value: str) -> str:
+    """Validate one bounded JSON-only Bridge transport correlation ID."""
+
+    if (
+        type(value) is not str
+        or len(value) > BRIDGE_CORRELATION_ID_MAX_LENGTH
+        or re.fullmatch(BRIDGE_CORRELATION_ID_PATTERN, value, flags=re.ASCII)
+        is None
+        or any(
+            is_prohibited_key(component, WORKFLOW_STATE_PROHIBITED_KEYS)
+            for component in value.split(":")
+        )
+    ):
+        raise ValueError("invalid bridge correlation identifier")
+    return value
+
+
 def _canonical_timestamp(value: Any, field_name: str) -> datetime:
     if type(value) is datetime:
         if value.tzinfo is None or value.utcoffset() is None:
@@ -583,6 +614,8 @@ def _plain_json_equal(submitted: Any, canonical: Any) -> bool:
 
 __all__ = [
     "BRIDGE_PROTOCOL_VERSION",
+    "BRIDGE_CORRELATION_ID_MAX_LENGTH",
+    "BRIDGE_CORRELATION_ID_PATTERN",
     "MAX_BRIDGE_ACTION_COUNT",
     "ProductPackBridgeFailureCode",
     "ProductPackBridgeOperation",
@@ -593,4 +626,5 @@ __all__ = [
     "ProductPackBridgeStatus",
     "bridge_protocol_v1_schema",
     "validate_product_pack_bridge_response",
+    "validate_bridge_correlation_id",
 ]

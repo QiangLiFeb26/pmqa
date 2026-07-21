@@ -47,7 +47,11 @@ from products.demo.artifact_handoff import (
     persist_verified_knowledge,
 )
 from products.demo.capture import SauceDemoCaptureResult
-from products.demo.config import DemoConfig
+from products.demo.config import DemoConfig, load_config
+from products.demo.fingerprint import (
+    canonical_saucedemo_structure,
+    saucedemo_structural_fingerprint,
+)
 from products.demo.product_pack_workflow import (
     SAUCEDEMO_PRODUCT_PACK_DISTRIBUTION,
     SAUCEDEMO_PRODUCT_PACK_MANIFEST,
@@ -62,6 +66,7 @@ from products.demo.workflow import (
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_ROOT = REPOSITORY_ROOT / "examples/product_packs/saucedemo"
+FINGERPRINT_VECTOR = EXAMPLE_ROOT / "tests/structural-fingerprint-v1.json"
 
 
 def _time(seconds: int = 0) -> datetime:
@@ -395,6 +400,85 @@ def test_offline_external_pack_workflow_handoff_and_generation_match_direct_path
     assert initial.model_dump_json() == initial_before
 
 
+def test_task5_golden_domain_identities_are_preserved_across_both_paths(
+    tmp_path,
+    process_config,
+) -> None:
+    config = _config(tmp_path)
+    initial = create_saucedemo_workflow_state(
+        config,
+        workflow_id="saucedemo-task5-demo",
+        product_version="1",
+        goal="Build verified SauceDemo product memory",
+        max_iterations=1,
+        created_at=_time(),
+    )
+    pages, elements, locators, interactions = _observations()
+    direct = run_saucedemo_workflow(
+        config,
+        initial,
+        capture_runner=_CaptureRunner(
+            SauceDemoCaptureResult(pages, elements, locators, interactions)
+        ),
+        clock=lambda: _time(1),
+        recursion_limit=24,
+    )
+    runner = _FakeBridgeRunner()
+    external = run_saucedemo_product_pack_workflow(
+        config,
+        initial,
+        _loaded(),
+        process_config,
+        bridge_runner=runner,
+        recursion_limit=24,
+    )
+
+    expected = {
+        "tool_invocation_id": (
+            "saucedemo-task5-demo:1:explorer:"
+            "playwright.saucedemo_explore"
+        ),
+        "evidence_id": "evidence.saucedemo.f38783b544abdd0eb46d13b8",
+        "candidate_id": "candidate.saucedemo.d1ce4c5350e77b45ffc5d9b2",
+        "artifact_id": "knowledge.saucedemo.5751a4a6bdbcc090568b8503",
+        "validation_id": "validation.saucedemo.5aa9d2c00e89e88d9310ec93",
+    }
+    for final in (direct, external):
+        evidence = final.evidence[0]
+        candidate = final.knowledge_candidates[0]
+        validation = final.validation_results[0]
+        assert evidence["source"]["capture_id"] == expected[
+            "tool_invocation_id"
+        ]
+        assert evidence["evidence_id"] == expected["evidence_id"]
+        assert candidate["source_evidence_id"] == expected["evidence_id"]
+        assert candidate["candidate_id"] == expected["candidate_id"]
+        assert candidate["knowledge"]["artifact_id"] == expected["artifact_id"]
+        assert validation["source_evidence_id"] == expected["evidence_id"]
+        assert validation["candidate_id"] == expected["candidate_id"]
+        assert validation["validation_id"] == expected["validation_id"]
+    bridge_request = runner.calls[0][0]
+    assert bridge_request.request_id == expected["tool_invocation_id"]
+    assert (
+        external.evidence[0]["source"]["capture_id"]
+        == bridge_request.request_id
+    )
+
+
+def test_python_structural_fingerprint_matches_fixed_shared_vector() -> None:
+    vector = json.loads(FINGERPRINT_VECTOR.read_text(encoding="utf-8"))
+
+    assert canonical_saucedemo_structure(vector["structure"]) == vector[
+        "canonical_json"
+    ]
+    assert saucedemo_structural_fingerprint(vector["structure"]) == vector[
+        "sha256"
+    ]
+    assert vector["sha256"] == (
+        "0ca343d0fa0931765481ea037e855633f7f839561da118d78cfd43fa7b56ebee"
+    )
+
+
 @pytest.mark.parametrize(
     "loaded",
     [
@@ -442,6 +526,40 @@ def test_invalid_config_and_workflow_mismatch_fail_before_bridge(
                 process_config,
                 bridge_runner=runner,
             )
+    assert runner.calls == []
+
+
+@pytest.mark.parametrize(
+    "workflow_id",
+    (
+        "workflow/unsafe",
+        "https://example.invalid",
+        "workflow:password",
+        "workflow with space",
+        "wörkflow",
+        "a" * 257,
+    ),
+)
+def test_external_workflow_rejects_invalid_bridge_identity_before_process(
+    tmp_path,
+    process_config,
+    workflow_id,
+) -> None:
+    runner = _FakeBridgeRunner()
+    config = _config(tmp_path)
+    initial = _initial(config).model_copy(
+        update={"workflow_id": workflow_id}
+    )
+
+    with pytest.raises(SauceDemoProductPackWorkflowCompositionError):
+        run_saucedemo_product_pack_workflow(
+            config,
+            initial,
+            _loaded(),
+            process_config,
+            bridge_runner=runner,
+        )
+
     assert runner.calls == []
 
 
@@ -548,6 +666,39 @@ else: raise AssertionError("external pack loaded from repository")
 )
 def test_real_typescript_bridge_process_framing_and_correlation(tmp_path) -> None:
     node, bridge = _build_typescript_bridge(tmp_path)
+    fingerprint_module = bridge.with_name("fingerprint.js")
+    script = """
+import { readFileSync } from "node:fs";
+const module = await import(process.argv[1]);
+const vector = JSON.parse(readFileSync(process.argv[2], "utf8"));
+const result = {
+  canonical_json: module.canonicalStructureJson(vector.structure),
+  sha256: module.structuralFingerprint(vector.structure),
+};
+process.stdout.write(JSON.stringify(result));
+"""
+    fingerprint = subprocess.run(
+        [
+            node,
+            "--input-type=module",
+            "--eval",
+            script,
+            fingerprint_module.as_uri(),
+            str(FINGERPRINT_VECTOR),
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    assert fingerprint.returncode == 0, fingerprint.stdout + fingerprint.stderr
+    expected_fingerprint = json.loads(
+        FINGERPRINT_VECTOR.read_text(encoding="utf-8")
+    )
+    assert json.loads(fingerprint.stdout) == {
+        "canonical_json": expected_fingerprint["canonical_json"],
+        "sha256": expected_fingerprint["sha256"],
+    }
     requested_at = datetime.now(timezone.utc)
     config = ProductPackBridgeProcessConfig(
         executable_path=node,
@@ -593,19 +744,25 @@ def test_real_typescript_bridge_process_framing_and_correlation(tmp_path) -> Non
     or not os.getenv("SAUCEDEMO_PASSWORD"),
     reason="enable live Product Pack smoke with child-environment credentials",
 )
-def test_real_typescript_playwright_product_pack_workflow(tmp_path) -> None:
+def test_real_typescript_playwright_matches_direct_verified_knowledge(
+    tmp_path,
+) -> None:
     node, bridge = _build_typescript_bridge(tmp_path)
-    config = _config(tmp_path)
+    config = replace(
+        load_config(REPOSITORY_ROOT),
+        artifact_output_location=tmp_path / "artifacts",
+        generated_test_output_location=tmp_path / "generated",
+    )
     created_at = datetime.now(timezone.utc)
     initial = create_saucedemo_workflow_state(
         config,
-        workflow_id="workflow.saucedemo.live.pack",
+        workflow_id="workflow.saucedemo.live.parity",
         product_version="live",
         goal="Validate the real external SauceDemo Product Pack",
         max_iterations=1,
         created_at=created_at,
     )
-    final = run_saucedemo_product_pack_workflow(
+    external = run_saucedemo_product_pack_workflow(
         config,
         initial,
         _loaded(),
@@ -616,13 +773,43 @@ def test_real_typescript_playwright_product_pack_workflow(tmp_path) -> None:
         ),
         recursion_limit=24,
     )
-    knowledge = extract_verified_knowledge(final, config)
-    assert final.status is WorkflowStatus.COMPLETED
-    assert final.termination_reason is TerminationReason.GOAL_COMPLETED
-    assert len(final.evidence) == 1
-    assert len(final.validation_results) == 1
-    assert knowledge.pages and knowledge.elements and knowledge.locators
-    assert final.errors == () and final.warnings == ()
+    direct = run_saucedemo_workflow(
+        config,
+        initial,
+        headless=True,
+        recursion_limit=24,
+    )
+    for final in (external, direct):
+        assert final.status is WorkflowStatus.COMPLETED
+        assert final.termination_reason is TerminationReason.GOAL_COMPLETED
+        assert len(final.evidence) == 1
+        assert len(final.validation_results) == 1
+        assert final.errors == () and final.warnings == ()
+    external_knowledge = extract_verified_knowledge(external, config)
+    direct_knowledge = extract_verified_knowledge(direct, config)
+    assert [
+        page["structural_fingerprint"]
+        for page in external.evidence[0]["pages"]
+    ] == [
+        page["structural_fingerprint"]
+        for page in direct.evidence[0]["pages"]
+    ]
+    assert _without_validation_timestamps(
+        external_knowledge.to_dict()
+    ) == _without_validation_timestamps(direct_knowledge.to_dict())
+    assert external.evidence[0]["evidence_id"] == direct.evidence[0][
+        "evidence_id"
+    ]
+    assert external.evidence[0]["source"]["capture_id"] == direct.evidence[0][
+        "source"
+    ]["capture_id"]
+    external_test = generate_tests_from_verified_workflow(
+        external, config, tmp_path / "external-live-generated"
+    )
+    direct_test = generate_tests_from_verified_workflow(
+        direct, config, tmp_path / "direct-live-generated"
+    )
+    assert external_test.read_bytes() == direct_test.read_bytes()
 
 
 def _build_typescript_bridge(tmp_path: Path):
@@ -654,6 +841,14 @@ def _build_typescript_bridge(tmp_path: Path):
     bridge = source / "dist/main.js"
     assert bridge.is_file()
     return os.path.normpath(node), bridge
+
+
+def _without_validation_timestamps(value: dict) -> dict:
+    normalized = deepcopy(value)
+    for collection in ("pages", "elements", "locators", "interactions"):
+        for item in normalized[collection]:
+            item["lifecycle"]["last_verified"] = "<validation-timestamp>"
+    return normalized
 
 
 class _CaptureRunner:
