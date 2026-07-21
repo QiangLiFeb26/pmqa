@@ -38,6 +38,7 @@ direct Python Task 5 SauceDemo workflow and public
 baseline. This external pack remains an architecture-validation example
 outside the PMQA wheel; it does not redirect or replace the public command.
 The Product Pack API remains experimental rather than stable SDK v1. After
-Task 5A merges, the next evidence phase is a company-side, read-only MDE pilot,
-and API v1 stabilization waits for evidence from both SauceDemo and MDE. The
-MDE pilot, Task 6, and Task 7 have not started.
+the Task 5A merge through PR #22, Task 5B is the not-started placeholder for a
+company-side, read-only MDE pilot. API v1 stabilization waits for evidence from
+both SauceDemo and MDE. Task 5B implementation, Task 6, and Task 7 have not
+started.

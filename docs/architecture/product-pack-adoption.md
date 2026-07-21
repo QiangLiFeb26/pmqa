@@ -4,13 +4,16 @@
 
 Task 5A.1 records the experimental architecture decision and manifest contract,
 Task 5A.2 completes explicit external manifest loading, and Task 5A.3 completes
-Bridge Protocol v1 contracts on the cumulative branch. Task 5A.4 completes
+Bridge Protocol v1 contracts. Task 5A.4 completes
 bounded process transport, and Task 5A.5 adds deterministic scaffolding and
 offline source conformance. Task 5A.6 adds an external SauceDemo vertical slice
 for architecture validation. Task 5A.1–5A.6 have completed cumulative
-architecture review and are ready for the final Task 5A PR. These checkpoints
-are not a stable Product Pack SDK or a commitment that API version 1 is
-complete.
+architecture review and were merged through PR #22 using a merge commit. The
+final implementation branch head was
+`b52643067ce0dc01c9204acb10acbacdb51395e1`, and the `main` merge commit is
+`2a1431e7cd93e059c904e44fc4cc30eafa122a0e`. The Product Pack foundation is
+now present on `main`. These checkpoints are not a stable Product Pack SDK or
+a commitment that API version 1 is complete.
 
 ## Decision
 
@@ -336,8 +339,8 @@ The planned evidence-driven sequence is:
 6. company-side, read-only MDE pilot; and
 7. API v1 stabilization after evidence from both SauceDemo and MDE.
 
-Task 5A.1–5A.6 have completed cumulative architecture review and are ready for
-the final Task 5A PR. The Product Pack API remains experimental; API v1
-stabilization happens only after evidence from SauceDemo and the next
-company-side, read-only MDE pilot. The MDE pilot, Task 6, and Task 7 have not
-started.
+Task 5A.1–5A.6 have completed cumulative architecture review and are present on
+`main`. The Product Pack API remains experimental; API v1 stabilization
+happens only after evidence from SauceDemo and the Task 5B company-side,
+read-only MDE pilot. Task 5B is a not-started evidence phase, not an implemented
+capability. Task 6 and Task 7 have not started.

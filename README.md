@@ -200,7 +200,12 @@ commands remain retired.
 
 Task 5A — Product Pack Adoption Foundation precedes the existing Task 6
 recommendation work. Checkpoints 5A.1–5A.6 have completed cumulative
-architecture review and the branch is ready for its final PR.
+architecture review and are complete. They were merged into `main` through
+PR #22 using a merge commit. The final implementation branch head was
+`b52643067ce0dc01c9204acb10acbacdb51395e1`, and the `main` merge commit is
+`2a1431e7cd93e059c904e44fc4cc30eafa122a0e`. The Product Pack foundation is
+now present on `main` while its API remains experimental rather than stable
+SDK v1.
 Task 5A.1 adds the experimental strict manifest and architecture contract;
 Task 5A.2 explicitly loads only manifest metadata from one approved installed
 distribution and requires complete equality with an expected manifest. It
@@ -239,8 +244,8 @@ credentials or runtime/browser output. Its path is not exposed through the
 public result or safe errors. Operators may inspect and manually remove such an
 orphan from the explicitly selected output parent. A separate private Product
 Pack source location remains recommended. Neither scaffolding nor validation
-launches a browser or external pack. Task 5A.5 is complete on the cumulative
-branch. Task 5A.6 adds the external, unpackaged
+launches a browser or external pack. Task 5A.5 is complete. Task 5A.6 adds the
+external, unpackaged
 `examples/product_packs/saucedemo` validation pack, the product-neutral
 `ProductPackExplorationTool`, and a parallel composition using the existing
 Explorer, Knowledge, Validator, Task 4 graph, handoff, storage, and generation.
@@ -261,9 +266,10 @@ cross-language fingerprint and verified-knowledge parity. The direct Python
 the authoritative stable Task 5 baseline. The external SauceDemo Product Pack
 remains an architecture-validation example outside the PMQA wheel and does not
 redirect the public CLI. Task 5A remains experimental and is not a stable
-Product Pack SDK v1. After Task 5A merges, the next evidence phase is a
-company-side, read-only MDE pilot; API v1 stabilization follows only after
-SauceDemo and MDE evidence. The MDE pilot, Task 6, and Task 7 have not started.
+Product Pack SDK v1. Task 5B is the not-started placeholder for the next
+evidence phase: a company-side, read-only MDE pilot. API v1 stabilization
+follows only after SauceDemo and MDE evidence. Task 5B implementation, Task 6,
+and Task 7 have not started.
 See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)
