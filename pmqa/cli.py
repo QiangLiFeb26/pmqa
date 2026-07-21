@@ -29,6 +29,9 @@ from pmqa.trace import SQLiteTraceStore, TraceRecord
 
 
 _TASK5_DEMO_FAILURE_CODE = "task5_demo_failed"
+_PRODUCT_PACK_COMMAND_FAILURE_CODE = "product_pack_command_failed"
+_PRODUCT_PACK_SCAFFOLD_SUCCESS = "product_pack_scaffold_created"
+_PRODUCT_PACK_SOURCE_VALID = "product_pack_source_valid"
 LEGACY_SAUCEDEMO_CLI_RETIREMENT_MESSAGE = (
     "legacy explore and generate commands are retired; run: "
     "pmqa task5-demo --product demo"
@@ -301,6 +304,70 @@ def task5_demo(
     return 0
 
 
+def product_pack_scaffold(
+    *,
+    output_directory: str,
+    pack_id: str,
+    pack_version: str,
+    distribution_version: str,
+    product_id: str,
+    display_name: str,
+    capabilities: Sequence[str],
+) -> int:
+    """Generate one experimental Product Pack scaffold without executing it."""
+
+    from pmqa.product_pack import (
+        PRODUCT_PACK_API_VERSION,
+        ProductPackManifest,
+        ProductPackScaffoldError,
+        ProductPackScaffoldRequest,
+        scaffold_product_pack,
+    )
+
+    try:
+        manifest = ProductPackManifest(
+            schema_version="1",
+            product_pack_api_version=PRODUCT_PACK_API_VERSION,
+            pack_id=pack_id,
+            pack_version=pack_version,
+            product_id=product_id,
+            display_name=display_name,
+            capabilities=tuple(capabilities),
+        )
+    except (ValueError, TypeError):
+        print(_PRODUCT_PACK_COMMAND_FAILURE_CODE, file=sys.stderr)
+        return 2
+    try:
+        result = scaffold_product_pack(
+            ProductPackScaffoldRequest(
+                manifest=manifest,
+                output_directory=output_directory,
+                distribution_version=distribution_version,
+            )
+        )
+    except ProductPackScaffoldError:
+        print(_PRODUCT_PACK_COMMAND_FAILURE_CODE, file=sys.stderr)
+        return 2
+    print(
+        f"{_PRODUCT_PACK_SCAFFOLD_SUCCESS} "
+        f"file_count={len(result.generated_files)}"
+    )
+    return 0
+
+
+def product_pack_validate_source(*, source_directory: str) -> int:
+    """Validate scaffold-owned source controls without running product code."""
+
+    from pmqa.product_pack import validate_product_pack_source
+
+    result = validate_product_pack_source(source_directory)
+    if not result.is_conformant:
+        print(_PRODUCT_PACK_COMMAND_FAILURE_CODE, file=sys.stderr)
+        return 2
+    print(_PRODUCT_PACK_SOURCE_VALID)
+    return 0
+
+
 def main(argv: Sequence[str] = ()) -> int:
     """Parse and execute one PMQA command."""
 
@@ -333,6 +400,27 @@ def main(argv: Sequence[str] = ()) -> int:
     )
     task5_parser.add_argument("--max-iterations", type=int, default=1)
     task5_parser.add_argument("--headed", action="store_true")
+    product_pack_parser = subparsers.add_parser("product-pack")
+    product_pack_subparsers = product_pack_parser.add_subparsers(
+        dest="product_pack_command",
+        required=True,
+    )
+    scaffold_parser = product_pack_subparsers.add_parser("scaffold")
+    scaffold_parser.add_argument("--output", required=True)
+    scaffold_parser.add_argument("--pack-id", required=True)
+    scaffold_parser.add_argument("--pack-version", required=True)
+    scaffold_parser.add_argument("--distribution-version", required=True)
+    scaffold_parser.add_argument("--product-id", required=True)
+    scaffold_parser.add_argument("--display-name", required=True)
+    scaffold_parser.add_argument(
+        "--capability",
+        action="append",
+        required=True,
+    )
+    validate_source_parser = product_pack_subparsers.add_parser(
+        "validate-source"
+    )
+    validate_source_parser.add_argument("--source", required=True)
     args = parser.parse_args(list(argv) if argv else None)
     if args.command in {"explore", "generate"}:
         retired_command = explore if args.command == "explore" else generate
@@ -362,6 +450,18 @@ def main(argv: Sequence[str] = ()) -> int:
             max_iterations=args.max_iterations,
             headed=args.headed,
         )
+    if args.command == "product-pack":
+        if args.product_pack_command == "scaffold":
+            return product_pack_scaffold(
+                output_directory=args.output,
+                pack_id=args.pack_id,
+                pack_version=args.pack_version,
+                distribution_version=args.distribution_version,
+                product_id=args.product_id,
+                display_name=args.display_name,
+                capabilities=args.capability,
+            )
+        return product_pack_validate_source(source_directory=args.source)
     return reason_copilot_cli(
         args.product,
         args.copilot_executable,

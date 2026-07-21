@@ -24,9 +24,11 @@ REQUIRED_PRODUCT_MODULES = {
     "products/demo/exploration_contracts.py",
     "products/demo/exploration_tool.py",
     "products/demo/explorer_agent.py",
+    "products/demo/fingerprint.py",
     "products/demo/generator.py",
     "products/demo/knowledge_agent.py",
     "products/demo/knowledge_mapping.py",
+    "products/demo/product_pack_workflow.py",
     "products/demo/reasoning.py",
     "products/demo/validation.py",
     "products/demo/validator_agent.py",
@@ -116,6 +118,16 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         ]
 
         assert "pmqa/__init__.py" in names
+        assert "pmqa/product_pack/__init__.py" in names
+        assert "pmqa/product_pack/manifest.py" in names
+        assert "pmqa/product_pack/loader.py" in names
+        assert "pmqa/product_pack/bridge_protocol.py" in names
+        assert "pmqa/product_pack/bridge_runner.py" in names
+        assert "pmqa/product_pack/scaffold.py" in names
+        assert "pmqa/product_pack/exploration_tool.py" in names
+        assert (
+            "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json" in names
+        )
         assert REQUIRED_PRODUCT_MODULES <= names
         assert "products/demo/config/product.json" in names
         assert len(entry_point_files) == 1
@@ -125,6 +137,12 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
             archive.read(entry_point_files[0]).decode("utf-8")
         )
         assert entry_points["console_scripts"]["pmqa"] == "pmqa.cli:main"
+        metadata_file = next(
+            name for name in names if name.endswith(".dist-info/METADATA")
+        )
+        metadata_text = archive.read(metadata_file).decode("utf-8")
+        assert "Requires-Dist: packaging" in metadata_text
+        assert "Requires-Dist: tomli" in metadata_text
 
 
 def test_actual_wheel_excludes_runtime_outputs_and_unrelated_files(
@@ -134,6 +152,14 @@ def test_actual_wheel_excludes_runtime_outputs_and_unrelated_files(
         names = set(archive.namelist())
 
     assert FORBIDDEN_EXACT_ENTRIES.isdisjoint(names)
+    assert not any("external_demo_pack" in name for name in names)
+    assert not any("external-demo-fixture" in name for name in names)
+    assert not any("pmqa_product_pack_external_demo" in name for name in names)
+    assert not any("examples/product_packs/saucedemo" in name for name in names)
+    assert not any("pmqa_product_pack_saucedemo" in name for name in names)
+    assert not any(name.endswith("package-lock.json") for name in names)
+    assert not any(name.endswith("product_backend.ts") for name in names)
+    assert not any(name.endswith("main.js") for name in names)
     for name in names:
         path = PurePosixPath(name)
         root = path.parts[0]
@@ -142,7 +168,9 @@ def test_actual_wheel_excludes_runtime_outputs_and_unrelated_files(
         assert path.name != ".env" and not path.name.startswith(".env.")
         assert "credential" not in path.name.casefold()
         if root == "pmqa":
-            assert path.suffix == ".py"
+            assert path.suffix == ".py" or name == (
+                "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json"
+            )
         elif root == "products":
             assert name in REQUIRED_PRODUCT_MODULES | {
                 "products/demo/config/product.json"
@@ -191,11 +219,15 @@ sys.meta_path[:] = [
 ]
 
 import pmqa
+import pmqa.product_pack
 import products.demo
 import products.demo.application
 from products.demo.config import load_config, validate_config
 
-modules = (pmqa, products.demo, products.demo.application)
+assert pmqa.product_pack.ProductPackManifest
+assert pmqa.product_pack.ProductPackCapability
+assert pmqa.product_pack.ProductPackManifestValidationError
+modules = (pmqa, pmqa.product_pack, products.demo, products.demo.application)
 for module in modules:
     module_path = Path(module.__file__).resolve()
     module_path.relative_to(distribution)

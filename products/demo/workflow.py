@@ -93,6 +93,21 @@ def run_saucedemo_workflow(
         clock=tool_clock,
         headless=headless,
     )
+    return _run_saucedemo_tool_workflow(
+        initial_state,
+        tool,
+        recursion_limit=recursion_limit,
+    )
+
+
+def _run_saucedemo_tool_workflow(
+    initial_state: WorkflowState,
+    tool,
+    *,
+    recursion_limit: int,
+) -> WorkflowState:
+    """Wire the shared SauceDemo agents and unchanged graph to one Tool."""
+
     registry = ToolRegistry((tool,))
     tool_runtime = WorkflowRuntime(registry)
     agents = {

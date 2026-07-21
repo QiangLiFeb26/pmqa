@@ -102,9 +102,67 @@ domain agents and tools through a product-owned application boundary.
 ### Product Pack
 
 A product pack is the only home for product-specific configuration, selectors,
-rules, and adapters. Add a sibling of `products/demo/` for a new product. A
-pack may depend on public framework types; the framework may never depend on a
-pack. The demo pack contains the bounded SauceDemo vertical slice.
+rules, and adapters. A pack may depend on public framework types; the framework
+may never depend on, search for, or eagerly import a pack. The demo pack
+contains the bounded SauceDemo vertical slice in this repository.
+
+Task 5A.1 adds the experimental, product-neutral manifest contract in
+`pmqa.product_pack`. Task 5A.2 adds distribution-scoped loading of manifest
+metadata: an operator supplies one installed distribution and a complete
+expected manifest, and PMQA requires one `pmqa.product_packs` entry point named
+for the expected `pack_id` plus exact manifest equality. It performs no global
+discovery or arbitrary-path loading and does not configure or execute product
+adapters. Loading the approved Python distribution executes trusted Python
+import behavior and is not sandboxing. The long-term logical boundaries,
+ownership, version axes, external-pack direction, and future TypeScript
+execution trust boundary are defined in the
+[Product Pack adoption architecture](architecture/product-pack-adoption.md).
+
+Task 5A.3 defines Bridge Protocol v1 contracts and canonical JSON schema.
+The request contains versioned identities plus a bounded ordered action plan;
+a successful response contains one existing `ExplorationEvidence` contract.
+Credentials and runtime objects never enter protocol payloads. Task 5A.4 adds
+bounded process transport for one explicitly operator-selected compiled
+TypeScript/Node bridge: canonical JSON travels only over stdin/stdout, stderr
+is discarded behind fixed errors, and process configuration remains runtime
+only. The manifest cannot provide commands. The transport is not a security
+sandbox. Task 5A.5 adds deterministic external source scaffolding and offline
+conformance without executing product code. Its TypeScript backend interface
+has a fail-closed placeholder, while a separate consumer-owned implementation
+file supplies the stable backend factory. Source conformance strictly owns the
+protocol and process adapter but reports customized consumer source only as
+source-conformant, never runtime-verified. Direct, explicitly versioned
+Playwright is permitted; Playwright MCP, IDE configuration, and Copilot
+configuration are not baseline dependencies. Manifest SemVer and Python
+distribution PEP 440 versions remain separate. Scaffolding publishes with an
+atomic no-replace primitive on supported platforms and otherwise fails closed;
+it never replaces a racing target. Neither scaffolding nor validation launches
+a browser or Product Pack.
+
+Task 5A.6 validates these boundaries with an external SauceDemo example that
+is excluded from the PMQA wheel. The generic `ProductPackExplorationTool`
+accepts one explicitly loaded manifest and one runtime-only process
+configuration, creates one correlated Bridge v1 request, and returns only
+validated exploration evidence. A parallel product-owned composition reuses
+the existing SauceDemo agents, Task 4 graph, artifact handoff, storage, and
+generator. The TypeScript backend uses direct pinned Playwright and resolves
+credentials only in the child environment. Offline tests use an injected
+validated bridge response. Product Pack API version and Bridge Protocol
+version are independently enforced; transport correlation IDs use a separate
+bounded JSON-only policy that accepts established colon-composed Task 5 Tool
+invocations without relaxing other identifiers. Both capture implementations
+hash canonical key-sorted compact UTF-8 JSON, preserving established Task 5
+evidence, candidate, artifact, and validation identities. Opt-in tests compile
+into temporary output and prove the fixed fingerprint vector plus live
+verified-knowledge and generated-test parity; they exercise the real Node and
+Playwright path. The original direct Task 5 path and public
+`pmqa task5-demo --product demo` command remain the authoritative stable
+baseline. The external pack remains an architecture-validation example outside
+the PMQA wheel and is not a public-CLI replacement. Task 5A.1–5A.6 have
+completed cumulative architecture review and are ready for the final Task 5A
+PR. The API remains experimental; stabilization waits for evidence from both
+SauceDemo and the subsequent company-side, read-only MDE pilot. The MDE pilot,
+Task 6, and Task 7 have not started.
 
 ### Memory
 
@@ -244,6 +302,7 @@ miscellaneous helpers without a concrete shared use case.
 | Knowledge relationships | `pmqa/graph/` |
 | Provider implementation for persistence | `pmqa/storage/` |
 | Product configuration or adapter | `products/<product>/` |
+| Product Pack manifest contract | `pmqa/product_pack/` |
 
 If ownership is unclear, leave a TODO near the caller until a concrete use case
 establishes the correct boundary.

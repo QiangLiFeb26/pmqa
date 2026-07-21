@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pmqa-product-pack-saucedemo"
+version = "0.1.0a1"
+description = "External PMQA Product Pack manifest"
+requires-python = ">=3.9"
+
+[project.entry-points."pmqa.product_packs"]
+"saucedemo" = "pmqa_product_pack_saucedemo.manifest:PRODUCT_PACK_MANIFEST"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pmqa_product_pack_saucedemo"]
+namespaces = false

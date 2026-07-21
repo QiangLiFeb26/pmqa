@@ -1,0 +1,16 @@
+.env
+.env.*
+*.pyc
+*.sqlite
+*.sqlite3
+__pycache__/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+node_modules/
+bridge/dist/
+artifacts/
+screenshots/
+test-results/
+traces/

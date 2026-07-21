@@ -87,9 +87,8 @@ def test_success_dispatches_once_and_returns_correlated_patch() -> None:
     assert tool_request.category is ToolCategory.PLAYWRIGHT
     assert tool_request.workflow_id == request.workflow_id
     assert tool_request.invocation_id == (
-        request.invocation_id + ":" + SAUCEDEMO_EXPLORATION_TOOL_ID
+        "agent-1:playwright.saucedemo_explore"
     )
-    assert tool_request.invocation_id != request.invocation_id
     assert tool_request.requested_by_agent is AgentRole.EXPLORER
     assert tool_request.requested_at == request.requested_at
     assert tool_request.input == {
@@ -348,7 +347,7 @@ def test_offline_real_runtime_tool_agent_reducer_chain() -> None:
     assert evidence.product_id == state.product_id
     assert evidence.source.tool_id == SAUCEDEMO_EXPLORATION_TOOL_ID
     assert evidence.source.capture_id == (
-        "agent-1:" + SAUCEDEMO_EXPLORATION_TOOL_ID
+        "agent-1:playwright.saucedemo_explore"
     )
     assert reduced.step_history[-1].status is AgentInvocationStatus.COMPLETED
     assert reduced.updated_at == _timestamp(1)

@@ -198,10 +198,73 @@ through PR #20. Its final branch head was
 authoritative SauceDemo workflow, and the legacy `explore` and `generate`
 commands remain retired.
 
-Task 5A — Product Pack Adoption Foundation is the next planned phase before
-the existing Task 6 recommendation work. It has not started; its high-level
-scope is a reusable Product Pack contract, explicit external/private Product
-Packs, a safe versioned TypeScript Playwright bridge, pack validation and
-scaffolding, and validation with SauceDemo before a future MDE pilot. Task 6
-and Task 7 have not started. See the
-[authoritative roadmap](docs/Roadmap.md) for phase status.
+Task 5A — Product Pack Adoption Foundation precedes the existing Task 6
+recommendation work. Checkpoints 5A.1–5A.6 have completed cumulative
+architecture review and the branch is ready for its final PR.
+Task 5A.1 adds the experimental strict manifest and architecture contract;
+Task 5A.2 explicitly loads only manifest metadata from one approved installed
+distribution and requires complete equality with an expected manifest. It
+does not discover packs globally, load arbitrary paths, run adapters or
+browsers, or provide sandboxing. The selected distribution is trusted Python
+code. Task 5A.3 defines only the immutable,
+language-neutral Bridge Protocol v1 contracts and packaged JSON schema:
+bounded actions cross
+the request boundary, and existing structured exploration evidence is the only
+product observation returned on success. Credentials remain outside protocol
+payloads. Task 5A.4 adds bounded process transport for one explicit
+operator-approved executable and compiled bridge artifact. Canonical protocol
+JSON travels only through stdin/stdout; stderr and raw process failures remain
+behind fixed safe errors, and the manifest cannot specify commands. Credentials
+remain in the inherited private execution environment and are not inspected or
+serialized by PMQA. The runner is not a security sandbox. Task 5A.5 adds
+deterministic external-pack source scaffolding, offline conformance, and the
+product-neutral `pmqa product-pack scaffold` and
+`pmqa product-pack validate-source` commands. Generated bridge placeholders
+are deliberately non-operational and fail closed. Scaffold-owned protocol,
+backend-interface, and stdin/stdout adapter files remain strict; consumers own
+`product_backend.ts` and may implement its stable factory without losing source
+conformance. A custom source result is not runtime verification. Consumer teams
+may add one explicitly versioned direct TypeScript Playwright dependency and
+keep credentials in their execution environment; Playwright MCP remains
+prohibited. Product Pack `pack_version` stays SemVer, while the required
+`--distribution-version` is an independent canonical PEP 440 version used by
+the Python distribution. Publication uses atomic no-replace primitives on
+supported systems and fails closed when safe publication is unavailable, so a
+racing target is never overwritten. A successful publication moves the private
+temporary sibling into place and leaves no temporary sibling. Any failure after
+temporary creation closes PMQA-owned descriptors but intentionally performs no
+automatic deletion; the restrictive `.pmqa-scaffold-*` directory remains as a
+conservative orphan containing only generated scaffold source, never
+credentials or runtime/browser output. Its path is not exposed through the
+public result or safe errors. Operators may inspect and manually remove such an
+orphan from the explicitly selected output parent. A separate private Product
+Pack source location remains recommended. Neither scaffolding nor validation
+launches a browser or external pack. Task 5A.5 is complete on the cumulative
+branch. Task 5A.6 adds the external, unpackaged
+`examples/product_packs/saucedemo` validation pack, the product-neutral
+`ProductPackExplorationTool`, and a parallel composition using the existing
+Explorer, Knowledge, Validator, Task 4 graph, handoff, storage, and generation.
+The example uses direct pinned TypeScript Playwright through the bounded Node
+bridge, never Playwright MCP. Credentials resolve only inside the child
+environment. Default tests use a validated offline bridge seam; opt-in tests
+compile into temporary output and verify the real Node and live Playwright
+paths. Product Pack API version and Bridge Protocol version remain independent
+compatibility axes. Manifest, product, workflow, Tool, and action identifiers
+keep the strict Product Pack identifier policy; the JSON-only bridge
+correlation ID has a separate bounded colon-composition policy so Task 5 Tool,
+evidence, candidate, artifact, and validation identities remain unchanged.
+Python and TypeScript captures use the same key-sorted, compact UTF-8 JSON
+SHA-256 structural fingerprint. Offline tests prove adapter parity with a fake
+bridge; opt-in compiled TypeScript and live-browser checks prove actual
+cross-language fingerprint and verified-knowledge parity. The direct Python
+`task5-demo --product demo` path and its direct Python implementation remain
+the authoritative stable Task 5 baseline. The external SauceDemo Product Pack
+remains an architecture-validation example outside the PMQA wheel and does not
+redirect the public CLI. Task 5A remains experimental and is not a stable
+Product Pack SDK v1. After Task 5A merges, the next evidence phase is a
+company-side, read-only MDE pilot; API v1 stabilization follows only after
+SauceDemo and MDE evidence. The MDE pilot, Task 6, and Task 7 have not started.
+See the
+[authoritative roadmap](docs/Roadmap.md) for phase status and the
+[Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)
+for the dependency, ownership, trust-boundary, and versioning decisions.
