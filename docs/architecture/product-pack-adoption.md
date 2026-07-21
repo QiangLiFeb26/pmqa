@@ -6,8 +6,9 @@ Task 5A.1 records the experimental architecture decision and manifest contract,
 Task 5A.2 completes explicit external manifest loading, and Task 5A.3 completes
 Bridge Protocol v1 contracts on the cumulative branch. Task 5A.4 completes
 bounded process transport, and Task 5A.5 adds deterministic scaffolding and
-offline source conformance for architecture review. These checkpoints are not
-a stable Product Pack SDK or a commitment that API version 1 is complete.
+offline source conformance. Task 5A.6 adds an external SauceDemo vertical slice
+for architecture validation. These checkpoints are not a stable Product Pack
+SDK or a commitment that API version 1 is complete.
 
 ## Decision
 
@@ -194,8 +195,8 @@ environment data. The private product boundary remains responsible for
 credential resolution. This transport provides bounded execution and strict
 validation, not a security sandbox.
 
-No Playwright Product Pack, template, scaffold, SauceDemo migration, or MDE
-integration is implemented by Task 5A.4.
+The historical Task 5A.4 checkpoint itself implemented no Playwright Product
+Pack, template, scaffold, SauceDemo migration, or MDE integration.
 
 ## External source scaffolding and conformance
 
@@ -259,6 +260,38 @@ result or safe error surface. Operators may inspect and manually remove an
 orphan from the selected parent; PMQA provides no automatic orphan-cleanup
 command.
 
+## SauceDemo external validation slice
+
+Task 5A.6 keeps the real example at
+`examples/product_packs/saucedemo`, outside PMQA package discovery. Its Python
+distribution exposes only the explicitly loaded plain manifest. The manifest
+advertises only `exploration_capture`; mapping, validation, generation, and
+inventory remain existing product-owned Python behavior rather than invented
+Product Pack capabilities.
+
+The generic `ProductPackExplorationTool` receives one exact
+`LoadedProductPack`, one explicit runtime-only process configuration, one
+canonical Tool identity, and an optional narrow test runner. It performs no
+discovery, PATH search, environment inspection, agent construction, or product
+import. Each valid Tool invocation becomes exactly one Bridge Protocol v1
+request. The canonical Tool invocation ID is also the bridge request ID and
+must equal the returned evidence capture ID.
+
+The example consumer backend uses direct, exactly pinned TypeScript Playwright.
+It implements only the ordered bounded SauceDemo actions and emits runtime-free
+structured evidence. Credentials and optional base URL are read only inside
+the child process; PMQA never copies them into protocol data, workflow state,
+persisted knowledge, or errors. Node dependencies, compilation, and browser
+execution are opt-in and use temporary output. Default tests remain offline,
+browser-free, Node-free, and network-free.
+
+A parallel `run_saucedemo_product_pack_workflow` composition wires the generic
+Tool through the existing ToolRegistry and WorkflowRuntime to the unchanged
+SauceDemo Explorer, Knowledge agent, Validator, Task 4 graph, strict artifact
+handoff, storage, and generator. The existing direct Python Task 5 workflow is
+retained as the comparison baseline; switching or retiring it requires a later
+cumulative decision.
+
 ## Adoption sequence
 
 The planned evidence-driven sequence is:
@@ -267,11 +300,10 @@ The planned evidence-driven sequence is:
 2. explicit external loading;
 3. versioned TypeScript bridge;
 4. scaffolding and conformance tooling;
-5. SauceDemo migration;
+5. SauceDemo external validation slice;
 6. company-side, read-only MDE pilot; and
 7. API v1 stabilization after evidence from both SauceDemo and MDE.
 
-Task 5A.4 is complete on the cumulative branch. Task 5A.5 is ready for
-architecture re-review and is not merged or complete on `main`. Task 5A.6 will
-validate the abstraction by migrating SauceDemo to the external Product Pack
-shape; that work, the future MDE pilot, Task 6, and Task 7 have not started.
+Tasks 5A.4 and 5A.5 are complete on the cumulative branch. Task 5A.6 is ready
+for architecture review and remains experimental and unmerged. The future MDE
+pilot, Task 6, and Task 7 have not started.

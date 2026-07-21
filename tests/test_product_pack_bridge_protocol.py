@@ -84,7 +84,7 @@ def _evidence(**updates) -> ExplorationEvidence:
         "source": ExplorationSource(
             source_type="typescript",
             tool_id="exploration.capture",
-            capture_id="capture.1",
+            capture_id="request.1",
         ),
         "captured_at": _time(1),
         "pages": (
@@ -205,6 +205,27 @@ def test_valid_succeeded_response_retains_structured_locator_evidence() -> None:
     assert response.evidence.locator_candidates[0].strategy == "data-test"
     assert response.evidence.elements[0].attributes[1].value == "password"
     assert response.failure_code is None
+
+
+def test_success_response_requires_capture_id_to_match_request_id() -> None:
+    request = _request()
+    response = _response(
+        evidence=_evidence(
+            source=ExplorationSource(
+                source_type="typescript",
+                tool_id=request.tool_id,
+                capture_id="another-capture",
+            )
+        )
+    )
+
+    with pytest.raises(ProductPackBridgeProtocolError) as captured:
+        validate_product_pack_bridge_response(request, response)
+
+    assert (
+        captured.value.code
+        is ProductPackBridgeProtocolErrorCode.CORRELATION_MISMATCH
+    )
 
 
 def test_valid_failed_response_uses_only_bounded_failure_code() -> None:
@@ -438,7 +459,7 @@ def test_every_request_response_identity_mismatch_is_rejected(field: str) -> Non
                 source=ExplorationSource(
                     source_type="typescript",
                     tool_id="another.tool",
-                    capture_id="capture.1",
+                    capture_id="request.1",
                 )
             ),
         )

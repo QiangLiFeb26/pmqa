@@ -468,6 +468,13 @@ def validate_product_pack_bridge_response(
         raise ProductPackBridgeProtocolError(
             ProductPackBridgeProtocolErrorCode.CORRELATION_MISMATCH
         ) from None
+    if (
+        response.evidence is not None
+        and response.evidence.source.capture_id != request.request_id
+    ):
+        raise ProductPackBridgeProtocolError(
+            ProductPackBridgeProtocolErrorCode.CORRELATION_MISMATCH
+        ) from None
     return response
 
 

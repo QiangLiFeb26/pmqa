@@ -27,6 +27,7 @@ REQUIRED_PRODUCT_MODULES = {
     "products/demo/generator.py",
     "products/demo/knowledge_agent.py",
     "products/demo/knowledge_mapping.py",
+    "products/demo/product_pack_workflow.py",
     "products/demo/reasoning.py",
     "products/demo/validation.py",
     "products/demo/validator_agent.py",
@@ -122,6 +123,7 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         assert "pmqa/product_pack/bridge_protocol.py" in names
         assert "pmqa/product_pack/bridge_runner.py" in names
         assert "pmqa/product_pack/scaffold.py" in names
+        assert "pmqa/product_pack/exploration_tool.py" in names
         assert (
             "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json" in names
         )
@@ -152,6 +154,11 @@ def test_actual_wheel_excludes_runtime_outputs_and_unrelated_files(
     assert not any("external_demo_pack" in name for name in names)
     assert not any("external-demo-fixture" in name for name in names)
     assert not any("pmqa_product_pack_external_demo" in name for name in names)
+    assert not any("examples/product_packs/saucedemo" in name for name in names)
+    assert not any("pmqa_product_pack_saucedemo" in name for name in names)
+    assert not any(name.endswith("package-lock.json") for name in names)
+    assert not any(name.endswith("product_backend.ts") for name in names)
+    assert not any(name.endswith("main.js") for name in names)
     for name in names:
         path = PurePosixPath(name)
         root = path.parts[0]

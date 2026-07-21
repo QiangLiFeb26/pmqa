@@ -199,14 +199,13 @@ authoritative SauceDemo workflow, and the legacy `explore` and `generate`
 commands remain retired.
 
 Task 5A — Product Pack Adoption Foundation is the next phase before the
-existing Task 6 recommendation work and is in progress through Task 5A.5.
+existing Task 6 recommendation work and is in progress through Task 5A.6.
 Task 5A.1 adds the experimental strict manifest and architecture contract;
 Task 5A.2 explicitly loads only manifest metadata from one approved installed
 distribution and requires complete equality with an expected manifest. It
 does not discover packs globally, load arbitrary paths, run adapters or
 browsers, or provide sandboxing. The selected distribution is trusted Python
-code. SauceDemo migration and the future MDE pilot have not started. Task
-5A.3 defines only the immutable,
+code. Task 5A.3 defines only the immutable,
 language-neutral Bridge Protocol v1 contracts and packaged JSON schema:
 bounded actions cross
 the request boundary, and existing structured exploration evidence is the only
@@ -239,9 +238,18 @@ credentials or runtime/browser output. Its path is not exposed through the
 public result or safe errors. Operators may inspect and manually remove such an
 orphan from the explicitly selected output parent. A separate private Product
 Pack source location remains recommended. Neither scaffolding nor validation
-launches a browser or external pack. This remains experimental, not a stable
-Product Pack SDK v1. Task 5A.5 remains under architecture review; Task 5A.6 will
-validate the shape by migrating SauceDemo. Task 6 and Task 7 have not started.
+launches a browser or external pack. Task 5A.5 is complete on the cumulative
+branch. Task 5A.6 adds the external, unpackaged
+`examples/product_packs/saucedemo` validation pack, the product-neutral
+`ProductPackExplorationTool`, and a parallel composition using the existing
+Explorer, Knowledge, Validator, Task 4 graph, handoff, storage, and generation.
+The example uses direct pinned TypeScript Playwright through the bounded Node
+bridge, never Playwright MCP. Credentials resolve only inside the child
+environment. Default tests use a validated offline bridge seam; opt-in tests
+compile into temporary output and verify the real Node and live Playwright
+paths. The direct Python `task5-demo` path remains authoritative pending
+cumulative review. Task 5A remains experimental and unmerged, not a stable
+Product Pack SDK v1. The future MDE pilot, Task 6, and Task 7 have not started.
 See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)

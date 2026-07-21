@@ -139,6 +139,18 @@ atomic no-replace primitive on supported platforms and otherwise fails closed;
 it never replaces a racing target. Neither scaffolding nor validation launches
 a browser or Product Pack.
 
+Task 5A.6 validates these boundaries with an external SauceDemo example that
+is excluded from the PMQA wheel. The generic `ProductPackExplorationTool`
+accepts one explicitly loaded manifest and one runtime-only process
+configuration, creates one correlated Bridge v1 request, and returns only
+validated exploration evidence. A parallel product-owned composition reuses
+the existing SauceDemo agents, Task 4 graph, artifact handoff, storage, and
+generator. The TypeScript backend uses direct pinned Playwright and resolves
+credentials only in the child environment. Offline tests use an injected
+validated bridge response; opt-in tests compile into temporary output and
+exercise the real Node and Playwright path. The original direct Task 5 path
+remains available pending cumulative review.
+
 ### Memory
 
 Memory is durable product knowledge represented by the JSON-compatible models

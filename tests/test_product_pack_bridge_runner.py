@@ -61,7 +61,7 @@ def _evidence(request=None, **updates) -> ExplorationEvidence:
         "source": ExplorationSource(
             source_type="typescript",
             tool_id=request.tool_id,
-            capture_id="capture.1",
+            capture_id=request.request_id,
         ),
         "captured_at": request.requested_at,
     }
@@ -686,7 +686,7 @@ response = {
         "source": {
             "source_type": "typescript",
             "tool_id": request["tool_id"],
-            "capture_id": "capture.1"
+            "capture_id": request["request_id"]
         },
         "captured_at": request["requested_at"],
         "pages": [],

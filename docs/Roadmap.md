@@ -14,7 +14,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 4 — Multi-agent runtime | Complete | Added typed state, agent and tool contracts, deterministic reduction and routing, runtime execution, validated recovery, and LangGraph assembly. |
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
-| Task 5A — Product Pack Adoption Foundation | In progress | Task 5A.1–5A.4 establish the manifest, explicit loading, protocol, and bounded transport. Task 5A.5 adds deterministic scaffolding and offline source conformance for architecture review. Product implementation and migration have not started. |
+| Task 5A — Product Pack Adoption Foundation | In progress | Task 5A.1–5A.5 establish the manifest, explicit loading, protocol, bounded transport, scaffolding, and conformance. Task 5A.6 adds an external SauceDemo vertical slice for architecture review. |
 
 ## Task 4 closure
 
@@ -124,9 +124,19 @@ credentials remain in the execution environment. The baseline is an explicitly
 versioned, consumer-approved direct TypeScript Playwright dependency;
 Playwright MCP remains prohibited. Scaffolding and validation launch no browser
 or external Product Pack. The API remains experimental rather than stable SDK
-v1. Task 5A.5 is ready for architecture re-review and is not merged or complete
-on `main`.
+v1. Task 5A.5 is complete on the cumulative Task 5A branch and is not merged
+into `main`.
 
-Task 5A.6 will validate the abstraction by migrating SauceDemo to the external
-Product Pack shape. That migration, the future read-only MDE pilot, Task 6, and
-Task 7 have not started.
+Task 5A.6 validates the abstraction with an explicitly loaded external
+SauceDemo Product Pack example. A product-neutral exploration Tool maps the
+existing immutable Tool request to one Bridge Protocol v1 request and returns
+validated evidence to the existing Explorer. A parallel SauceDemo composition
+reuses the existing Knowledge and Validator agents, Task 4 graph, strict
+artifact handoff, storage, and generation. The consumer-owned backend uses one
+exact direct TypeScript Playwright dependency and child-environment
+credentials; it contains no MCP integration. Default verification is offline,
+while opt-in temporary builds prove the real Node bridge and live Playwright
+workflow. The direct Task 5 path remains authoritative until cumulative Task
+5A review decides whether to switch it. Task 5A.6 is ready for architecture
+review on the cumulative branch; Task 5A remains experimental and unmerged.
+The future read-only MDE pilot, Task 6, and Task 7 have not started.

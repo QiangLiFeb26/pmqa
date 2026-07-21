@@ -28,6 +28,13 @@ from pmqa.product_pack.manifest import (
     ProductPackManifest,
     ProductPackManifestValidationError,
 )
+from pmqa.product_pack.exploration_tool import (
+    BridgeRunner,
+    PRODUCT_PACK_EXPLORATION_FAILURE_CODE,
+    PRODUCT_PACK_EXPLORATION_FAILURE_MESSAGE,
+    ProductPackExplorationTool,
+    ProductPackExplorationToolError,
+)
 from pmqa.product_pack.loader import (
     LoadedProductPack,
     PRODUCT_PACK_ENTRY_POINT_GROUP,
@@ -59,6 +66,11 @@ __all__ = [
     "ProductPackCapability",
     "ProductPackManifest",
     "ProductPackManifestValidationError",
+    "BridgeRunner",
+    "PRODUCT_PACK_EXPLORATION_FAILURE_CODE",
+    "PRODUCT_PACK_EXPLORATION_FAILURE_MESSAGE",
+    "ProductPackExplorationTool",
+    "ProductPackExplorationToolError",
     "LoadedProductPack",
     "PRODUCT_PACK_ENTRY_POINT_GROUP",
     "ProductPackLoadError",

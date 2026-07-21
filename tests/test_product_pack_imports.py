@@ -130,3 +130,26 @@ def test_scaffold_import_reads_nothing_and_remains_product_lazy() -> None:
         text=True,
     )
     assert completed.returncode == 0, completed.stderr
+
+
+def test_generic_exploration_adapter_import_remains_external_pack_lazy() -> None:
+    statement = "\n".join(
+        [
+            "import os, subprocess, sys",
+            "before = dict(os.environ)",
+            "subprocess.Popen = lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError('process launch'))",
+            "import pmqa",
+            "import pmqa.product_pack",
+            "import pmqa.product_pack.exploration_tool",
+            "blocked = ('pmqa_product_pack_saucedemo', 'products.demo', 'playwright', 'langgraph', 'pmqa.runtime', 'pmqa.supervisor', 'pmqa.orchestration')",
+            "assert not any(name == prefix or name.startswith(prefix + '.') for prefix in blocked for name in sys.modules)",
+            "assert os.environ == before",
+        ]
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", statement],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
