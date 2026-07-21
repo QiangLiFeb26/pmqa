@@ -198,8 +198,9 @@ through PR #20. Its final branch head was
 authoritative SauceDemo workflow, and the legacy `explore` and `generate`
 commands remain retired.
 
-Task 5A — Product Pack Adoption Foundation is the next phase before the
-existing Task 6 recommendation work and is in progress through Task 5A.6.
+Task 5A — Product Pack Adoption Foundation precedes the existing Task 6
+recommendation work. Checkpoints 5A.1–5A.6 have completed cumulative
+architecture review and the branch is ready for its final PR.
 Task 5A.1 adds the experimental strict manifest and architecture contract;
 Task 5A.2 explicitly loads only manifest metadata from one approved installed
 distribution and requires complete equality with an expected manifest. It
@@ -256,9 +257,13 @@ Python and TypeScript captures use the same key-sorted, compact UTF-8 JSON
 SHA-256 structural fingerprint. Offline tests prove adapter parity with a fake
 bridge; opt-in compiled TypeScript and live-browser checks prove actual
 cross-language fingerprint and verified-knowledge parity. The direct Python
-`task5-demo` path remains authoritative pending
-cumulative review. Task 5A remains experimental and unmerged, not a stable
-Product Pack SDK v1. The future MDE pilot, Task 6, and Task 7 have not started.
+`task5-demo --product demo` path and its direct Python implementation remain
+the authoritative stable Task 5 baseline. The external SauceDemo Product Pack
+remains an architecture-validation example outside the PMQA wheel and does not
+redirect the public CLI. Task 5A remains experimental and is not a stable
+Product Pack SDK v1. After Task 5A merges, the next evidence phase is a
+company-side, read-only MDE pilot; API v1 stabilization follows only after
+SauceDemo and MDE evidence. The MDE pilot, Task 6, and Task 7 have not started.
 See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)

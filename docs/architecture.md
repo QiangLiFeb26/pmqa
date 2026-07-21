@@ -154,9 +154,15 @@ invocations without relaxing other identifiers. Both capture implementations
 hash canonical key-sorted compact UTF-8 JSON, preserving established Task 5
 evidence, candidate, artifact, and validation identities. Opt-in tests compile
 into temporary output and prove the fixed fingerprint vector plus live
-verified-knowledge and generated-test parity; they
-exercise the real Node and Playwright path. The original direct Task 5 path
-remains available pending cumulative review.
+verified-knowledge and generated-test parity; they exercise the real Node and
+Playwright path. The original direct Task 5 path and public
+`pmqa task5-demo --product demo` command remain the authoritative stable
+baseline. The external pack remains an architecture-validation example outside
+the PMQA wheel and is not a public-CLI replacement. Task 5A.1–5A.6 have
+completed cumulative architecture review and are ready for the final Task 5A
+PR. The API remains experimental; stabilization waits for evidence from both
+SauceDemo and the subsequent company-side, read-only MDE pilot. The MDE pilot,
+Task 6, and Task 7 have not started.
 
 ### Memory
 

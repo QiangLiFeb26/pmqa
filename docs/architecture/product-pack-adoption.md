@@ -7,8 +7,10 @@ Task 5A.2 completes explicit external manifest loading, and Task 5A.3 completes
 Bridge Protocol v1 contracts on the cumulative branch. Task 5A.4 completes
 bounded process transport, and Task 5A.5 adds deterministic scaffolding and
 offline source conformance. Task 5A.6 adds an external SauceDemo vertical slice
-for architecture validation. These checkpoints are not a stable Product Pack
-SDK or a commitment that API version 1 is complete.
+for architecture validation. Task 5A.1–5A.6 have completed cumulative
+architecture review and are ready for the final Task 5A PR. These checkpoints
+are not a stable Product Pack SDK or a commitment that API version 1 is
+complete.
 
 ## Decision
 
@@ -317,9 +319,10 @@ browser-free, Node-free, and network-free.
 A parallel `run_saucedemo_product_pack_workflow` composition wires the generic
 Tool through the existing ToolRegistry and WorkflowRuntime to the unchanged
 SauceDemo Explorer, Knowledge agent, Validator, Task 4 graph, strict artifact
-handoff, storage, and generator. The existing direct Python Task 5 workflow is
-retained as the comparison baseline; switching or retiring it requires a later
-cumulative decision.
+handoff, storage, and generator. The existing direct Python Task 5 workflow and
+public `pmqa task5-demo --product demo` command remain the authoritative stable
+baseline. The external pack remains an architecture-validation example outside
+the PMQA wheel and does not replace the public command.
 
 ## Adoption sequence
 
@@ -333,6 +336,8 @@ The planned evidence-driven sequence is:
 6. company-side, read-only MDE pilot; and
 7. API v1 stabilization after evidence from both SauceDemo and MDE.
 
-Tasks 5A.4 and 5A.5 are complete on the cumulative branch. Task 5A.6 is ready
-for architecture review and remains experimental and unmerged. The future MDE
-pilot, Task 6, and Task 7 have not started.
+Task 5A.1–5A.6 have completed cumulative architecture review and are ready for
+the final Task 5A PR. The Product Pack API remains experimental; API v1
+stabilization happens only after evidence from SauceDemo and the next
+company-side, read-only MDE pilot. The MDE pilot, Task 6, and Task 7 have not
+started.

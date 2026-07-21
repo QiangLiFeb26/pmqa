@@ -32,6 +32,12 @@ store them in this source tree. Node installation and TypeScript compilation
 are explicit operator actions; default Python tests perform neither. Build in a
 temporary copy so `node_modules` and `bridge/dist` never enter the repository.
 
-The existing direct Python Task 5 SauceDemo workflow remains available as the
-comparison reference until cumulative Task 5A review decides whether to switch
-or retire it.
+Task 5A.1–5A.6 have completed cumulative architecture review. The existing
+direct Python Task 5 SauceDemo workflow and public
+`pmqa task5-demo --product demo` command remain the authoritative stable
+baseline. This external pack remains an architecture-validation example
+outside the PMQA wheel; it does not redirect or replace the public command.
+The Product Pack API remains experimental rather than stable SDK v1. After
+Task 5A merges, the next evidence phase is a company-side, read-only MDE pilot,
+and API v1 stabilization waits for evidence from both SauceDemo and MDE. The
+MDE pilot, Task 6, and Task 7 have not started.
