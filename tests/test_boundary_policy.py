@@ -6,6 +6,8 @@ import sys
 from pmqa.security.boundary_policy import (
     COMMON_PROHIBITED_KEYS,
     REASONING_PROHIBITED_KEYS,
+    RUN_PAYLOAD_PROHIBITED_KEYS,
+    RUN_PAYLOAD_PROHIBITED_KEY_EXTENSIONS,
     WORKFLOW_STATE_PROHIBITED_KEYS,
     WORKFLOW_STATE_PROHIBITED_KEY_EXTENSIONS,
 )
@@ -14,6 +16,7 @@ from pmqa.security.boundary_policy import (
 def test_common_policy_is_included_in_every_boundary() -> None:
     assert COMMON_PROHIBITED_KEYS <= REASONING_PROHIBITED_KEYS
     assert COMMON_PROHIBITED_KEYS <= WORKFLOW_STATE_PROHIBITED_KEYS
+    assert COMMON_PROHIBITED_KEYS <= RUN_PAYLOAD_PROHIBITED_KEYS
 
 
 def test_boundary_specific_policy_differences_are_explicit() -> None:
@@ -27,6 +30,20 @@ def test_boundary_specific_policy_differences_are_explicit() -> None:
         "locator",
         "provider_instance",
     }
+    assert RUN_PAYLOAD_PROHIBITED_KEYS == (
+        WORKFLOW_STATE_PROHIBITED_KEYS
+        | RUN_PAYLOAD_PROHIBITED_KEY_EXTENSIONS
+    )
+    assert {
+        "command",
+        "environment",
+        "executable_path",
+        "page",
+        "prompt",
+        "response",
+        "stderr",
+        "stdout",
+    } <= RUN_PAYLOAD_PROHIBITED_KEY_EXTENSIONS
 
 
 def test_shared_policy_import_has_no_high_level_side_effects() -> None:

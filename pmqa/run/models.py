@@ -19,9 +19,8 @@ from pydantic import (
 )
 
 from pmqa.security.boundary_policy import (
-    WORKFLOW_STATE_PROHIBITED_KEYS,
+    RUN_PAYLOAD_PROHIBITED_KEYS,
     is_prohibited_key,
-    normalize_boundary_key,
 )
 
 
@@ -44,14 +43,6 @@ _ABSOLUTE_WINDOWS_PATH_PATTERN = re.compile(r"^[a-z]:/", flags=re.ASCII)
 _CANONICAL_TIMESTAMP_PATTERN = re.compile(
     r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
     r"(?:\.[0-9]{6})?Z$",
-    flags=re.ASCII,
-)
-_RUNTIME_ONLY_DYNAMIC_KEY_PATTERN = re.compile(
-    r"^(?:"
-    r"absolute_path|auth|authentication|cause|command|environment|env|"
-    r"exception|executable|executable_path|import_path|prompt|raw_payload|"
-    r"response|stderr|stdout|traceback"
-    r")$",
     flags=re.ASCII,
 )
 _MAX_DISPLAY_NAME_LENGTH = 160
@@ -854,12 +845,7 @@ def _validate_safe_json(
                 or key.strip() != key
             ):
                 raise ValueError(f"run payload contains an invalid key at {path}")
-            normalized = normalize_boundary_key(key)
-            if (
-                is_prohibited_key(key, WORKFLOW_STATE_PROHIBITED_KEYS)
-                or _RUNTIME_ONLY_DYNAMIC_KEY_PATTERN.fullmatch(normalized)
-                is not None
-            ):
+            if is_prohibited_key(key, RUN_PAYLOAD_PROHIBITED_KEYS):
                 raise ValueError(f"run payload contains a prohibited field at {path}")
             _validate_safe_json(
                 item,

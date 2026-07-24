@@ -30,7 +30,7 @@ from pmqa.run import (
     WorkflowPreviewStep,
     validate_run_identifier,
 )
-from pmqa.security.boundary_policy import WORKFLOW_STATE_PROHIBITED_KEYS
+from pmqa.security.boundary_policy import RUN_PAYLOAD_PROHIBITED_KEYS
 
 
 class DictSubclass(dict):
@@ -341,7 +341,7 @@ def test_typed_session_and_run_identifiers_are_not_recursively_prohibited() -> N
     assert _record(session_id="session.42").session_id == "session.42"
 
 
-@pytest.mark.parametrize("key", sorted(WORKFLOW_STATE_PROHIBITED_KEYS))
+@pytest.mark.parametrize("key", sorted(RUN_PAYLOAD_PROHIBITED_KEYS))
 def test_dynamic_payloads_reject_every_shared_prohibited_key(key: str) -> None:
     with pytest.raises(ValidationError):
         _request(inputs={key: "runtime-secret-marker"})
@@ -361,6 +361,10 @@ def test_dynamic_payloads_reject_every_shared_prohibited_key(key: str) -> None:
         "Executable Path",
         "environment",
         "authentication",
+        "Page",
+        "process config",
+        "provider-client",
+        "terminal output",
         "stdout",
         "stderr",
         "traceback",
