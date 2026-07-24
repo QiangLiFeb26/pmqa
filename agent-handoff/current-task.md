@@ -439,7 +439,9 @@ report. Include:
 - scope confirmation;
 - exactly one recommended review depth: `Light`, `Standard`, or `Deep`;
 - one-sentence reason;
-- 3–6 suggested Reviewer focus areas.
+- 3–6 suggested Reviewer focus areas;
+- a 5–10 line Human Summary ending with exactly one copy-ready
+  `Handoff Note` sentence as defined in `agent-handoff/README.md`.
 
 Do not include the Coder report commit's own SHA. Commit the report separately
 after implementation; the Reviewer derives it from Git.
@@ -457,3 +459,9 @@ After the Coder report is committed and pushed:
 5. Architect derives the Reviewer commit and publishes the final disposition.
 
 The Coder must not modify or reset `reviewer-report.md`.
+
+The preferred Coder completion note for this task is:
+
+```text
+Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 review。
+```

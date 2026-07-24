@@ -293,11 +293,40 @@ Risk: Low / Medium / High
 Review Result:
 Next Step:
 Action Needed From Human: None / concise decision request
+Handoff Note: one copy-ready sentence for the next stage
 ```
 
 The Human Summary does not replace the formal Markdown record and must not copy
 its detailed contents. Any SHA shown there is informational only; Git history
 and the receiving role's Markdown correlation record remain authoritative.
+
+`Handoff Note` is mandatory and appears immediately after
+`Action Needed From Human`. It must:
+
+- contain exactly one concise, copy-ready sentence;
+- contain only the instruction/context needed to start the next stage;
+- never say “send this to,” “tell the Coder,” “notify the Reviewer,” or name
+  the intended recipient as a routing instruction;
+- point the next stage to repository files and Git-derived correlation rather
+  than repeating task or report details;
+- remain informational and non-authoritative like the rest of Chat.
+
+Use these role-specific patterns:
+
+```text
+Architect:
+Handoff Note: 请读取 agent-handoff/current-task.md，并按其中的 Task、Attempt、branch 和 Git correlation 要求开始执行。
+
+Coder:
+Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 review。
+
+Independent Reviewer:
+Handoff Note: 请从 Git 派生最新 reviewer-report commit，读取 agent-handoff/reviewer-report.md，并完成最终架构审查与 disposition。
+```
+
+These sentences tell the next stage what to do but do not tell the Human whom
+to contact. A role may adapt the sentence to the active task while preserving
+the one-sentence and non-authoritative rules.
 
 ## Provider-Neutral VS Code Daily Use
 
