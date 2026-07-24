@@ -2,7 +2,7 @@
 
 Owner: Independent Reviewer
 
-Status: Template — not executed for AI-TEAM-1 attempt 1
+Status: Template — not executed for the AI-TEAM-1 bootstrap
 
 Replace this file in full for each active reviewed task and attempt. Git
 history preserves prior reports.
@@ -21,9 +21,21 @@ Reviewed Starting HEAD:
 
 Reviewed Implementation Commit(s):
 
-Reviewed Coder Report Commit:
+Derived Coder Report Commit:
 
 Correlation Verification:
+
+- derived with
+  `git log -1 --format=%H -- agent-handoff/coder-report.md`;
+- derived commit is reachable from the active branch HEAD;
+- report at that commit identifies the active Task ID and Attempt;
+- named implementation commits descend from the recorded starting HEAD and
+  are ancestors of the derived report commit; and
+- no later unauthorized change replaced the active Coder report.
+
+This Reviewer report does not contain or predict its own commit SHA. The
+Architect derives the Reviewer report commit from Git and records it in
+`architect-review.md`.
 
 ## Independent Review Method
 

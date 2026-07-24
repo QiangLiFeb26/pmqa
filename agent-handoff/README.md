@@ -53,10 +53,13 @@ product documentation. The Coder owns only
 `agent-handoff/coder-report.md` within this directory and implements only the
 active `current-task.md`.
 
-The Coder reports the exact branch, baseline, implementation and report commit
-evidence, validation, scope, risks, one advisory review-depth recommendation,
-its reason, and suggested review focus. The Coder never approves its own work
-and never writes the Reviewer or Architect disposition.
+The Coder reports the exact branch, task and attempt, starting HEAD,
+implementation commits created before its report, validation, scope, risks,
+one advisory review-depth recommendation, its reason, and suggested review
+focus. The Coder never approves its own work and never writes the Reviewer or
+Architect disposition. The receiving role derives the Coder report commit
+from Git; the Coder report never claims the SHA of the commit containing
+itself.
 
 ### Independent Reviewer
 
@@ -74,10 +77,11 @@ the Coder or act as a manager or second Coder.
 
 ### Bootstrap exception
 
-For AI-TEAM-1 attempt 1 only, the Coder may create this README and the initial
-`reviewer-report.md` template because their normal ownership protocol does not
-yet exist. After AI-TEAM-1 is approved, the Architect exclusively owns this
-README and the Independent Reviewer exclusively owns `reviewer-report.md`.
+For AI-TEAM-1 attempts 1 and 2 only, the Coder may create or correct this
+README and the initial `reviewer-report.md` template because their normal
+ownership protocol is being established. After AI-TEAM-1 attempt 2 is
+approved, the Architect exclusively owns this README and the Independent
+Reviewer exclusively owns `reviewer-report.md`.
 
 ## Active Files and Owners
 
@@ -93,20 +97,64 @@ Only one role writes at a time. A role must commit and publish its authorized
 file or implementation before the next stage begins. No concurrent handoff
 file edits are permitted.
 
-Each active task record must identify:
+## Non-Circular Commit Correlation
+
+The active records collectively form the exact repository evidence chain. No
+handoff file is required or permitted to claim the SHA of the commit that
+contains that same file.
+
+Every publishing role records:
 
 - Task ID or exact task name;
 - attempt number;
 - branch;
-- starting HEAD;
-- relevant implementation commit SHA(s);
-- Coder report commit SHA;
-- Reviewer report commit SHA when the Reviewer stage applies; and
-- Architect review commit SHA when the disposition is published.
+- starting HEAD; and
+- relevant implementation commit SHA(s) already created before its report
+  commit.
 
-A later stage must verify its branch and the exact commits named by the
-preceding stage before acting. A mismatch pauses that stage until the
-authoritative owner corrects or explains it.
+The receiving role derives the exact preceding report commit from Git. At
+minimum, it runs the path-specific equivalent of:
+
+```bash
+git log -1 --format=%H -- agent-handoff/<preceding-report>.md
+```
+
+Before acting, the receiving role verifies that:
+
+- the active branch is exact and the derived commit is reachable from its
+  HEAD;
+- the report file at the derived commit identifies the active Task and
+  Attempt;
+- every named implementation commit is reachable from the recorded starting
+  HEAD and is an ancestor of the derived report commit; and
+- the path-specific derived commit is still the active report's latest
+  authorized change, so no later unauthorized replacement is being reviewed.
+
+The receiving role records that derived SHA and its correlation verification
+in its own Markdown report. Exact-SHA verification therefore always refers to
+the preceding stage's commit, never the receiving report's future self commit.
+A mismatch pauses only the affected stage until the authoritative owner
+corrects or explains it.
+
+The repository evidence chain is:
+
+```text
+current-task publication commit
+  -> recorded by Coder as starting HEAD
+Coder report commit
+  -> derived and recorded by Reviewer
+Reviewer report commit
+  -> derived and recorded by Architect
+Architect disposition/current-task publication commit
+  -> recorded by the next Coder as starting HEAD
+```
+
+When a bootstrap task intentionally omits the Reviewer, the Architect directly
+derives and records the Coder report commit. A Human Summary may display the
+same SHA for observability, but Chat is never authoritative and is not needed
+to derive or verify any formal handoff commit. Do not add a self-attestation
+commit that edits a report merely to name an earlier commit of the same
+report; the receiving-stage derivation is the complete correlation rule.
 
 Each role replaces its stale active report in full; reports are not appended
 across tasks or attempts. The title, Task, Attempt, branch, and commit fields
@@ -126,20 +174,28 @@ Human receives concise stage summaries and resolves escalations
    - Verify the shared branch and exact starting HEAD.
    - Replace `current-task.md` with one bounded active task and acceptance
      criteria.
-   - Commit and publish the task, then send the Human Summary.
+   - Commit and publish the task. The next Coder records that publication
+     commit as its starting HEAD.
+   - Send the Human Summary.
 2. **Coder implementation**
    - Verify `current-task.md`, branch, and starting evidence.
    - Change only the allowed implementation surfaces.
    - Commit implementation, replace `coder-report.md`, commit the report, and
      publish both commits.
+   - Do not embed the Coder report commit's own SHA; the Reviewer derives it
+     from Git.
    - Send the Human Summary without self-approval.
 3. **Independent review**
    - Begin only after the Coder report commit is published.
+   - Derive and verify the Coder report commit, then record it in
+     `reviewer-report.md`.
    - Follow the independent inspection order below.
    - Change only `reviewer-report.md`, commit and publish it, then send the
      Human Summary.
 4. **Architect disposition**
-   - Verify all reviewed SHAs and read the independent report.
+   - Derive and verify the Reviewer report commit and record it in
+     `architect-review.md`. For a bootstrap without Reviewer, derive and
+     record the Coder report commit directly.
    - Independently inspect evidence at the depth the Architect selects.
    - Replace `architect-review.md` with synthesis and one allowed disposition.
    - If revision is required, replace `current-task.md` with the next bounded
@@ -162,10 +218,11 @@ To reduce opinion anchoring, the Reviewer inspects in this order:
 4. `coder-report.md`.
 
 Before substantive review, the Reviewer may read only the correlation header
-of `coder-report.md` needed to locate the exact implementation and report
-commits. The Coder's assessment, recommendations, and claimed test results
-remain unread until step 4. This narrow correlation read is not substantive
-inspection.
+of `coder-report.md` needed to verify the task, attempt, starting HEAD, and
+implementation commits. The Reviewer derives the Coder report commit from Git
+rather than from the report itself. The Coder's assessment, recommendations,
+and claimed test results remain unread until step 4. This narrow correlation
+read is not substantive inspection.
 
 The Reviewer must not read the active task's `architect-review.md` before
 publishing `reviewer-report.md`. Earlier closed reviews and established
@@ -180,7 +237,8 @@ The Reviewer report must include:
 
 - Task and Attempt;
 - Branch;
-- Reviewed Starting HEAD, implementation commit(s), and Coder report commit;
+- Reviewed Starting HEAD and implementation commit(s);
+- derived Coder report commit and correlation verification;
 - Actual Review Depth and Review Depth Reason;
 - Overall Assessment;
 - findings with severity, evidence, and affected files/lines where practical;
@@ -237,15 +295,16 @@ Action Needed From Human: None / concise decision request
 ```
 
 The Human Summary does not replace the formal Markdown record and must not copy
-its detailed contents.
+its detailed contents. Any SHA shown there is informational only; Git history
+and the receiving role's Markdown correlation record remain authoritative.
 
 ## Provider-Neutral VS Code Daily Use
 
 Use one shared checkout and one shared active branch. Keep separate persistent
 chat or terminal panels for Architect, Coder, and Independent Reviewer. Each
 role begins by reading its protocol inputs from `agent-handoff/`, verifies the
-branch and exact SHA, and writes only its authorized files or implementation
-surfaces.
+branch and the preceding stage's exact Git-derived SHA, and writes only its
+authorized files or implementation surfaces.
 
 The Human starts or wakes a role after the preceding committed report is
 ready, but does not transfer task text, findings, or reports through Chat.
