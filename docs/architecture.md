@@ -167,6 +167,36 @@ present on `main`; the API remains experimental, and stabilization waits for
 evidence from both SauceDemo and the subsequent company-side, read-only MDE
 pilot. Task 5B, Task 6, and Task 7 have not started.
 
+### Canonical Run Contract
+
+Task 5C.1 defines the application-level Run Contract in `pmqa.run`. It
+correlates a validated request, workflow metadata, one run lifecycle,
+structured results, logical artifact references, safe errors, and future
+runner-invocation attempts. It is above the existing LangGraph workflow:
+
+```text
+Interface / future CLI
+    -> future Application Service
+    -> canonical Run Contract
+    -> existing LangGraph workflow and future PMQARunner
+```
+
+`RunRecord` is not LangGraph `WorkflowState`: the former is a stable
+application record, while the latter remains checkpoint-safe agent-routing
+state. `RunnerInvocationRecord` describes a logical runner call and its
+retry/fallback correlation; it is not a future model/provider invocation or
+usage record. The Run Contract also does not replace `TraceRecord`, which
+continues to capture reasoning-boundary audit evidence.
+
+Usage, cost, structured logs, feedback, and eval results stay outside
+`RunRecord` so they can evolve, aggregate, and retain data under separate
+policies. The existing `pmqa.core.RunContext` remains unchanged as a legacy
+compatibility contract. Task 5C.1 implements contracts only: no runner,
+Application Service, Workflow Registry, persistence service, UI, Copilot
+integration, Azure DevOps access, or cost tracking exists yet. See the
+[Run Contract architecture](architecture/run-contract.md). Task 5C.1 is ready
+for architecture review. Task 5B, Task 6, and Task 7 remain not started.
+
 ### Memory
 
 Memory is durable product knowledge represented by the JSON-compatible models

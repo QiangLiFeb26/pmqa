@@ -15,6 +15,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
 | Task 5A — Product Pack Adoption Foundation | Complete | Task 5A.1–5A.6 establish the experimental manifest, explicit loading, protocol, bounded transport, scaffolding/conformance, and external SauceDemo architecture-validation slice; merged through PR #22. |
+| Task 5C — Local Application and Run Layer | In progress | Task 5C.1 defines the canonical provider-neutral Run Contract and is ready for architecture review; execution services remain future work. |
 | Task 5B — Company-side MDE Read-Only Pilot | Not started | Validate Product Pack assumptions in a company-managed, private, read-only pilot before API v1 stabilization. |
 
 ## Task 4 closure
@@ -156,6 +157,27 @@ validation example outside the PMQA wheel; it does not replace or redirect the
 public demo. Task 5A remains experimental and is not a stable Product Pack SDK
 v1. API v1 stabilization follows only after evidence from both SauceDemo and
 MDE.
+
+## Task 5C — Local Application and Run Layer
+
+**Task 5C.1 status: Ready for architecture review.** Task 5C exists to
+establish the local application/run layer before the company-side Task 5B
+pilot. Its first checkpoint defines the versioned, provider-neutral contracts
+for requests, workflow metadata, safe run correlation, structured results,
+logical artifact references, safe errors, runner invocation lifecycle, and
+optional reliable outcome metrics.
+
+The Run Contract is application-level correlation. It does not replace
+LangGraph `WorkflowState`, implement the future runner, or combine runner
+invocations with future model/provider usage records. Usage, cost, logs,
+feedback, evals, and reasoning traces remain separate records with independent
+retention and trust boundaries. The old `pmqa.core.RunContext` remains a legacy
+compatibility contract rather than the new application contract. See the
+[Run Contract architecture](architecture/run-contract.md).
+
+Task 5C.1 adds no runner, Application Service, Workflow Registry, UI, Copilot
+integration, Azure DevOps access, persistence repository, or cost tracking.
+Task 5B remains Not started; Task 6 and Task 7 remain Not started.
 
 ## Task 5B — Company-side MDE Read-Only Pilot
 
