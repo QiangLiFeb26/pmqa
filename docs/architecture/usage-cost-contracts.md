@@ -165,6 +165,16 @@ repository instances therefore produce one publisher and duplicate losers;
 no overwrite, `os.replace()`, unlink-and-retry, or check-then-overwrite path
 exists. Safe publication reports unsupported filesystems explicitly. Private
 temporary orphans are ignored and cleanup only unlinks a still-owned inode.
+The current implementation fails closed with fixed
+`unsupported_publication` when the platform cannot enforce POSIX restrictive
+descriptor modes, hard-link no-replace publication, or mandatory file and
+directory synchronization. Capabilities are captured before directory
+creation; directory synchronization is also exercised before target
+publication. Missing capabilities create no temporary, while a capability
+that fails after `mkstemp` may leave only an empty, restrictive,
+identifier-free private orphan if its inode cannot be identity-verified.
+Post-publication directory-sync failure preserves the complete target and
+returns the fixed persistence failure.
 
 Reads consider only exact lowercase 64-hex `.json` entries. Matching symlinks,
 non-regular entries, oversized files, invalid UTF-8, duplicate keys,

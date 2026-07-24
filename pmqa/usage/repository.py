@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
 import errno
 import hashlib
@@ -43,6 +44,21 @@ _UNSUPPORTED_LINK_ERRNOS = frozenset(
     )
     if value is not None
 )
+
+
+@dataclass(frozen=True)
+class _PublicationCapabilities:
+    mkstemp: Callable[..., tuple[int, str]]
+    makedirs: Callable[..., Any]
+    fchmod: Callable[..., Any]
+    fstat: Callable[..., Any]
+    write: Callable[..., Any]
+    fsync: Callable[..., Any]
+    link: Callable[..., Any]
+    open: Callable[..., Any]
+    lstat: Callable[..., Any]
+    unlink: Callable[..., Any]
+    close: Callable[..., Any]
 
 
 class UsageRepositoryErrorCode(str, Enum):
@@ -134,15 +150,7 @@ class LocalJSONUsageRepository:
     __slots__ = ("_invocations_directory", "_root")
 
     def __init__(self, root: Path) -> None:
-        if (
-            not isinstance(root, Path)
-            or not root.is_absolute()
-            or root == Path(root.anchor)
-        ):
-            raise UsageRepositoryError(
-                UsageRepositoryErrorCode.INVALID_CONFIGURATION
-            ) from None
-        self._root = Path(root)
+        self._root = self._canonical_root(root)
         self._invocations_directory = self._root / "invocations"
 
     def save(self, record: AIInvocationRecord) -> None:
@@ -152,28 +160,41 @@ class LocalJSONUsageRepository:
             raise UsageRepositoryError(
                 UsageRepositoryErrorCode.INVALID_RECORD
             ) from None
-        directory = self._prepare_write_directory()
+        capabilities = self._publication_capabilities()
+        directory = self._prepare_write_directory(capabilities)
+        self._preflight_directory_sync(directory, capabilities)
         target = directory / self._record_name(snapshot.invocation_id)
         descriptor: Optional[int] = None
         temporary_path: Optional[Path] = None
         identity: Optional[tuple[int, int]] = None
         failure_code: Optional[UsageRepositoryErrorCode] = None
+        published = False
         try:
-            descriptor, raw_temporary_path = tempfile.mkstemp(
+            descriptor, raw_temporary_path = capabilities.mkstemp(
                 dir=directory,
                 prefix=_TEMPORARY_PREFIX,
                 suffix=_TEMPORARY_SUFFIX,
             )
             temporary_path = Path(raw_temporary_path)
-            os.fchmod(descriptor, 0o600)
-            descriptor_stat = os.fstat(descriptor)
+            descriptor_stat = capabilities.fstat(descriptor)
             identity = (descriptor_stat.st_dev, descriptor_stat.st_ino)
-            self._write_all(descriptor, payload)
-            os.fsync(descriptor)
+            capabilities.fchmod(descriptor, 0o600)
+            secured_stat = capabilities.fstat(descriptor)
+            if (
+                (secured_stat.st_dev, secured_stat.st_ino) != identity
+                or stat.S_IMODE(secured_stat.st_mode) & 0o077
+            ):
+                raise NotImplementedError
+            self._write_all(descriptor, payload, capabilities.write)
+            capabilities.fsync(descriptor)
             try:
-                os.link(temporary_path, target)
+                capabilities.link(temporary_path, target)
             except FileExistsError:
                 failure_code = UsageRepositoryErrorCode.DUPLICATE_RECORD
+            except NotImplementedError:
+                failure_code = (
+                    UsageRepositoryErrorCode.UNSUPPORTED_PUBLICATION
+                )
             except OSError as error:
                 failure_code = (
                     UsageRepositoryErrorCode.UNSUPPORTED_PUBLICATION
@@ -181,10 +202,17 @@ class LocalJSONUsageRepository:
                     else UsageRepositoryErrorCode.PERSISTENCE_FAILURE
                 )
             else:
-                self._fsync_directory(directory)
+                published = True
+                self._fsync_directory(directory, capabilities)
         except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
             raise
-        except OSError:
+        except NotImplementedError:
+            failure_code = (
+                UsageRepositoryErrorCode.PERSISTENCE_FAILURE
+                if published
+                else UsageRepositoryErrorCode.UNSUPPORTED_PUBLICATION
+            )
+        except (OSError, ValueError, TypeError, AttributeError):
             failure_code = UsageRepositoryErrorCode.PERSISTENCE_FAILURE
         finally:
             if descriptor is not None:
@@ -194,7 +222,99 @@ class LocalJSONUsageRepository:
                     owned_descriptor,
                     temporary_path,
                     identity,
+                    capabilities,
                 )
+        if failure_code is not None:
+            raise UsageRepositoryError(failure_code) from None
+
+    @staticmethod
+    def _canonical_root(root: Path) -> Path:
+        failed = False
+        snapshot: Optional[Path] = None
+        try:
+            if not isinstance(root, Path):
+                raise ValueError
+            raw_root = os.fspath(root)
+            if type(raw_root) is not str or "\x00" in raw_root:
+                raise ValueError
+            os.fsencode(raw_root)
+            candidate = Path(raw_root)
+            if (
+                not candidate.is_absolute()
+                or ".." in candidate.parts
+                or not candidate.anchor
+            ):
+                raise ValueError
+            anchor = Path(candidate.anchor)
+            normalized = Path(os.path.normpath(raw_root))
+            if candidate == anchor or normalized == anchor:
+                raise ValueError
+            try:
+                root_stat = os.lstat(candidate)
+            except FileNotFoundError:
+                pass
+            else:
+                if (
+                    not stat.S_ISDIR(root_stat.st_mode)
+                    or stat.S_ISLNK(root_stat.st_mode)
+                ):
+                    raise ValueError
+            snapshot = Path(raw_root)
+        except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
+            raise
+        except Exception:
+            failed = True
+        if failed or snapshot is None:
+            raise UsageRepositoryError(
+                UsageRepositoryErrorCode.INVALID_CONFIGURATION
+            ) from None
+        return snapshot
+
+    @staticmethod
+    def _publication_capabilities() -> _PublicationCapabilities:
+        failed = os.name != "posix"
+        values = {
+            "mkstemp": getattr(tempfile, "mkstemp", None),
+            "makedirs": getattr(os, "makedirs", None),
+            "fchmod": getattr(os, "fchmod", None),
+            "fstat": getattr(os, "fstat", None),
+            "write": getattr(os, "write", None),
+            "fsync": getattr(os, "fsync", None),
+            "link": getattr(os, "link", None),
+            "open": getattr(os, "open", None),
+            "lstat": getattr(os, "lstat", None),
+            "unlink": getattr(os, "unlink", None),
+            "close": getattr(os, "close", None),
+        }
+        if failed or any(not callable(value) for value in values.values()):
+            raise UsageRepositoryError(
+                UsageRepositoryErrorCode.UNSUPPORTED_PUBLICATION
+            ) from None
+        return _PublicationCapabilities(**values)
+
+    @staticmethod
+    def _preflight_directory_sync(
+        directory: Path,
+        capabilities: _PublicationCapabilities,
+    ) -> None:
+        failure_code: Optional[UsageRepositoryErrorCode] = None
+        try:
+            LocalJSONUsageRepository._fsync_directory(
+                directory,
+                capabilities,
+            )
+        except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
+            raise
+        except NotImplementedError:
+            failure_code = UsageRepositoryErrorCode.UNSUPPORTED_PUBLICATION
+        except OSError as error:
+            failure_code = (
+                UsageRepositoryErrorCode.UNSUPPORTED_PUBLICATION
+                if error.errno in _UNSUPPORTED_LINK_ERRNOS
+                else UsageRepositoryErrorCode.PERSISTENCE_FAILURE
+            )
+        except (ValueError, TypeError, AttributeError):
+            failure_code = UsageRepositoryErrorCode.PERSISTENCE_FAILURE
         if failure_code is not None:
             raise UsageRepositoryError(failure_code) from None
 
@@ -328,24 +448,34 @@ class LocalJSONUsageRepository:
         digest = hashlib.sha256(invocation_id.encode("utf-8")).hexdigest()
         return f"{digest}.json"
 
-    def _prepare_write_directory(self) -> Path:
+    def _prepare_write_directory(
+        self,
+        capabilities: _PublicationCapabilities,
+    ) -> Path:
         failed = False
         operational_failure = False
+        unsupported = False
         try:
-            if self._root.exists():
-                root_stat = os.lstat(self._root)
+            root_stat = None
+            try:
+                root_stat = capabilities.lstat(self._root)
+            except FileNotFoundError:
+                pass
+            if root_stat is not None:
                 if (
                     not stat.S_ISDIR(root_stat.st_mode)
                     or stat.S_ISLNK(root_stat.st_mode)
                 ):
                     failed = True
             if not failed:
-                os.makedirs(
+                capabilities.makedirs(
                     self._invocations_directory,
                     mode=0o700,
                     exist_ok=True,
                 )
-                directory_stat = os.lstat(self._invocations_directory)
+                directory_stat = capabilities.lstat(
+                    self._invocations_directory
+                )
                 if (
                     not stat.S_ISDIR(directory_stat.st_mode)
                     or stat.S_ISLNK(directory_stat.st_mode)
@@ -354,8 +484,16 @@ class LocalJSONUsageRepository:
                     failed = True
         except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
             raise
+        except NotImplementedError:
+            unsupported = True
         except OSError:
             operational_failure = True
+        except (ValueError, TypeError, AttributeError):
+            operational_failure = True
+        if unsupported:
+            raise UsageRepositoryError(
+                UsageRepositoryErrorCode.UNSUPPORTED_PUBLICATION
+            ) from None
         if operational_failure:
             raise UsageRepositoryError(
                 UsageRepositoryErrorCode.PERSISTENCE_FAILURE
@@ -537,6 +675,7 @@ class LocalJSONUsageRepository:
             json.JSONDecodeError,
             UsageContractValidationError,
             ValueError,
+            OverflowError,
             RecursionError,
         ):
             failed = True
@@ -560,53 +699,64 @@ class LocalJSONUsageRepository:
         raise ValueError("non-finite JSON constant")
 
     @staticmethod
-    def _write_all(descriptor: int, payload: bytes) -> None:
+    def _write_all(
+        descriptor: int,
+        payload: bytes,
+        write: Callable[..., Any] = os.write,
+    ) -> None:
         offset = 0
         while offset < len(payload):
-            written = os.write(descriptor, payload[offset:])
+            written = write(descriptor, payload[offset:])
             if written <= 0:
                 raise OSError("usage record write failed")
             offset += written
 
     @staticmethod
-    def _fsync_directory(directory: Path) -> None:
+    def _fsync_directory(
+        directory: Path,
+        capabilities: Optional[_PublicationCapabilities] = None,
+    ) -> None:
+        if capabilities is None:
+            capabilities = LocalJSONUsageRepository._publication_capabilities()
         descriptor: Optional[int] = None
         try:
-            descriptor = os.open(directory, os.O_RDONLY)
-            os.fsync(descriptor)
+            descriptor = capabilities.open(directory, os.O_RDONLY)
+            capabilities.fsync(descriptor)
         finally:
             if descriptor is not None:
                 owned_descriptor = descriptor
                 descriptor = None
-                LocalJSONUsageRepository._close_descriptor(
-                    owned_descriptor
-                )
+                try:
+                    capabilities.close(owned_descriptor)
+                except OSError:
+                    pass
 
     @staticmethod
     def _release_temporary_ownership(
         descriptor: int,
         temporary_path: Optional[Path],
         identity: Optional[tuple[int, int]],
+        capabilities: _PublicationCapabilities,
     ) -> None:
         active_exception = sys.exc_info()[1]
         release_exception: Optional[BaseException] = None
         try:
             if temporary_path is not None and identity is not None:
                 try:
-                    temporary_stat = os.lstat(temporary_path)
+                    temporary_stat = capabilities.lstat(temporary_path)
                     if (
                         temporary_stat.st_dev,
                         temporary_stat.st_ino,
                     ) == identity:
-                        os.unlink(temporary_path)
-                except OSError:
+                        capabilities.unlink(temporary_path)
+                except (OSError, NotImplementedError):
                     pass
         except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS as error:
             if active_exception is None:
                 release_exception = error
         try:
-            os.close(descriptor)
-        except OSError:
+            capabilities.close(descriptor)
+        except (OSError, NotImplementedError):
             pass
         except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS as error:
             if active_exception is None and release_exception is None:

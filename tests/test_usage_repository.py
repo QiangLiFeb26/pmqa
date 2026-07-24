@@ -360,7 +360,14 @@ def test_query_identifiers_fail_safely(
     )
 
 
-@pytest.mark.parametrize("root", (Path("."), Path("/"), "runtime-secret-marker"))
+@pytest.mark.parametrize(
+    "root",
+    (
+        Path("."),
+        Path(Path.cwd().anchor),
+        "runtime-secret-marker",
+    ),
+)
 def test_repository_requires_an_explicit_absolute_non_root_path(root) -> None:
     with pytest.raises(UsageRepositoryError) as captured:
         LocalJSONUsageRepository(root)
@@ -371,7 +378,7 @@ def test_repository_requires_an_explicit_absolute_non_root_path(root) -> None:
 
 
 @pytest.mark.parametrize("root_kind", ("file", "symlink"))
-def test_unsafe_existing_root_fails_safely(
+def test_unsafe_existing_root_fails_in_constructor(
     tmp_path: Path,
     root_kind: str,
 ) -> None:
@@ -382,15 +389,54 @@ def test_unsafe_existing_root_fails_safely(
         target = tmp_path / "target"
         target.mkdir()
         root.symlink_to(target, target_is_directory=True)
-    repository = LocalJSONUsageRepository(root)
-
     with pytest.raises(UsageRepositoryError) as captured:
-        repository.save(_record())
+        LocalJSONUsageRepository(root)
 
     _assert_safe_error(
         captured,
         UsageRepositoryErrorCode.INVALID_CONFIGURATION,
     )
+    assert not (root / "invocations").exists()
+
+
+def test_traversal_and_invalid_os_roots_fail_without_filesystem_effects(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    anchor = Path(tmp_path.anchor)
+    roots = (
+        anchor / "tmp" / "..",
+        anchor / "one" / "two" / ".." / "..",
+        tmp_path / "one" / ".." / "different",
+        Path(str(tmp_path / "runtime\x00secret-marker")),
+    )
+    original_entries = tuple(tmp_path.iterdir())
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("constructor attempted a filesystem write")
+
+    monkeypatch.setattr(repository_module.os, "makedirs", forbidden)
+    monkeypatch.setattr(repository_module.tempfile, "mkstemp", forbidden)
+    for root in roots:
+        with pytest.raises(UsageRepositoryError) as captured:
+            LocalJSONUsageRepository(root)
+        _assert_safe_error(
+            captured,
+            UsageRepositoryErrorCode.INVALID_CONFIGURATION,
+        )
+
+    assert tuple(tmp_path.iterdir()) == original_entries
+
+
+def test_valid_absolute_root_with_spaces_remains_supported(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "usage records"
+    repository = LocalJSONUsageRepository(root)
+
+    repository.save(_record())
+
+    assert repository.get("ai-invocation.1") == _record()
 
 
 def test_invalid_record_fails_before_filesystem_effects(tmp_path: Path) -> None:
@@ -535,6 +581,144 @@ def test_unsupported_publication_is_distinct_and_leaves_no_record(
     assert not _record_path(root, "ai-invocation.1").exists()
 
 
+@pytest.mark.parametrize(
+    "capability",
+    ("makedirs", "fchmod", "link", "fsync"),
+)
+def test_missing_mandatory_capability_fails_before_filesystem_effects(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capability: str,
+) -> None:
+    root = tmp_path / "runtime-secret-marker"
+    repository = LocalJSONUsageRepository(root)
+    monkeypatch.delattr(repository_module.os, capability)
+
+    with pytest.raises(UsageRepositoryError) as captured:
+        repository.save(_record())
+
+    _assert_safe_error(
+        captured,
+        UsageRepositoryErrorCode.UNSUPPORTED_PUBLICATION,
+    )
+    assert not root.exists()
+
+
+def test_non_posix_mode_platform_fails_closed_before_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "runtime-secret-marker"
+    repository = LocalJSONUsageRepository(root)
+    monkeypatch.setattr(repository_module.os, "name", "unsupported")
+
+    with pytest.raises(UsageRepositoryError) as captured:
+        repository.save(_record())
+
+    _assert_safe_error(
+        captured,
+        UsageRepositoryErrorCode.UNSUPPORTED_PUBLICATION,
+    )
+    assert not root.exists()
+
+
+def test_fchmod_not_implemented_closes_once_and_cleans_owned_temp(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "runtime-secret-marker"
+    repository = LocalJSONUsageRepository(root)
+    original_mkstemp = repository_module.tempfile.mkstemp
+    original_close = repository_module.os.close
+    temporary_descriptors = []
+    temporary_close_attempts = []
+
+    def capture_mkstemp(**kwargs):
+        descriptor, path = original_mkstemp(**kwargs)
+        temporary_descriptors.append(descriptor)
+        return descriptor, path
+
+    def unsupported_fchmod(_descriptor, _mode):
+        raise NotImplementedError("runtime-secret-marker")
+
+    def counted_close(descriptor):
+        if temporary_descriptors and descriptor == temporary_descriptors[0]:
+            temporary_close_attempts.append(descriptor)
+        return original_close(descriptor)
+
+    monkeypatch.setattr(repository_module.tempfile, "mkstemp", capture_mkstemp)
+    monkeypatch.setattr(repository_module.os, "fchmod", unsupported_fchmod)
+    monkeypatch.setattr(repository_module.os, "close", counted_close)
+
+    with pytest.raises(UsageRepositoryError) as captured:
+        repository.save(_record())
+
+    _assert_safe_error(
+        captured,
+        UsageRepositoryErrorCode.UNSUPPORTED_PUBLICATION,
+    )
+    assert len(temporary_descriptors) == 1
+    assert temporary_close_attempts == [temporary_descriptors[0]]
+    assert not _record_path(root, "ai-invocation.1").exists()
+    assert not tuple((root / "invocations").glob(".pmqa-usage-*.tmp"))
+
+
+def test_link_not_implemented_fails_safely_without_target(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "runtime-secret-marker"
+    repository = LocalJSONUsageRepository(root)
+
+    def unsupported_link(_source, _target):
+        raise NotImplementedError("runtime-secret-marker")
+
+    monkeypatch.setattr(repository_module.os, "link", unsupported_link)
+
+    with pytest.raises(UsageRepositoryError) as captured:
+        repository.save(_record())
+
+    _assert_safe_error(
+        captured,
+        UsageRepositoryErrorCode.UNSUPPORTED_PUBLICATION,
+    )
+    assert not _record_path(root, "ai-invocation.1").exists()
+    assert not tuple((root / "invocations").glob(".pmqa-usage-*.tmp"))
+
+
+def test_directory_sync_unavailable_fails_before_target_and_temp(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "runtime-secret-marker"
+    repository = LocalJSONUsageRepository(root)
+    mkstemp_calls = []
+
+    def unsupported_sync(_directory, _capabilities=None):
+        raise NotImplementedError("runtime-secret-marker")
+
+    def tracked_mkstemp(**_kwargs):
+        mkstemp_calls.append(True)
+        raise AssertionError
+
+    monkeypatch.setattr(
+        repository_module.LocalJSONUsageRepository,
+        "_fsync_directory",
+        staticmethod(unsupported_sync),
+    )
+    monkeypatch.setattr(repository_module.tempfile, "mkstemp", tracked_mkstemp)
+
+    with pytest.raises(UsageRepositoryError) as captured:
+        repository.save(_record())
+
+    _assert_safe_error(
+        captured,
+        UsageRepositoryErrorCode.UNSUPPORTED_PUBLICATION,
+    )
+    assert mkstemp_calls == []
+    assert not _record_path(root, "ai-invocation.1").exists()
+
+
 def test_post_publication_failure_keeps_complete_record(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -542,13 +726,19 @@ def test_post_publication_failure_keeps_complete_record(
     root = tmp_path / "usage"
     repository = LocalJSONUsageRepository(root)
 
-    def fail_directory_sync(_directory):
-        raise OSError("runtime-secret-marker")
+    original_sync = repository_module.LocalJSONUsageRepository._fsync_directory
+    sync_calls = []
+
+    def fail_second_directory_sync(directory, capabilities=None):
+        sync_calls.append(directory)
+        if len(sync_calls) == 2:
+            raise OSError("runtime-secret-marker")
+        return original_sync(directory, capabilities)
 
     monkeypatch.setattr(
         repository_module.LocalJSONUsageRepository,
         "_fsync_directory",
-        staticmethod(fail_directory_sync),
+        staticmethod(fail_second_directory_sync),
     )
     with pytest.raises(UsageRepositoryError) as captured:
         repository.save(_record())
@@ -560,6 +750,7 @@ def test_post_publication_failure_keeps_complete_record(
     assert _record_path(root, "ai-invocation.1").read_bytes() == (
         _canonical_bytes(_record())
     )
+    assert len(sync_calls) == 2
 
 
 def test_cleanup_never_unlinks_changed_temporary_identity(
@@ -610,7 +801,7 @@ def test_release_control_flow_failure_propagates_after_publication(
     original_mkstemp = repository_module.tempfile.mkstemp
     original_close = repository_module.os.close
     temporary_descriptor = []
-    close_attempts = []
+    temporary_close_attempts = []
 
     def capture_mkstemp(**kwargs):
         descriptor, path = original_mkstemp(**kwargs)
@@ -618,9 +809,9 @@ def test_release_control_flow_failure_propagates_after_publication(
         return descriptor, path
 
     def fail_after_close(descriptor):
-        close_attempts.append(descriptor)
         original_close(descriptor)
-        if descriptor == temporary_descriptor[0]:
+        if temporary_descriptor and descriptor == temporary_descriptor[0]:
+            temporary_close_attempts.append(descriptor)
             raise failure
 
     monkeypatch.setattr(
@@ -634,7 +825,7 @@ def test_release_control_flow_failure_propagates_after_publication(
         repository.save(_record())
 
     assert captured.value is failure
-    assert close_attempts.count(temporary_descriptor[0]) == 1
+    assert temporary_close_attempts == [temporary_descriptor[0]]
     assert _record_path(root, "ai-invocation.1").read_bytes() == (
         _canonical_bytes(_record())
     )
@@ -677,6 +868,63 @@ def test_corrupt_record_forms_fail_safely(
         repository.get("ai-invocation.1")
 
     _assert_safe_error(captured, UsageRepositoryErrorCode.CORRUPT_DATA)
+
+
+def test_json_parser_overflow_is_contained_as_corruption(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "runtime-secret-marker"
+    repository = LocalJSONUsageRepository(root)
+    repository.save(_record())
+
+    def overflow(*_args, **_kwargs):
+        raise OverflowError("runtime-secret-marker")
+
+    monkeypatch.setattr(repository_module.json, "loads", overflow)
+    with pytest.raises(UsageRepositoryError) as captured:
+        repository.get("ai-invocation.1")
+
+    _assert_safe_error(captured, UsageRepositoryErrorCode.CORRUPT_DATA)
+
+
+def test_extreme_numeric_json_is_bounded_corruption(tmp_path: Path) -> None:
+    root = tmp_path / "runtime-secret-marker"
+    directory = root / "invocations"
+    directory.mkdir(parents=True, mode=0o700)
+    raw = _canonical_bytes(_record()).replace(
+        b'"duration_ms":1000',
+        b'"duration_ms":1e1000000',
+    )
+    _record_path(root, "ai-invocation.1").write_bytes(raw)
+    repository = LocalJSONUsageRepository(root)
+
+    with pytest.raises(UsageRepositoryError) as captured:
+        repository.get("ai-invocation.1")
+
+    _assert_safe_error(captured, UsageRepositoryErrorCode.CORRUPT_DATA)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    (MemoryError(), KeyboardInterrupt(), SystemExit(), GeneratorExit()),
+)
+def test_json_parser_resource_and_control_flow_propagates_exactly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: BaseException,
+) -> None:
+    repository = LocalJSONUsageRepository(tmp_path / "usage")
+    repository.save(_record())
+
+    def fail_parse(*_args, **_kwargs):
+        raise failure
+
+    monkeypatch.setattr(repository_module.json, "loads", fail_parse)
+    with pytest.raises(type(failure)) as captured:
+        repository.get("ai-invocation.1")
+
+    assert captured.value is failure
 
 
 def test_noncanonical_and_oversized_records_are_corrupt(
@@ -839,7 +1087,7 @@ def test_owned_descriptors_are_closed_once_and_success_cleans_temp(
     repository.save(_record())
     repository.get("ai-invocation.1")
 
-    assert sum(close_counts.values()) == 3
+    assert sum(close_counts.values()) == 4
     assert not tuple(
         (tmp_path / "usage/invocations").glob(".pmqa-usage-*.tmp")
     )
