@@ -2,254 +2,463 @@
 
 Owner: Architect
 
-Task: AI Team Workflow Foundation — Commit Correlation Remediation
+Task: PMQA Task 5C.4 — Provider-Neutral AI Usage and Cost Contracts
 
-Task ID: `AI-TEAM-1`
+Task ID: `PMQA-5C.4`
 
-Attempt: `2`
+Attempt: `1`
 
-Status: Changes Required
+Status: Ready for Coder
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
-Reviewed attempt 1 HEAD: `cfe78bf1a3ee95c69255e3e0547e4e169efbb989`
+Architect reviewed baseline:
+`35a6c33d2a72ca4723ac65a3b622962adfbd037e`
 
-Coder starting HEAD: use the latest pushed branch commit containing this
-handoff and record its exact SHA before making changes.
+Coder starting HEAD: derive and record the latest pushed branch commit that
+contains this task publication before changing implementation files.
 
-This file is the authoritative task handoff. Chat summaries are informational
-only.
+This is the first live pilot of the full file-driven
+Coder → Independent Reviewer → Architect workflow. Repository Markdown and Git
+history are authoritative; Chat summaries are informational only.
 
 ## Task Objective
 
-Remove the self-referential commit-SHA contradiction from the AI Team handoff
-protocol so repository Markdown remains the complete formal evidence chain and
-Chat remains informational only.
+Define the small, versioned, provider-neutral domain contract for one AI/model
+invocation and its usage/cost evidence.
 
-Do not change the accepted role, authority, Reviewer, escalation, or manual
-workflow design.
+The new contract must:
+
+- correlate cleanly with the existing PMQA session, run, and runner invocation
+  identities;
+- distinguish reported, parsed, estimated, subscription-included, and
+  unavailable information without fabricating tokens or dollars;
+- preserve zero as a real observed value distinct from missing data;
+- remain independent from Copilot, Codex, OpenAI, Azure OpenAI, model SDKs,
+  CLI output formats, pricing tables, storage, UI, and LangGraph state;
+- provide the stable foundation for later collection, pricing, persistence,
+  summaries, and optimization.
+
+This checkpoint defines contracts and the pricing lookup boundary only. It
+does not implement the full Usage Tracking MVP.
 
 ## Background
 
-AI-TEAM-1 attempt 1 correctly established the Independent Reviewer role and
-exclusive file ownership. Standard architecture review found one blocking
-protocol defect:
+Task 5C.1–5C.3 established:
 
-- a file cannot contain the SHA of the Git commit containing that exact file;
-- the attempt 1 Coder report therefore moved its own report SHA into the Human
-  Summary;
-- this makes Chat part of the formal correlation chain despite the
-  Markdown-only source-of-truth rule.
+- canonical `RunRequest`, `PMQARunContext`, `RunRecord`, and outcome metrics;
+- a provider-neutral `PMQARunner` boundary and deterministic `MockRunner`;
+- explicit Workflow/Runner Registries and the single-attempt
+  `PMQAApplicationService`.
 
-The formal review is in `agent-handoff/architect-review.md`.
+`RunnerInvocationRecord` represents one logical runner attempt. It is not a
+model call. A future runner may make zero, one, or many AI/model invocations,
+so usage and cost must be separate records correlated to the run and optional
+runner invocation rather than embedded in `WorkflowState`, `RunRecord`, or
+reasoning traces.
+
+The original Usage/Cost requirement explicitly distinguishes:
+
+- provider-reported usage;
+- CLI-parsed usage;
+- estimated usage;
+- unavailable usage;
+- provider-reported cost;
+- estimated cost;
+- subscription-included execution;
+- unavailable cost.
+
+Copilot subscription usage must never be converted into a dollar cost unless a
+real pricing source supports that calculation.
 
 ## Scope
 
-- Correct the commit-correlation rules in `agent-handoff/README.md`.
-- Update `agent-handoff/reviewer-report.md` so it records the preceding Coder
-  report commit but does not require its own self-referential commit SHA.
-- Replace `agent-handoff/coder-report.md` with the attempt 2 completion report
-  using the corrected rule.
-- Preserve every other accepted AI-TEAM-1 behavior.
+Implement a new neutral `pmqa.usage` package containing:
 
-The AI-TEAM-1 bootstrap exception remains active for attempt 2, allowing the
-Coder to modify the initial protocol README and Reviewer template. It ends only
-after Architect approval of this remediation.
+1. canonical AI/model invocation usage and cost contracts;
+2. small fixed vocabularies for source/type/status and explicit missing-data
+   reasons;
+3. a pricing-record contract with version/effective-date evidence;
+4. a provider-neutral read-only `PricingCatalog` boundary;
+5. explicit `to_dict()` / `from_dict()` round trips and revalidated copying;
+6. focused contract, security, import-isolation, and packaging tests;
+7. concise architecture and roadmap documentation.
 
-## Required Commit-Correlation Model
+The Coder may choose precise class names, but public names must be clear,
+stable, and exported only from `pmqa.usage`. Do not export them from top-level
+`pmqa`.
 
-Document one unambiguous chain:
+## Required Domain Relationships
 
-1. No handoff file is required or permitted to claim the SHA of the commit
-   that contains that same file.
-2. The publishing role records:
-   - branch;
-   - task and attempt;
-   - starting HEAD;
-   - all implementation commit SHAs already created before its report commit.
-3. The receiving role derives the exact preceding report commit from Git,
-   verifies branch/ancestry/path identity, and records that SHA in the
-   receiving role's Markdown report.
-4. The minimum derivation is:
+Use this logical relationship:
 
-   ```bash
-   git log -1 --format=%H -- agent-handoff/<preceding-report>.md
-   ```
+```text
+PMQA session
+  └── RunRecord
+      ├── RunnerInvocationRecord
+      └── zero or more AI/model invocation records
+```
 
-5. The receiving role must also confirm that:
-   - the derived commit is reachable from the active branch HEAD;
-   - the report file at that commit identifies the active task and attempt;
-   - the named implementation commits are reachable from the starting HEAD
-     and are ancestors of the report commit;
-   - no later unauthorized change replaced the report.
-6. The repository evidence chain is:
+Each AI/model invocation record must carry canonical correlation for:
 
-   ```text
-   current-task publication commit
-     -> recorded by Coder as starting HEAD
-   Coder report commit
-     -> derived and recorded by Reviewer
-   Reviewer report commit
-     -> derived and recorded by Architect
-   Architect disposition/current-task publication commit
-     -> recorded by the next Coder as starting HEAD
-   ```
+- its own invocation ID;
+- `session_id`;
+- PMQA `run_id`;
+- optional `runner_invocation_id` when the model call occurred inside a known
+  runner attempt;
+- provider;
+- model, or an explicit reason the model identity is unavailable;
+- operation;
+- started/completed timestamps and duration;
+- terminal success/failure/cancellation status;
+- usage evidence;
+- cost evidence;
+- retry evidence and fallback correlation when reliably known;
+- a bounded safe error classification when applicable.
 
-7. Human Summary may display the same SHA for observability, but it is never
-   authoritative and is not needed by the next role.
+Do not duplicate `RunRecord`, `RunnerInvocationRecord`, `OutcomeMetrics`,
+`TraceRecord`, or `WorkflowState`.
 
-Do not solve self-reference with an extra attestation commit that modifies the
-same report again; that merely creates another unrecorded self SHA.
+Cross-record existence checks belong to a future repository/application
+service. This contract must still validate its own local identity,
+time/lifecycle, attempt, and predecessor invariants.
 
-## README Requirements
+## Usage Evidence Requirements
 
-Update the protocol so:
+At minimum support these logical token fields:
 
-- "exact SHA verification" refers to the preceding stage's commit;
-- active records collectively form the evidence chain;
-- each receiving report records the preceding handoff commit;
-- self-commit hashes are explicitly excluded;
-- Human Summary SHAs are informational;
-- Git history, not Chat text, is authoritative;
-- mismatch behavior still pauses the affected stage;
-- sequential publication and exclusive ownership remain unchanged.
+- input tokens;
+- output tokens;
+- cached input tokens;
+- total tokens.
 
-Keep the existing:
+At minimum support these sources:
 
-- Human, Architect, Coder, and Reviewer authority;
-- exclusive write surfaces;
-- Reviewer inspection order;
-- advisory Reviewer verdict;
-- Architect technical disposition;
-- Human product/risk authority;
-- escalation rules;
-- provider-neutral VS Code workflow;
-- bootstrap, Task 5C.4 pilot, and retrospective plan.
+- `provider_reported`;
+- `parsed_from_cli`;
+- `estimated`;
+- `unavailable`.
 
-## Reviewer Template Requirements
+The representation must support complete, partial, and entirely unavailable
+usage. For every missing token field, the wire contract must make absence
+explicit through a bounded field/reason mechanism. Do not silently turn
+missing values into zero.
 
-The template must continue to require:
+Required invariants:
 
-- task, task ID, attempt, and branch;
-- reviewed starting HEAD;
-- implementation commit(s);
-- derived Coder report commit and correlation verification;
-- independent review order and depth;
-- findings, acceptance coverage, independent tests, scope, security,
-  compatibility, verdict, and Architect focus;
-- Reviewer write-boundary confirmation.
+- token counts are exact non-negative integers when present;
+- `bool`, float, strings, negative numbers, and coercion are rejected;
+- zero remains present zero and is not unavailable;
+- unavailable fields and present fields cannot contradict one another;
+- `source=unavailable` contains no token count and requires a fixed reason;
+- non-unavailable sources cannot claim all fields unavailable without an
+  explicit, contractually valid explanation;
+- do not infer or repair `total_tokens`;
+- do not assume whether a provider includes cached input in another count;
+- no arithmetic convention may fabricate missing provider data.
 
-Add a concise statement that:
+Use a small stable unavailable-reason vocabulary appropriate to this contract,
+such as not reported, not supported, parsing failed, or not collected. Do not
+store raw parser messages.
 
-- the Reviewer report does not contain its own commit SHA;
-- the Architect derives and records that commit in
-  `architect-review.md`.
+## Cost Evidence Requirements
 
-Do not add an unfillable `Reviewer Report Commit SHA` placeholder.
+At minimum support these types:
 
-## Coder Report Requirements
+- `provider_reported`;
+- `estimated`;
+- `subscription_included`;
+- `unavailable`.
 
-The attempt 2 report must:
+The cost contract must carry, when applicable:
 
-- identify Task ID `AI-TEAM-1`, attempt `2`, branch, and exact Coder starting
-  HEAD;
-- identify the focused remediation implementation commit;
-- explain the receiving-stage derivation rule;
-- explicitly state that its own report commit is not embedded in the report;
-- state that the future Reviewer derives the Coder report commit, while the
-  bootstrap Architect derives it directly for attempt 2;
-- not claim that Chat or Human Summary is the formal source for its SHA;
-- include validation, risks, scope confirmation, and review-depth advice.
+- non-negative canonical decimal amount;
+- uppercase ISO-style three-letter currency code;
+- pricing version/source identifier;
+- pricing effective date or equivalent version evidence;
+- explicit unavailable reason.
 
-The report should be committed separately after the implementation commit.
+Required invariants:
+
+- provider-reported and estimated cost remain distinguishable;
+- an estimated cost is valid only with explicit pricing-version/effective-date
+  evidence;
+- unavailable cost has no amount and requires a fixed reason;
+- subscription-included does not automatically mean a zero-dollar marginal
+  cost and must not fabricate an amount;
+- a real reported or estimated amount of zero remains distinct from
+  unavailable or subscription-included;
+- floating-point rounding must not determine the canonical amount;
+- no price or currency is inferred when it is absent.
+
+Do not include a built-in pricing table.
+
+## Pricing Boundary Requirements
+
+Define a minimal provider-neutral, read-only lookup boundary equivalent to:
+
+```text
+PricingCatalog.get_price(provider, model, effective_at)
+    -> ModelPricing or None
+```
+
+Requirements:
+
+- provider/model/effective date are explicit inputs;
+- `None` means no applicable price, never zero price;
+- `ModelPricing` is immutable, versioned, and carries its source/version and
+  effective interval or effective date;
+- input/output/cached pricing components may be unavailable independently;
+- prices use canonical decimal representations and explicit units;
+- no network, environment, file read, global registry, or provider SDK occurs
+  on import;
+- no hard-coded production provider prices are added;
+- the catalog boundary does not calculate or mutate invocation cost;
+- pricing lookup and cost calculation remain separate.
+
+An abstract base class or runtime-checkable protocol is acceptable if it
+matches existing repository style. Do not add a concrete production catalog
+in this checkpoint.
+
+## Canonical and Security Requirements
+
+All public data contracts must follow the established PMQA contract style:
+
+- Pydantic v2 strict validation;
+- frozen/deeply immutable values;
+- `extra=forbid`;
+- hidden invalid input values in validation errors;
+- canonical plain-JSON serialization;
+- timezone-aware timestamps normalized to UTC `Z`;
+- full revalidation for direct construction, `from_dict()`, and
+  `model_copy(update=...)`;
+- no retained caller-owned mutable containers;
+- bounded complete-tree depth, item count, string length, and identifier
+  validation;
+- safe fixed wrapper errors without invalid values, runtime repr, cause, or
+  context where the existing contract pattern requires them.
+
+Reuse neutral helpers from `pmqa.run` and
+`pmqa.security.boundary_policy` where appropriate. Do not create a new
+prohibited/sensitive-key list.
+
+The contracts must not contain:
+
+- prompt or response content;
+- credentials, tokens, passwords, cookies, authentication/session state, or
+  environment mappings;
+- raw CLI stdout/stderr or terminal output;
+- commands, executable paths, repository paths, storage paths, or working
+  directories;
+- DOM/HTML, screenshots, traces, selectors, browser/Page/Locator handles;
+- provider clients, callables, subprocess objects, runtime controls, or
+  arbitrary metadata blobs;
+- exception messages or stack traces.
+
+Provider and model identifiers are metadata, not provider-specific SDK
+objects. Error information is a bounded safe classification only.
+
+## Import and Dependency Requirements
+
+`import pmqa.usage` must be side-effect free and must not load or inspect:
+
+- `products.demo` or external Product Packs;
+- Playwright, browsers, Node.js, or subprocesses;
+- LangGraph, `WorkflowState`, Supervisor, or orchestration;
+- concrete reasoning providers or Copilot CLI;
+- application service, runner implementations, trace storage, SQLite, or
+  local artifact storage;
+- installed distributions, environment variables, configuration files,
+  pricing files, or network resources.
+
+The neutral usage package may depend only on standard-library/Pydantic
+contracts and narrowly reused neutral PMQA validation helpers. Avoid circular
+imports with `pmqa.run` and `pmqa.runners`.
+
+The real PMQA wheel must include `pmqa.usage` and must not gain provider
+fixtures, usage artifacts, pricing data, secrets, or runtime output.
+
+## Required Tests
+
+At minimum cover:
+
+- complete provider-reported usage;
+- complete CLI-parsed usage;
+- partial usage with explicit missing fields/reason;
+- entirely unavailable usage;
+- present zero versus unavailable;
+- estimated usage remains labeled estimated;
+- provider-reported cost;
+- estimated cost with pricing evidence;
+- estimated cost rejected without pricing evidence;
+- subscription-included is not reported or estimated dollar cost;
+- unavailable cost;
+- real zero cost versus unavailable/subscription-included;
+- pricing present and pricing unavailable through a fake catalog;
+- independent missing pricing components;
+- invocation success, failure, and cancellation lifecycle;
+- optional runner correlation;
+- retry/fallback local invariants;
+- canonical UTC timestamps and duration;
+- direct construction, JSON round trip, and revalidated copy;
+- deep immutability and caller-container isolation;
+- unknown fields and coercion rejection;
+- cyclic, oversized, excessive-depth, and non-finite payload rejection where
+  applicable;
+- prohibited key/runtime object/secret-marker rejection and safe errors;
+- import isolation and zero import side effects;
+- real-wheel package inclusion;
+- existing Run, Runner, Application, security-boundary, and packaging
+  regressions.
+
+Tests must use fakes/fixtures only. Do not call a paid model, provider CLI,
+network, browser, Node.js, or external Product Pack.
+
+## Documentation
+
+Update only what is necessary:
+
+- `docs/Roadmap.md`: mark Task 5C.3 architecture review passed and Task 5C.4
+  ready for review after implementation;
+- `docs/architecture.md`: place usage/cost beside, not inside, Run Contract and
+  LangGraph state;
+- add one focused usage/cost architecture document;
+- update `README.md` only for concise current status and links.
+
+Document clearly that:
+
+- this is a contracts/pricing-boundary checkpoint, not the Usage Tracking MVP;
+- collection, calculation, persistence, aggregation, CLI summaries, and
+  optimization remain future tasks;
+- provider-reported, parsed, estimated, subscription-included, and unavailable
+  evidence remain distinct;
+- raw prompts/responses and secrets are never stored;
+- no real provider integration exists.
 
 ## Allowed Changes
 
-- `agent-handoff/README.md`
-- `agent-handoff/reviewer-report.md`
-- `agent-handoff/coder-report.md`
+- new `pmqa/usage/` contract and pricing-boundary files;
+- new focused tests under `tests/`;
+- minimal packaging assertions/configuration only if needed to include the
+  new Python package;
+- `README.md`;
+- `docs/Roadmap.md`;
+- `docs/architecture.md`;
+- one focused `docs/architecture/` usage/cost document;
+- `agent-handoff/coder-report.md`.
 
-No other file may change.
+The Coder must not modify:
 
-Do not amend attempt 1 commits. Add:
+- `agent-handoff/README.md`;
+- `agent-handoff/current-task.md`;
+- `agent-handoff/reviewer-report.md`;
+- `agent-handoff/architect-review.md`.
 
-- one focused remediation implementation commit;
-- one report-only Coder handoff commit.
+Use one focused implementation commit and one report-only Coder handoff
+commit. Do not amend prior commits.
 
 ## Out of Scope
 
-Do not:
+Do not implement:
 
-- modify `agent-handoff/current-task.md` or
-  `agent-handoff/architect-review.md`;
-- modify production code, tests, configuration, schemas, packaging, scripts,
-  README, Roadmap, architecture, or product documentation;
-- change role ownership or decision authority;
-- execute the Independent Reviewer stage for this bootstrap;
-- add automation, MCP, watchers, schedulers, hooks, state machines, bots,
-  provider integrations, CLI, persistence, telemetry, or UI;
-- start Task 5C.4, Task 5B, Task 6, or Task 7;
-- create a PR or merge.
+- usage collector/service or invocation handle;
+- Copilot/Codex/OpenAI/Azure OpenAI adapters or parsers;
+- raw provider metadata persistence;
+- cost calculator or estimator;
+- concrete pricing table/catalog;
+- usage/cost storage, JSONL, SQLite, or repository;
+- session/run aggregation or summary;
+- CLI commands or UI;
+- workflow, runner, reasoning-provider, or Application Service integration;
+- automatic model routing, budgets, optimization, recommendations, feedback,
+  eval, or logging;
+- changes to `RunRecord`, `RunnerInvocationRecord`, `WorkflowState`,
+  LangGraph, Task 5, Product Pack, Supervisor, or current provider behavior;
+- Task 5B, Task 6, or Task 7;
+- PR creation or merge.
 
 ## Acceptance Criteria
 
-- No active protocol statement requires a handoff file to embed its own commit
-  SHA.
-- The next stage can derive the preceding handoff commit using only repository
-  and Git history.
-- Every derived SHA is recorded by the receiving role in its Markdown report.
-- The chain covers current task, Coder report, Reviewer report, and Architect
-  disposition without circularity.
-- Chat and Human Summary are explicitly non-authoritative.
-- Branch, ancestry, task/attempt, and report-path verification are required.
-- No extra self-attestation loop is introduced.
-- The Reviewer template is immediately usable for Task 5C.4.
-- All role, authority, independence, escalation, and ownership rules remain
-  unchanged.
-- Only the three allowed handoff Markdown files change.
+The task is complete only if:
+
+- contracts express complete, partial, zero, and unavailable usage without
+  ambiguity;
+- reported, CLI-parsed, estimated, subscription-included, and unavailable
+  evidence cannot be confused;
+- cost estimation requires external pricing evidence but no price table is
+  embedded;
+- AI/model invocation correlation remains separate from runner attempts and
+  LangGraph state;
+- all canonical, security, immutability, and import-isolation requirements
+  pass;
+- existing Run/Runner/Application and Task 4 behavior remain unchanged;
+- the wheel includes only the intended new package code;
+- no real provider, parser, storage, collector, calculator, CLI, UI, or
+  optimization is added;
+- only the Coder modifies implementation and Coder-owned handoff files.
 
 ## Validation Commands
 
-Run and report:
+Run and report exact results for:
 
 ```bash
+.venv/bin/python -m pytest <new usage tests>
+.venv/bin/python -m pytest tests/test_run_contracts.py tests/test_runner_contracts.py tests/test_application_contracts.py tests/test_application_service.py tests/test_boundary_policy.py tests/test_packaging.py
+.venv/bin/python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py
+.venv/bin/python -m pytest
+.venv/bin/python -m pytest products/demo/generated_tests
+.venv/bin/python -m compileall -q pmqa products
 git diff --check
 git status --short
-git diff --name-only <coder-starting-head>..HEAD
-git log -1 --format=%H -- agent-handoff/coder-report.md
-git log -1 --format=%H -- agent-handoff/reviewer-report.md
-git merge-base --is-ancestor <starting-head> <implementation-commit>
-git merge-base --is-ancestor <implementation-commit> <report-commit>
 ```
 
-Also verify:
-
-- all relative Markdown links in `agent-handoff/` resolve;
-- no self-SHA requirement remains;
-- no statement makes Chat authoritative;
-- all exclusive ownership and escalation rules remain consistent;
-- only the allowed files changed.
-
-No production tests are required because this remediation is Markdown-only.
+Use an isolated bytecode cache for `compileall`. Browser execution is limited
+to the existing generated Playwright regression.
 
 ## Expected Deliverables
 
-- Corrected non-circular commit-correlation protocol.
-- Updated Reviewer template.
-- Updated attempt 2 Coder report.
-- One implementation commit and one report-only commit.
-- Clean worktree and synchronized branch.
-- No PR, merge, Reviewer execution, or Task 5C.4 implementation.
+- provider-neutral usage/cost invocation contracts;
+- pricing record and read-only catalog boundary;
+- focused adversarial tests;
+- import isolation and real-wheel coverage;
+- concise architecture/status documentation;
+- one implementation commit;
+- one report-only Coder handoff commit;
+- clean worktree and synchronized local/upstream branch;
+- no PR and no merge.
 
 ## Required Coder Handoff
 
-Replace `agent-handoff/coder-report.md` with the complete attempt 2 report.
+Replace `agent-handoff/coder-report.md` with the complete Task 5C.4 attempt 1
+report. It must include:
 
-Include exactly one recommended review depth:
+- Task ID, Attempt, branch, and exact Git-derived Coder starting HEAD;
+- implementation commit SHA(s) created before the report commit;
+- changed files and public contracts;
+- usage, cost, pricing, correlation, lifecycle, and security decisions;
+- validation results;
+- remaining risks/open items;
+- scope confirmation;
+- exactly one recommended review depth: `Light`, `Standard`, or `Deep`;
+- one-sentence reason;
+- 3–6 suggested Reviewer focus areas.
 
-- `Light`
-- `Standard`
-- `Deep`
+Do not include the Coder report commit's own SHA. Commit the report separately
+after the implementation commit; the Independent Reviewer derives it from
+Git.
 
-Also include one-sentence reasoning and 3–6 suggested review focus areas. The
-recommendation is advisory; the Architect makes the final review decision.
+## Pilot Handoff After Coder Completion
+
+After the Coder report is committed and pushed:
+
+1. Human wakes the Independent Reviewer without copying the report.
+2. Reviewer reads `agent-handoff/README.md` and follows the required
+   independent inspection order.
+3. Reviewer derives the Coder report commit from Git.
+4. Reviewer replaces only `agent-handoff/reviewer-report.md`, commits, pushes,
+   and sends the Human Summary.
+5. Human then wakes the Architect.
+6. Architect derives the Reviewer report commit, performs final synthesis,
+   and publishes the disposition.
+
+The Coder must not prefill, reset, or modify `reviewer-report.md`.

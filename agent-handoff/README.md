@@ -125,8 +125,9 @@ Before acting, the receiving role verifies that:
   HEAD;
 - the report file at the derived commit identifies the active Task and
   Attempt;
-- every named implementation commit is reachable from the recorded starting
-  HEAD and is an ancestor of the derived report commit; and
+- the recorded starting HEAD is an ancestor of every named implementation
+  commit, and every named implementation commit is an ancestor of the derived
+  report commit; and
 - the path-specific derived commit is still the active report's latest
   authorized change, so no later unauthorized replacement is being reviewed.
 
