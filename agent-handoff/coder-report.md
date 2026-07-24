@@ -2,11 +2,11 @@
 
 Owner: Coder
 
-Task: PMQA Task 5C.2 — Provider-Neutral Runner Boundary and Deterministic Mock Runner
+Task: PMQA Task 5C.2 Architecture Review Remediation — Runner Integrity
 
-Status: Ready for Architect review
+Status: Ready for Architect re-review
 
-This file is the authoritative Coder-to-Architect handoff for Task 5C.2.
+This file is the authoritative Coder-to-Architect remediation handoff.
 
 ## Branch
 
@@ -14,71 +14,122 @@ This file is the authoritative Coder-to-Architect handoff for Task 5C.2.
 
 ## Starting HEAD
 
-`a340dfc661d77d53af5f7d8f0b7046a9daf14a71`
+Required remediation starting HEAD:
 
-## New Commit SHA
+`17bddd3b75321b206e413082f17f7d242baa43e1`
 
-Task 5C.2 implementation:
+The Architect handoff commit
+`1d9aace3b3d6fec2354554df10252b647af12e45` was already present at execution
+time and changed only `agent-handoff/current-task.md` and
+`agent-handoff/architect-review.md`. The implementation baseline remained the
+required starting commit.
 
-`502ae0826fffa14310439a8e010c4a2c0bd6408c`
+## Remediation Commit SHA
 
-The later `3048612` and `a0e4150` commits add and normalize the file-driven
-handoff files; they do not change the reviewed Task 5C.2 implementation.
+`58d1edb9b765749cb1351e30b3405bc6a6b82247`
+
+Commit message:
+
+`harden Task 5C.2 runner integrity`
+
+The remediation is one focused implementation commit. This report is delivered
+in a separate report-only handoff commit so it can record the exact remediation
+SHA without amending earlier history.
 
 ## Changed Files
 
-- `README.md`
-- `docs/Roadmap.md`
-- `docs/architecture.md`
-- `docs/architecture/run-contract.md`
+Remediation commit:
+
 - `docs/architecture/runner-boundary.md`
-- `pmqa/runners/__init__.py`
-- `pmqa/runners/base.py`
 - `pmqa/runners/contracts.py`
 - `pmqa/runners/mock.py`
 - `tests/test_mock_runner.py`
-- `tests/test_packaging.py`
 - `tests/test_runner_contracts.py`
-- `tests/test_runner_imports.py`
 
-This Coder handoff additionally updates only
-`agent-handoff/coder-report.md`.
+Handoff commit:
 
-## Summary of Changes
+- `agent-handoff/coder-report.md`
 
-Task 5C.2 adds a synchronous provider-neutral `PMQARunner` protocol with stable
-`RunnerMetadata`, canonical `RunnerRequest` and `RunnerResponse` contracts, an
-authoritative `validate_runner_response()` correlation boundary, runtime-only
-`CancellationToken`/`RunnerControl`, and a deterministic in-process
-`MockRunner`.
+## Correction for Each Architect Finding
 
-`RunnerRequest` composes the existing Task 5C.1 `RunRequest`,
-`PMQARunContext`, and pending `RunnerInvocationRecord` instead of duplicating
-their fields. It validates request, session, workflow, runner, reference,
-invocation, attempt, predecessor, and timestamp correlations. `RunnerResponse`
-accepts only one terminal invocation and enforces the required success,
-partial-success, failure, and cancellation result/error combinations plus
-unique output artifact identities. The authoritative validator then correlates
-the response invocation and result schema back to the exact request.
+### F1 — Clock and duration containment
 
-Cancellation is explicit, idempotent, thread-safe for ordinary concurrent
-access, scoped to caller-owned runtime control, and excluded from all
-serialization contracts. `MockRunner` supports deterministic success, partial
-success, failure, and pre-execution cancellation. It samples an injected wall
-clock once and an injected monotonic clock twice, preserves the supplied
-attempt/predecessor data, produces one terminal invocation, and validates its
-own response before returning.
+The complete wall-clock operation now executes inside one containment boundary:
+clock invocation, exact `datetime` validation, timezone-awareness evaluation,
+`utcoffset()`, and UTC normalization. Monotonic invocation, numeric/finite
+validation, float normalization, elapsed calculation, scaling, finite checks,
+and integer millisecond conversion are similarly contained.
 
-No provider SDK, subprocess, browser, network, environment/config read,
-prompt/response storage, usage/cost fabrication, retry/fallback orchestration,
-registry, or Application Service was introduced.
+Expected exceptions are converted to the fixed
+`RunnerBoundaryValidationError` outside the active exception handler, leaving
+both `__cause__` and `__context__` unset and preventing marker, value, object,
+path, or underlying-message disclosure. `MemoryError`, `KeyboardInterrupt`,
+`SystemExit`, and `GeneratorExit` propagate unchanged from wall-clock,
+timezone-normalization, monotonic, and duration-conversion boundaries. Extreme
+finite samples whose scaled duration becomes infinite fail safely. Normal
+deterministic clocks and zero duration remain supported.
+
+### F2 — Output-artifact temporal correlation
+
+`validate_runner_response()` now requires every output artifact to satisfy:
+
+```text
+invocation.started_at <= artifact.created_at <= invocation.completed_at
+```
+
+Artifacts exactly at start or completion are accepted. Artifacts before start
+or after completion fail with the fixed safe Runner boundary error. Valid
+temporally correlated artifacts remain supported for successful, partially
+successful, and failed responses.
+
+### F3 — Typed immutable MockRunner artifact configuration
+
+`MockRunner` now accepts only an exact tuple containing exact `RunArtifact`
+instances. Dictionaries, `RunArtifact` subclasses, mutable artifact-like
+objects, arbitrary runtime objects, tuple subclasses, and invalid items are
+rejected without echoing their values.
+
+Each accepted artifact is serialized and reconstructed through the canonical
+`RunArtifact` boundary during construction. The runner therefore retains an
+independently validated immutable snapshot rather than the caller's object.
+Adversarial caller mutation after construction cannot change subsequent
+executions.
+
+### F4 — Pre-execution cancellation artifacts
+
+A cancellation already requested before `execute()` now returns exactly one
+canonical `CANCELLED` invocation with the existing safe cancellation error,
+`result=None`, and an empty artifact tuple, regardless of configured outputs.
+Attempt number and retry/fallback predecessor fields remain unchanged; no new
+attempt is created. Executed success, partial-success, and failure outcomes
+continue returning valid configured artifacts.
+
+## Adversarial Coverage
+
+Focused tests now cover:
+
+- expected exceptions from `tzinfo.utcoffset()` and from the later UTC
+  conversion call;
+- fixed safe errors with no cause, context, marker, or underlying message;
+- extreme finite monotonic samples causing scaled-duration overflow;
+- unchanged propagation of `MemoryError`, `KeyboardInterrupt`, `SystemExit`,
+  and `GeneratorExit` from wall callable, timezone operations, monotonic
+  callable, and duration conversion;
+- zero-duration monotonic evidence;
+- output artifacts before start, exactly at start, exactly at completion, and
+  after completion;
+- valid artifacts on success, partial success, and failure;
+- dictionary, mutable artifact-like object, runtime object, and
+  `RunArtifact` subclass rejection;
+- independently reconstructed artifacts surviving caller-side mutation;
+- pre-execution cancellation with configured output artifacts.
 
 ## Validation Results
 
-- Focused tests:
+- Focused Runner remediation:
   - `.venv/bin/python -m pytest tests/test_runner_contracts.py tests/test_mock_runner.py tests/test_runner_imports.py`
-  - `63 passed`
-- Relevant Run Contract/security/packaging regressions:
+  - `104 passed`
+- Run Contract, security boundary, and real-wheel packaging:
   - `.venv/bin/python -m pytest tests/test_run_contracts.py tests/test_boundary_policy.py tests/test_packaging.py`
   - `185 passed`
 - Task 4 orchestration regressions:
@@ -86,59 +137,50 @@ registry, or Application Service was introduced.
   - `98 passed, 1 existing LangGraph deprecation warning`
 - Full default suite:
   - `.venv/bin/python -m pytest`
-  - `1402 passed, 5 skipped, 1 existing LangGraph deprecation warning`
-- Packaging/import isolation:
-  - Real-wheel packaging tests: `3 passed` within the 185-test regression run.
-  - Runner import-isolation tests: `2 passed` within the 63-test focused run.
-  - The built wheel contains all four `pmqa.runners` modules and excludes
-    tests, caches, temporary output, credentials, and generated artifacts.
-  - Runner imports do not load product packs, providers, Playwright, LangGraph,
-    orchestration, reasoning, trace storage, SQLite, subprocess, or UI modules;
-    they perform no registration, file/config/environment/distribution access,
-    process launch, or `sys.path` mutation.
+  - `1443 passed, 5 skipped, 1 existing LangGraph deprecation warning`
 - Generated Playwright regressions:
   - `.venv/bin/python -m pytest products/demo/generated_tests`
   - `2 passed`
-- Compile/import checks:
-  - Isolated `.venv/bin/python -m compileall -q pmqa products`: passed.
-  - Import isolation is also covered by the focused runner tests above.
-- Markdown relative-link validation:
-  - `20 checked, 0 missing`.
-- `git diff --check`: passed.
+- Isolated compile check:
+  - `.venv/bin/python -m compileall -q pmqa products`
+  - passed with `PYTHONPYCACHEPREFIX` directed to a temporary directory
+- `git diff --check`: passed
 - Final worktree and remote synchronization:
-  - The implementation and handoff baseline were clean and synchronized at
-    `a0e41503cd620c43981f3ec814a760e4d3cbcc3f` before this report update.
-  - This report is the only handoff change; its commit is pushed to the same
-    branch and local, tracking, and GitHub branch HEADs are rechecked equal
-    before the Human Summary is sent.
+  - The report-only handoff commit is pushed after this report is written.
+  - Local, tracking, and GitHub branch HEADs are rechecked equal, and the
+    worktree is rechecked clean before the Human Summary is sent.
 
-All validation was offline and provider-free except the explicitly required
-existing generated Playwright regression, which used the locally installed
-Chromium browser.
+The default and focused suites remained offline and provider-free. The only
+browser execution was the explicitly required existing generated Playwright
+regression using locally installed Chromium.
 
 ## Remaining Risks / Open Items
 
-- `MockRunner` is validation infrastructure, not a production AI runner.
-- Timeout is a bounded request contract value; timeout enforcement and remote
-  cancellation remain future execution-policy work.
-- Runner/workflow selection, persistence, authorization, approval, retry and
-  fallback creation, and cross-record predecessor existence/cycle validation
-  remain future Application Service or repository responsibilities.
-- Task 5C.2 deliberately provides only a synchronous boundary.
-- No known acceptance-criteria defect remains after the reported validation.
+- Timeout enforcement and in-flight or remote cancellation remain future
+  execution-policy work.
+- Input artifacts still require a future explicit request-side contract and
+  are not represented as output artifacts.
+- Runner/workflow selection, persistence, authorization, approval,
+  retry/fallback creation, and cross-record predecessor validation remain
+  future Application Service or repository responsibilities.
+- `MockRunner` remains deterministic validation infrastructure rather than a
+  production provider.
+- No known blocking finding remains after the reported remediation.
 
 ## Scope Confirmation
 
-- Changes remain within the allowed Runner package, focused Runner/Run
-  Contract/import/packaging tests, documentation, and this Coder handoff.
-- Existing `WorkflowState`, reducer, Supervisor, ToolRegistry, LangGraph,
-  Task 5, and Product Pack execution semantics were not modified.
-- No Application Service, Workflow Registry, Runner Registry, automatic
-  discovery, real provider adapter, subprocess/terminal runner, persistence
-  repository, Usage/Cost model, UI/API/event system, or approval workflow was
-  added.
+- Changes are limited to the allowed Runner contracts, MockRunner, focused
+  tests, focused Runner documentation, and this Coder handoff.
+- The public `PMQARunner`, `RunnerRequest`, and `RunnerResponse` architecture
+  was not redesigned or expanded.
+- No input-artifact support, timeout enforcement, in-flight cancellation,
+  retry, fallback, registry, discovery, persistence, provider, subprocess,
+  terminal, browser, network, usage/cost, UI, API, or ADO behavior was added.
+- Existing WorkflowState, reducer, Supervisor, ToolRegistry, LangGraph, Task 5,
+  and Product Pack semantics were not modified.
 - Task 5C.3, Task 5B, Task 6, and Task 7 were not started.
 - No PR was created and nothing was merged.
+- No earlier commit was amended.
 
 ## Recommended Review Depth
 
@@ -146,23 +188,21 @@ Recommendation: Deep
 
 ## Review Recommendation Reason
 
-Task 5C.2 introduces a new public execution boundary whose canonical lifecycle,
-cross-contract correlation, cancellation, clock, and import-isolation
-invariants warrant end-to-end architecture inspection.
+The remediation closes adversarial exception-containment and artifact-provenance
+gaps at a public execution boundary, so the corrected invariants warrant
+end-to-end reinspection.
 
 ## Suggested Review Focus
 
-- Confirm `RunnerRequest` composes Task 5C.1 contracts without duplicating or
-  weakening their canonical/security policies.
-- Inspect every `RunnerResponse` status/result/error combination and the
-  authoritative request/response correlation fields.
-- Verify attempt and retry/fallback predecessor data are preserved rather than
-  orchestrated by the runner.
-- Review wall-clock/monotonic sampling, invalid-clock containment, and
-  pre-execution cancellation semantics.
-- Confirm cancellation/control objects remain runtime-only and no global
-  mutable state or serialization path exists.
-- Confirm import isolation, real-wheel contents, and the absence of provider,
-  subprocess, browser, usage/cost, registry, or Application Service coupling.
+- Exercise hostile timezone behavior and verify safe errors have neither cause
+  nor context while resource/control-flow exceptions remain unchanged.
+- Inspect finite-to-infinite duration scaling and zero-duration behavior.
+- Verify artifact timestamp boundaries for every supported terminal outcome.
+- Confirm exact artifact typing and canonical reconstruction eliminate
+  caller-owned mutable configuration.
+- Confirm pre-execution cancellation cannot return configured artifacts or
+  create retry/fallback state.
+- Recheck that the remediation introduces no provider, runtime orchestration,
+  registry, persistence, Usage/Cost, or public API expansion.
 
 The Coder recommendation is advisory and does not approve the task.
