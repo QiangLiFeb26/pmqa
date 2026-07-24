@@ -440,8 +440,10 @@ report. Include:
 - exactly one recommended review depth: `Light`, `Standard`, or `Deep`;
 - one-sentence reason;
 - 3–6 suggested Reviewer focus areas;
-- a 5–10 line Human Summary ending with exactly one copy-ready
-  `Handoff Note` sentence as defined in `agent-handoff/README.md`.
+- a 5–10 line Human Summary whose `Action Needed From Human` explicitly routes
+  the following note to the Independent Reviewer and which ends with exactly
+  one copy-ready `Handoff Note` sentence as defined in
+  `agent-handoff/README.md`.
 
 Do not include the Coder report commit's own SHA. Commit the report separately
 after implementation; the Reviewer derives it from Git.
@@ -463,5 +465,6 @@ The Coder must not modify or reset `reviewer-report.md`.
 The preferred Coder completion note for this task is:
 
 ```text
+Action Needed From Human: 请将下方 Handoff Note 传递给 Independent Reviewer。
 Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 review。
 ```
