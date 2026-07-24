@@ -2,11 +2,11 @@
 
 Owner: Coder
 
-Task: PMQA Task 5C.6 — Append-Only Local AI Invocation Repository
+Task: PMQA Task 5C.6 — Repository Root and Platform Boundary Hardening
 
 Task ID: `PMQA-5C.6`
 
-Attempt: `1`
+Attempt: `2`
 
 Status: Ready for Independent Reviewer
 
@@ -18,212 +18,213 @@ Branch:
 
 Exact Git-derived Coder starting HEAD:
 
-`ce1334f4a096dd014170a8791d99969b40c4501b`
+`a99f06cd95d583320257b4d5c5f8504d3281b0e1`
 
 That commit is the latest path-specific publication of
-`agent-handoff/current-task.md`, identifies Task `PMQA-5C.6` Attempt `1`, and
-was the clean local and tracking-branch HEAD before implementation. It is
-reachable from the implementation commit below. The Architect-reviewed
-baseline named by the task,
-`efe5ee01ec9ddfa574eef74f333fb98ed46528b2`, is an ancestor of the starting
-HEAD. No prior commit was amended.
+`agent-handoff/current-task.md`, identifies Task `PMQA-5C.6` Attempt `2`, and
+was the clean local and tracking-branch HEAD before remediation. The reviewed
+Attempt 1 Reviewer HEAD
+`339191498e7b2a2cfcb473483f1f88509f06bc8a` is its ancestor. The Attempt 1
+implementation and report were not amended.
 
-## Implementation Commit
+## Remediation Implementation Commit
 
-`08dee16d43c02f42c32591e242b30bc4035033cb`
+`fdb075dcad311ee6848dab5e6454871e2d8ce56b`
 
 Commit message:
 
-`add append-only usage repository`
+`harden Task 5C.6 repository boundaries`
 
-This report is committed separately after the implementation commit. The
+This report is committed separately after the remediation commit. The
 Independent Reviewer derives the report commit from Git; this report does not
 claim its own future commit SHA.
 
 ## Changed Files
 
-Implementation commit:
+Remediation implementation commit:
 
-- `.gitignore`
-- `README.md`
-- `docs/Roadmap.md`
-- `docs/architecture.md`
-- `docs/architecture/usage-cost-contracts.md`
-- `pmqa/usage/__init__.py`
 - `pmqa/usage/repository.py`
-- `tests/test_packaging.py`
-- `tests/test_usage_collector.py`
-- `tests/test_usage_imports.py`
 - `tests/test_usage_repository.py`
+- `docs/architecture/usage-cost-contracts.md`
 
 Report-only handoff commit:
 
 - `agent-handoff/coder-report.md`
 
-No Architect- or Reviewer-owned handoff file changed.
+No other implementation, documentation, packaging, test, or handoff file
+changed.
 
-## Repository Public API and Layout
+## F1 — Repository Root Correction
 
-`pmqa.usage` now exports:
+Construction now creates one private `Path` snapshot from one bounded
+filesystem-string conversion and validates it before retaining any state. It
+requires a platform-absolute non-anchor path, rejects every lexical `..`
+component, rejects paths that normalize to their filesystem anchor, rejects
+embedded NUL, and exercises platform encoding before any filesystem effect.
+All ordinary conversion, path, and `lstat` failures become the fixed
+`INVALID_CONFIGURATION` error without cause, context, path, or marker.
 
-- runtime-checkable synchronous `UsageRepository`;
-- `LocalJSONUsageRepository`;
-- fixed `UsageRepositoryErrorCode` and `UsageRepositoryError`; and
-- bounded default/maximum query and record-size constants.
+The check is lexical and uses `lstat`; it never calls `resolve()` or follows a
+symlink to make it acceptable. Existing files and symlink roots now fail in
+the constructor. Existing real directories remain valid, and an ordinary
+absolute path containing spaces successfully saves and reads a record.
 
-The protocol exposes only `save`, `get`, `find_by_session`, `find_by_run`, and
-`list_recent`. It accepts and returns canonical `AIInvocationRecord` values,
-never raw dictionaries or mutable query results. The local implementation
-requires an explicit absolute non-root `Path` and has no constructor or import
-side effects.
+Platform-derived tests cover the anchor itself, `<anchor>/tmp/..`, nested
+traversal back to the anchor, traversal selecting a different directory,
+embedded NUL with a marker, existing file and symlink roots, and a valid path
+with spaces. Rejected constructors never call directory or temporary creation.
 
-Each record is stored at:
+## F2 — Platform Capability Correction
 
-```text
-<root>/invocations/<lowercase-sha256-of-canonical-invocation-id>.json
-```
+Save captures one immutable private capability snapshot before directory
+creation. The inventory covers:
 
-The file is the exact sorted, compact UTF-8 serialization of
-`AIInvocationRecord.to_dict()` followed by one newline. No repository metadata
-or raw domain identifier is added to the path or payload.
+- directory and temporary creation;
+- descriptor mode enforcement and verification;
+- descriptor stat, write, and file synchronization;
+- hard-link no-replace publication;
+- directory open and synchronization; and
+- path identity checks, unlink, and descriptor close.
 
-## Append-Only Publication
-
-Save reconstructs an exact independent record snapshot and enforces the byte
-limit before any filesystem effect. It creates a mode-`0600` temporary file in
-the private mode-`0700` invocation directory, writes and synchronizes the
-complete payload, and publishes with same-directory `os.link()` no-replace
-semantics. Existing targets are always fixed duplicate failures; no
-check-then-overwrite, replacement, unlink-and-retry, or recursive cleanup path
+The implementation deliberately fails closed outside a POSIX mode-capable
+platform. Missing `makedirs`, `mkstemp`, `fchmod`, `fstat`, `write`, `fsync`,
+`link`, `open`, `lstat`, `unlink`, or `close` produces fixed
+`UNSUPPORTED_PUBLICATION` before repository directory creation. No weaker
+rename, replacement, check-then-write, unlink-and-retry, or overwrite fallback
 exists.
 
-Concurrent repository instances have one successful publisher and duplicate
-losers. Readers observe either no target or one complete canonical target.
-Publication failures leave existing targets unchanged. Unsupported hard-link
-publication has a distinct fixed code. Temporary cleanup unlinks only the
-captured owned inode, descriptors receive one close attempt, release `OSError`
-is suppressed, and resource/control-flow exceptions remain authoritative.
-Post-publication synchronization or release failure never removes the
-published target.
+Directory synchronization is exercised after directory preparation but before
+temporary creation and target publication. A missing/not-implemented or
+unsupported mandatory directory-sync capability therefore leaves no target.
+Unexpected pre-publication operational failure is fixed
+`PERSISTENCE_FAILURE`. The directory is synchronized again after hard-link
+publication; any later failure returns fixed `PERSISTENCE_FAILURE` while
+preserving the complete published target.
 
-## Retrieval, Ordering, and Corruption
+`mkstemp` remains the restrictive private creation primitive. The descriptor
+identity is captured before `fchmod`; mode `0600` and identity are verified
+afterward. `fchmod` `NotImplementedError` produces
+`UNSUPPORTED_PUBLICATION`, one temporary-descriptor close attempt, no target,
+and identity-verified cleanup. Missing `fchmod` fails before any directory or
+temporary exists.
 
-Only exact lowercase 64-hex `.json` names are record candidates; private
-temporary and unrelated files are ignored. Reads reject symlink and
-non-regular entries, oversize, identity changes, invalid UTF-8, malformed
-JSON, duplicate keys, non-finite constants, excessive nesting, missing or
-unknown fields, noncanonical representations, and filename/content digest
-mismatch. Reconstruction uses `AIInvocationRecord.from_dict()` and exact
-canonical byte equality. A corrupt matching record fails the whole query
-rather than returning a partial result.
+Hard-link `NotImplementedError` and the established unsupported errnos produce
+`UNSUPPORTED_PUBLICATION` before a target exists. All ordinary platform
+`OSError`, `ValueError`, `TypeError`, and `AttributeError` at the publication
+boundary are contained behind fixed safe codes. Resource/control-flow
+exceptions remain authoritative.
 
-Session, run, and recent queries return independently reconstructed immutable
-tuples. They order newest `completed_at` first and use ascending
-`invocation_id` for equal timestamps. Limits are exact bounded positive
-integers with `bool` rejected. Missing `get`, empty query, operational read
-failure, corruption, duplicate, and invalid input remain distinguishable.
+Temporary cleanup still unlinks only a path whose current device/inode equals
+the captured descriptor identity. Every ownership record receives one release
+call and every descriptor receives one close attempt. If capability failure
+occurs before identity can be captured, cleanup deliberately preserves only
+the empty restrictive random-name `mkstemp` orphan; it is not a record and its
+name contains no domain identifier. After identity capture, unsupported
+failures are cleaned when ownership is still verifiable.
 
-## Security, Import, and Packaging Evidence
+Simulated tests cover absent `fchmod`, `link`, `fsync`, and directory creation;
+`fchmod` and `link` `NotImplementedError`; unsupported hard-link errno;
+unavailable pre-publication directory sync; post-publication sync failure;
+non-POSIX mode semantics; descriptor close count; identity-changed cleanup;
+safe messages; orphan cleanup; and target absence/preservation at the correct
+stage.
 
-The repository accepts only exact canonical `AIInvocationRecord` values, so it
-adds no prompt, response, credential, environment, provider object, process
-output, browser state, runtime handle, callback, or arbitrary metadata
-surface. Invalid values are rejected before I/O. Expected exceptions use
-bounded static messages raised without cause or context; tests inject marker
-paths, payloads, and underlying exception text and prove none escape.
+## F3 — Parser Overflow Correction
 
-Import-isolation coverage proves `import pmqa.usage` performs no filesystem,
-environment, distribution, process, browser, product, provider, runner,
-Application Service, workflow, LangGraph, storage, SQLite, CLI, or UI work.
-Top-level `pmqa` remains usage-lazy. The real-wheel regression includes
-`pmqa/usage/repository.py`, exercises the exported repository from outside the
-source checkout, and excludes usage output and private temporary files. No
-runtime or build dependency was added.
+`OverflowError` is now contained only inside `_parse_record` alongside the
+existing persisted JSON and contract reconstruction failures. It becomes
+fixed `CORRUPT_DATA` with no raw value, marker, parser message, cause, or
+context.
 
-## Collector Concurrency Regression
+One simulated `json.loads` overflow test exercises the public `get` boundary.
+A real compact payload containing an extreme JSON exponent exercises bounded
+parser/contract rejection. Separate parser tests prove exact identity
+propagation for `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and
+`GeneratorExit`. Valid canonical record bytes and round trips remain
+unchanged.
 
-Eight real threads compete to terminalize one Task 5C.5 handle using
-thread-safe deterministic clocks and a barrier, with no sleeps. Exactly one
-thread receives the canonical terminal `AIInvocationRecord`; all seven losers
-receive the fixed invalid-handle error. Start and terminal wall/monotonic
-clocks are each sampled once, for two calls per clock total. No collector
-production code changed.
+## Preserved Behavior
+
+The remediation does not change `UsageRepository` methods, record layout,
+digest naming, canonical sorted compact UTF-8 plus newline bytes,
+`AIInvocationRecord`, query ordering or limits, duplicate/not-found behavior,
+hard-link no-replace semantics on supported platforms, corruption handling,
+collector behavior, import isolation, or wheel contents.
+
+The focused architecture document now states the fail-closed platform policy,
+directory-sync preflight, post-publication preservation, and bounded private
+orphan policy. No general status document changed.
 
 ## Validation Results
 
-- Focused repository, collector, Task 5C.4 usage/pricing, and import tests:
-  `199 passed`.
+- Repository-only focused tests: `76 passed`.
+- Repository, collector, usage contracts, pricing, and usage-import tests:
+  `215 passed`.
 - Run, Runner contract, Application contract/service, boundary-policy, and
   real-wheel packaging regressions: `332 passed`.
 - Task 4 runtime, reducer, Supervisor, and LangGraph regressions:
   `98 passed` with one existing LangGraph pending-deprecation warning.
-- Full default suite: `1760 passed, 5 skipped` with the same existing warning.
+- Full default suite: `1776 passed, 5 skipped` with the same existing warning.
   The skips are existing opt-in live/external environment gates.
-- Generated SauceDemo Playwright regressions: `2 passed`. The sandboxed
-  Chromium launch was denied by macOS Mach-port permissions; the required
-  rerun with local browser permission passed.
-- Isolated `compileall` for `pmqa`, `products`, and examples: passed with
-  bytecode directed to a temporary directory.
-- Markdown relative-link validation: passed.
+- Generated SauceDemo Playwright regressions: `2 passed`.
+- Isolated `compileall` for `pmqa` and `products`: passed with bytecode routed
+  to `/private/tmp`.
 - `git diff --check`: passed.
 - Pre-report implementation worktree: clean.
 
-All default, repository, packaging, and collector tests remained offline. The
-new tests invoked no model, provider CLI, network, browser, Node.js, or
-external Product Pack.
-
-## Scope Confirmation
-
-No collector-to-repository wiring, aggregation, summary model, CLI output,
-provider parser, pricing selection, cost calculation, retention, deletion,
-compaction, archival, migration, database, background writer, callback,
-workflow integration, UI, remote storage, or authorization surface was added.
-`RunRecord`, `RunnerInvocationRecord`, WorkflowState, LangGraph, Supervisor,
-Task 5, Product Pack, and existing provider behavior were not modified. Task
-5B, Task 6, and Task 7 were not started. No PR was created and nothing was
-merged.
+The default and focused remediation tests remained offline. New tests invoked
+no model, provider CLI, network, browser, Node.js, or external Product Pack.
 
 ## Remaining Risks and Open Items
 
-- Hard-link publication is intentionally required; filesystems without the
-  primitive fail safely as unsupported rather than weakening no-replace
-  semantics.
-- The explicit repository root is a trusted local operator boundary; malicious
-  operating-system administrators and remote/multi-user storage are outside
-  this checkpoint.
-- Per-file scans are deliberately simple and deterministic; aggregation,
-  indexing, retention, and migration remain deferred.
+- Full Windows repository support remains intentionally deferred; platforms
+  that cannot enforce the required POSIX permission and durability semantics
+  fail with `UNSUPPORTED_PUBLICATION`.
+- A failure before temporary inode identity is available may preserve the
+  empty restrictive random-name orphan rather than delete an unverified path.
+- The explicit root remains a trusted local operator boundary and does not
+  defend against a malicious operating-system administrator.
 
-These are explicit task boundaries, not known acceptance blockers.
+These are documented task boundaries, not known acceptance blockers.
+
+## Scope Confirmation
+
+No persistence format, schema, public method, collector wiring, aggregation,
+summary, CLI/UI, pricing, provider parser, retention, deletion, background
+work, remote storage, fallback publication primitive, or runtime dependency
+was added. `pmqa/usage/contracts.py`, pricing, collector, Run, Runner,
+Application Service, WorkflowState, LangGraph, Supervisor, Task 5, and Product
+Pack behavior were not modified. Task 5B, Task 6, and Task 7 were not started.
+No PR was created and nothing was merged.
 
 ## Recommended Review Depth
 
 **Deep**
 
-Reason: append-only filesystem publication, descriptor ownership, concurrent
-writers, and adversarial corruption handling form a compact but
-security-sensitive durability boundary.
+Reason: this remediation changes path selection, platform capability
+preflighting, descriptor ownership, publication phase classification, and
+hostile parser containment at a security-sensitive persistence boundary.
 
 ## Suggested Reviewer Focus
 
-- Challenge atomic no-replace behavior across duplicate, concurrent,
-  post-publication, unsupported-filesystem, and cleanup-failure paths.
-- Verify temporary inode ownership and exactly-once descriptor release under
-  active and release-originated resource/control-flow exceptions.
-- Inspect read-time symlink, identity, size, canonical-byte, digest, and
-  whole-query corruption enforcement.
-- Confirm fixed errors cannot leak roots, identifiers, payload markers, or
-  underlying exception details and that invalid records fail before I/O.
-- Confirm deterministic ordering, exact bounded limits, collector contention,
-  import isolation, and real-wheel inclusion/output exclusion.
+- Reproduce anchor-equivalent, traversal, NUL, file, and symlink roots and
+  confirm construction is side-effect free and marker-safe.
+- Challenge missing and `NotImplemented` capability handling before and after
+  target publication, including exact error-code phase classification.
+- Verify every temporary descriptor receives one close attempt and cleanup
+  never unlinks an identity-mismatched path.
+- Confirm restrictive-mode verification and hard-link no-replace semantics
+  remain fail-closed with no weaker fallback.
+- Verify parser overflow is contained while resource/control-flow exceptions
+  propagate with exact identity.
 
 ## Human Summary
 
-Task 5C.6 Attempt 1 已在指定分支完成，起点为 `ce1334f4a096dd014170a8791d99969b40c4501b`。
-实现提交为 `08dee16d43c02f42c32591e242b30bc4035033cb`。
-新增 provider-neutral append-only usage repository、原子 no-replace 发布、确定性查询与严格损坏检测。
-并发发布、descriptor 所有权、固定安全错误、import/wheel 隔离及真实线程 collector 竞争均有专项覆盖。
-验证结果：focused 199、边界/packaging 332、Task 4 回归 98、全量 1760 passed / 5 skipped、Playwright 2 passed。
-未加入 collector wiring、聚合、CLI、provider parsing、cost calculation，也未开始 Task 5B、Task 6 或 Task 7。
+PMQA-5C.6 Attempt 2 已完成，精确起点为 `a99f06cd95d583320257b4d5c5f8504d3281b0e1`。
+remediation 提交为 `fdb075dcad311ee6848dab5e6454871e2d8ce56b`。
+F1 已阻止 anchor/traversal/NUL/file/symlink root，并保持 constructor 无写入副作用。
+F2 已加入 fail-closed capability snapshot、directory-sync preflight、mode 验证与发布后 target 保留。
+F3 已将 parser `OverflowError` 安全归类为 `CORRUPT_DATA`，resource/control-flow 仍原样传播。
+验证结果：focused 215、边界/packaging 332、Task 4 回归 98、全量 1776 passed / 5 skipped、Playwright 2 passed。
 Action Needed From Human: 请将下方 Handoff Note 传递给 Independent Reviewer。
-Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 PMQA-5C.6 review。
+Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 review。
