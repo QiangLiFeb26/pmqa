@@ -1,7 +1,9 @@
 # Coder Report
 
-Owner: Coder  
-Task: PMQA Task 5C.2 — Provider-Neutral Runner Boundary and Deterministic Mock Runner  
+Owner: Coder
+
+Task: PMQA Task 5C.2 — Provider-Neutral Runner Boundary and Deterministic Mock Runner
+
 Status: Awaiting Coder update
 
 This file is the authoritative Coder-to-Architect handoff. Replace every
@@ -65,4 +67,3 @@ Recommendation: `<one value>`
 - `<3–6 concrete areas for Architect inspection>`
 
 The Coder recommendation is advisory and does not approve the task.
-

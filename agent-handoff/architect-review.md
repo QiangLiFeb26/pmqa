@@ -1,7 +1,9 @@
 # Architect Review
 
-Owner: Architect  
-Task: PMQA Task 5C.2 — Provider-Neutral Runner Boundary and Deterministic Mock Runner  
+Owner: Architect
+
+Task: PMQA Task 5C.2 — Provider-Neutral Runner Boundary and Deterministic Mock Runner
+
 Status: Pending Coder report
 
 This file is the authoritative Architect review. Chat summaries are
@@ -14,7 +16,6 @@ The Coder's recommendation is advisory.
 ## Review Depth Selected
 
 `Pending`
-
 ## Overall Assessment
 
 `Pending Coder report`
@@ -34,4 +35,3 @@ The Coder's recommendation is advisory.
 ## Next Recommended Task
 
 `Pending`
-

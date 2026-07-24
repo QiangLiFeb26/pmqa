@@ -1,9 +1,13 @@
 # Current Task
 
-Owner: Architect  
-Task: PMQA Task 5C.2 — Provider-Neutral Runner Boundary and Deterministic Mock Runner  
-Status: Coder report required  
-Branch: `agent/task-5c-1-canonical-run-contract`  
+Owner: Architect
+
+Task: PMQA Task 5C.2 — Provider-Neutral Runner Boundary and Deterministic Mock Runner
+
+Status: Coder report required
+
+Branch: `agent/task-5c-1-canonical-run-contract`
+
 Starting HEAD: `a340dfc661d77d53af5f7d8f0b7046a9daf14a71`
 
 This file is the authoritative task handoff. Chat summaries are informational only.
