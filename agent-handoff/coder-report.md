@@ -2,12 +2,12 @@
 
 Owner: Coder
 
-Task: PMQA Task 5C.3 — Explicit Application Registries and Single-Attempt Run
-Service
+Task: PMQA Task 5C.3 Architecture Review Remediation — Application Boundary
+Isolation
 
-Status: Ready for Architect review
+Status: Ready for Architect re-review
 
-This file is the authoritative Coder-to-Architect handoff.
+This file is the authoritative Coder-to-Architect remediation handoff.
 
 ## Branch and Starting HEAD
 
@@ -17,159 +17,139 @@ Branch:
 
 Exact Coder starting HEAD:
 
-`71fbea740e46c0914564e651e70da9afac67019b`
+`a5875f2ffce352e4a2aa19a796727e3c520f6430`
 
-The starting commit approved Task 5C.2 and supplied the Task 5C.3 handoff. No
+The starting commit contained the Architect review and remediation handoff. No
 earlier Task 5C commit was amended.
 
-## Implementation Commit
+## Remediation Commit
 
-`41a84d271df00980ffaf84d2df67a3515d9e961c`
+`ad26cfd987526ba9efabc0130458d26df4ca8bcb`
 
 Commit message:
 
-`add Task 5C.3 application service`
+`isolate Task 5C.3 application boundaries`
 
 This report is delivered in a separate report-only handoff commit so it can
-record the exact implementation SHA.
+record the exact remediation SHA.
 
 ## Changed Files
 
-Implementation commit:
+Remediation commit:
 
-- `README.md`
-- `docs/Roadmap.md`
-- `docs/architecture.md`
 - `docs/architecture/application-service.md`
-- `docs/architecture/run-contract.md`
-- `docs/architecture/runner-boundary.md`
 - `pmqa/application/__init__.py`
 - `pmqa/application/contracts.py`
-- `pmqa/application/registry.py`
 - `pmqa/application/service.py`
 - `tests/test_application_contracts.py`
-- `tests/test_application_imports.py`
-- `tests/test_application_registry.py`
 - `tests/test_application_service.py`
-- `tests/test_packaging.py`
 
 Report-only handoff commit:
 
 - `agent-handoff/coder-report.md`
 
-## Public Application APIs
+## F1 — Workflow Validator Isolation
 
-`pmqa.application` exports:
+The service retains its authoritative canonical `RunRequest` and
+`StructuredResult`, but never passes either object to workflow code.
 
-- `ApplicationFailureCode`;
-- `PMQAApplicationError`;
-- `WorkflowAdapterValidationError`;
-- `ApplicationRunResult`;
-- `PMQAWorkflowAdapter`;
-- `WorkflowRegistry`;
-- `RunnerRegistry`;
-- `PMQAApplicationService`;
-- `APPLICATION_CONTRACT_SCHEMA_VERSION`;
-- `APPLICATION_RUN_OPERATION`; and
-- `MAX_APPLICATION_REGISTRY_ITEMS`.
+Before `validate_request()`, the service reconstructs a fresh canonical
+`RunRequest` snapshot. Before `validate_result()`, it reconstructs a fresh
+canonical `StructuredResult` snapshot. Each validator-owned snapshot is
+discarded after the call. Later runner selection, context construction,
+dispatch, record assembly, and output use only the untouched service-owned
+objects.
 
-The package remains an explicit opt-in import and is not re-exported from
-top-level `pmqa`.
+Adversarial tests mutate and retain validator arguments, including request,
+session, workflow, version, runner, input-schema and result-schema identities,
+safe data changed into prohibited/runtime-like keys, and post-validation
+retained references. Execution and output remain byte-for-byte equal to the
+pre-validation canonical snapshots, and neither injected markers nor
+prohibited keys enter the result.
 
-`ApplicationRunResult` is a frozen canonical envelope containing the canonical
-`RunRequest`, terminal `RunRecord`, and exact canonical `RunnerResponse`. Its
-single terminal invocation is exposed through the read-only
-`runner_invocation` property. Construction, `from_dict()`, and
-`model_copy(update=...)` revalidate complete request/run/invocation/status,
-timestamp, duration, result, artifact, and error correlations.
+## F2 — Runner Dispatch Isolation
 
-## Registry Identity and Immutability
+The service constructs and retains one authoritative canonical
+`RunnerRequest`. Immediately before dispatch, it reconstructs a second
+canonical `RunnerRequest` and passes only that snapshot to
+`PMQARunner.execute()`.
 
-`WorkflowRegistry` accepts only an exact bounded tuple of adapters and indexes
-exact `(workflow_id, workflow_version)` identities. `RunnerRegistry` accepts
-only an exact bounded tuple of runner instances and indexes exact `runner_id`
-identities. Duplicate or malformed entries fail with fixed safe application
-errors.
+The dispatch object is never reused after the runner call. The canonical
+response is validated only against the untouched authoritative request.
 
-Both registries canonically reconstruct definition or metadata snapshots at
-construction. Public listing and resolution return new canonical snapshots, so
-caller mutation of original inputs or returned Pydantic internals cannot alter
-registry-owned identity. The selected runtime adapter or runner remains the
-explicit caller-supplied implementation.
+Adversarial runners now mutate the complete dispatch correlation:
 
-There is no mutable registration API, global registry, entry-point discovery,
-package scan, filesystem lookup, environment lookup, import-path loading, or
-dynamic import. Live workflow-definition and runner-metadata drift is checked
-against the retained snapshot and fails before the affected validator or
-runner call.
+- embedded request, session, workflow/version, runner, and input schema;
+- context run, request, session, workflow/version, runner, and start time;
+- invocation ID, run ID, runner ID, operation, step, start time, attempt
+  number, and retry or fallback predecessor; and
+- expected result schema ID/version.
 
-## Pre-Execution Validation Order
+They return a response correlated only to the rewritten dispatch. The service
+rejects it with the fixed `RUNNER_BOUNDARY_FAILED` error, calls the runner
+exactly once, preserves caller-owned inputs, and exposes no marker, changed
+identity, cause, or context.
 
-`PMQAApplicationService.execute()` applies this stable order:
+## F3 — Single-Attempt Application Contract
 
-1. reconstruct and validate the exact `RunRequest`;
-2. resolve the exact workflow ID and version;
-3. confirm request input schema ID/version;
-4. confirm the adapter's live definition equals its registered snapshot;
-5. invoke the workflow-specific request validator;
-6. resolve the exact runner ID;
-7. confirm every required workflow capability;
-8. confirm live runner metadata equals its registered snapshot;
-9. reject approval modes other than `ApprovalMode.NONE`;
-10. validate caller-supplied run and invocation IDs and runtime control;
-11. sample and validate the application clock exactly once; and
-12. construct the canonical context, pending first invocation, and
-    `RunnerRequest`.
+`APPLICATION_RUN_OPERATION` now has one definition in the neutral application
+contracts module and is reused by both contract validation and the service.
 
-All pre-execution failures produce zero runner calls. The one sampled
-timezone-aware UTC application start is shared by context, pending invocation,
-and final run start, and cannot precede `RunRequest.requested_at`.
+`ApplicationRunResult` requires its terminal invocation to have exactly:
 
-## Execution and Result Lifecycle
+```text
+operation == APPLICATION_RUN_OPERATION
+step_id is None
+attempt_number == 1
+retry_of_invocation_id is None
+fallback_from_invocation_id is None
+```
 
-The service creates attempt number 1 only, with operation
-`application.execute-workflow` and no retry or fallback predecessor. An
-omitted control creates one local `RunnerControl`; a supplied control remains
-caller-owned and runtime-only.
+Tests independently reject an arbitrary operation, non-null step, attempt 2,
+retry predecessor, fallback predecessor, and combined mutation through direct
+construction, `from_dict()`, and `model_copy(update=...)`. Existing canonical
+status, identity, result, artifact, error, timestamp, and duration correlation
+remains unchanged.
 
-The selected runner is called at most once. Its response is independently
-reconstructed and passed through authoritative `validate_runner_response()`.
-A present result must match the selected workflow schema and is passed to the
-workflow result validator exactly once. Failed and cancelled terminal
-responses are normal execution outcomes and invoke no result validator.
+## F4 — Live Property Exception Identity
 
-The terminal `RunRecord` maps the exact runner status, result, artifacts,
-errors, timestamps, and duration. Creation time is the request timestamp,
-update time is invocation completion, `current_step_id` is absent, and
-`outcome_metrics` remains `None` rather than being fabricated.
+Live workflow-definition and runner-metadata property access is no longer
+wrapped as an expected changed-state failure. If access raises, the exact
+exception object propagates unchanged.
 
-No persistence, retry, fallback, timeout enforcement, approval execution, or
-provider operation occurs.
+A successfully returned malformed or unequal live value still maps to the
+fixed, safe `WORKFLOW_DEFINITION_CHANGED` or `RUNNER_METADATA_CHANGED` error.
+Registry-construction containment for malformed registrations is unchanged.
 
-## Safe Failure Behavior
+Tests prove exact identity propagation for `RuntimeError`, `ValueError`,
+`MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit` from
+both live properties, while existing drift and new malformed-value tests
+preserve safe mismatch classification and zero runner calls.
 
-Expected application failures use a bounded enum and fixed messages that do
-not expose requests, IDs, registry contents, payloads, paths, prompts, provider
-data, runtime objects, injected markers, or underlying exception details.
-Expected exception chaining is suppressed.
+## Adversarial Test Evidence
 
-Workflow adapters signal expected validation rejection only with
-`WorkflowAdapterValidationError`. Runner-owned
-`RunnerBoundaryValidationError` becomes the fixed
-`RUNNER_BOUNDARY_FAILED` application error. Unexpected programming exceptions
-are not relabeled. `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and
-`GeneratorExit` propagate unchanged across registry, workflow, clock, and
-runner boundaries.
+The focused suite now covers:
 
-Application imports remain side-effect-free and do not load products,
-external Product Packs, Playwright, LangGraph, existing orchestration/runtime,
-reasoning providers, storage, subprocesses, or UI packages.
+- immediate and retained mutation of request-validator snapshots;
+- mutation of every request selection and input-schema identity;
+- prohibited/runtime-like input replacement;
+- immediate and retained mutation of result-validator snapshots;
+- result schema and prohibited/runtime-like result-data replacement;
+- exact output equality after validator mutation;
+- complete runner dispatch correlation replacement with retry and fallback
+  variants;
+- fixed marker-safe runner-boundary rejection without cause or context;
+- caller run/request/control identity preservation and exactly one runner call;
+- all single-attempt fields through all canonical construction paths;
+- malformed returned live definition and metadata values; and
+- exact ordinary and resource/control-flow exception propagation from both
+  live properties.
 
 ## Validation Results
 
 - Focused Task 5C.3 application tests:
   - `.venv/bin/python -m pytest tests/test_application_contracts.py tests/test_application_registry.py tests/test_application_service.py tests/test_application_imports.py`
-  - `84 passed`
+  - `118 passed`
 - Task 5C.1/5C.2, security boundary, and real-wheel packaging regressions:
   - `.venv/bin/python -m pytest tests/test_run_contracts.py tests/test_runner_contracts.py tests/test_mock_runner.py tests/test_boundary_policy.py tests/test_packaging.py`
   - `287 passed`
@@ -178,16 +158,14 @@ reasoning providers, storage, subprocesses, or UI packages.
   - `98 passed, 1 existing LangGraph deprecation warning`
 - Full default suite:
   - `.venv/bin/python -m pytest`
-  - `1527 passed, 5 skipped, 1 existing LangGraph deprecation warning`
+  - `1561 passed, 5 skipped, 1 existing LangGraph deprecation warning`
 - Generated Playwright regressions:
   - `.venv/bin/python -m pytest products/demo/generated_tests`
   - `2 passed`
 - Isolated compile check:
   - `.venv/bin/python -m compileall -q pmqa products`
   - passed with `PYTHONPYCACHEPREFIX` directed to a temporary directory
-- Markdown relative-link validation:
-  - `11 Markdown files validated`
-- `git diff --check`: passed before the implementation commit and will be
+- `git diff --check`: passed before the remediation commit and will be
   rechecked after this report-only commit.
 - Final worktree and remote synchronization:
   - the report-only handoff commit is pushed after this report is written;
@@ -200,44 +178,44 @@ regression using locally installed Chromium.
 
 ## Remaining Risks and Scope Confirmation
 
-- Persistence and repository-level cross-run validation remain future work.
-- Retry/fallback creation, timeout enforcement, approval execution, and
-  authorization remain future application-policy work.
+- Runtime controls remain intentionally caller-owned runtime objects; this
+  remediation isolates only persisted/canonical request and result state.
+- Persistence, repository correlation, retry/fallback creation, timeout
+  enforcement, approval execution, and authorization remain future work.
 - Real provider and workflow adapters remain future explicit composition.
-- Usage, cost, logs, feedback, evals, and reliable workflow-owned outcome
-  metrics remain separate future records.
-- `MockRunner` remains deterministic boundary infrastructure, not a production
-  provider.
-- Task 5C remains in progress and unmerged.
-- Task 5B, Task 6, and Task 7 were not started.
+- Usage, cost, logging, feedback, eval, and reliable workflow outcome records
+  remain separate future contracts.
+- WorkflowRegistry, RunnerRegistry, and the Application Service public shape
+  were not redesigned.
+- Registry-construction malformed-object containment remains unchanged.
 - WorkflowState, reducer, Supervisor, ToolRegistry, LangGraph, Task 5, Product
-  Pack, CLI, and generated-test behavior were not changed.
+  Pack, CLI, packaging behavior, and generated tests were not changed.
 - No persistence, discovery, provider SDK, subprocess, browser, Node, network,
-  UI, API, retry, fallback, approval execution, usage, or cost capability was
-  added.
+  UI, API, retry, fallback, approval execution, Usage/Cost, or Independent
+  Reviewer capability was added.
+- Task 5C.4, Task 5B, Task 6, and Task 7 were not started.
 - No PR was created and nothing was merged.
 - No earlier commit was amended.
-- No known blocking finding remains in the implementation.
+- No known blocking finding remains after this remediation.
 
 ## Recommended Review Depth
 
 Recommendation: Deep
 
-Reason: Task 5C.3 introduces the first public composition boundary that
-correlates workflow policy, runner execution, and canonical terminal records.
+Reason: The remediation changes object ownership across both workflow and
+runner trust boundaries and strengthens the canonical terminal envelope.
 
 ## Suggested Review Focus
 
-- Verify registry snapshots cannot be changed through caller-owned or returned
-  model objects and that no discovery surface exists.
-- Check the documented pre-execution order and zero-runner-call guarantees.
-- Reinspect expected versus unexpected exception classification across
-  workflow, runner, and clock boundaries.
-- Verify exactly-one runner execution and exact canonical response/result
-  correlation for every terminal outcome.
-- Confirm application imports and wheel contents preserve product, provider,
-  browser, orchestration, and runtime isolation.
-- Confirm no persistence, retry/fallback, approval execution, Usage/Cost, or
-  existing workflow semantics entered this checkpoint.
+- Reproduce validator `__dict__` and retained-reference mutation against
+  request and result snapshots.
+- Verify the runner receives a dispatch copy while authoritative response
+  validation uses an untouched request.
+- Inspect all application-owned operation, step, attempt, and predecessor
+  invariants across every construction path.
+- Confirm exact exception identity from live properties and safe
+  classification only for returned mismatches.
+- Recheck fixed error secrecy, exactly-one execution, caller immutability, and
+  unchanged imports/packaging.
 
 The Coder recommendation is advisory and does not approve the task.
