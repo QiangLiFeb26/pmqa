@@ -299,9 +299,15 @@ sampling begins, after which the handle is consumed. Task 5C.5 passed
 architecture review. Task 5C.6 adds an explicit append-only local JSON
 `UsageRepository`, with one digest-named canonical file per invocation,
 atomic no-replace publication, deterministic session/run/recent queries, and
-strict corruption detection. Task 5C.6 is ready for architecture review.
-These checkpoints add no parser, calculator, aggregation, CLI summary,
-optimizer, real provider integration, or pricing table. See the
+strict corruption detection. Task 5C.6 passed architecture review. Task 5C.7
+adds strict immutable summary contracts and a pure deterministic aggregator
+for an explicit bounded session- or run-scoped invocation selection. It keeps
+zero, partial, and unavailable token evidence distinct; separates reported,
+estimated, subscription-included, currency, and pricing-provenance cost
+buckets; and provides deterministic provider/model groups. Task 5C.7 is ready
+for architecture review. These checkpoints add no repository-backed summary,
+parser, calculator, CLI summary, optimizer, real provider integration, or
+pricing table. See the
 [Run Contract architecture](docs/architecture/run-contract.md) and
 [Runner boundary architecture](docs/architecture/runner-boundary.md), plus
 the

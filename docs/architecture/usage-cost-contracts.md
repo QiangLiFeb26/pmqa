@@ -2,13 +2,14 @@
 
 ## Status
 
-Task 5C.1–5C.5 have passed architecture review. Task 5C.6 is **Ready for
+Task 5C.1–5C.6 have passed architecture review. Task 5C.7 is **Ready for
 architecture review**. Task 5C remains in progress and unmerged. Task 5B,
 Task 6, and Task 7 have not started.
 
 Task 5C.5 adds lifecycle collection to the Task 5C.4 contracts. Task 5C.6 adds
-explicit local persistence and deterministic retrieval. Neither checkpoint is
-the complete Usage Tracking MVP.
+explicit local persistence and deterministic retrieval. Task 5C.7 adds strict
+summary contracts and pure aggregation. These checkpoints are not the complete
+Usage Tracking MVP.
 
 ## Relationship to Runs and Runner Attempts
 
@@ -203,10 +204,52 @@ The collector and repository remain explicitly decoupled. The collector
 returns a canonical terminal record and never writes it automatically; the
 caller explicitly chooses a repository and save point.
 
+## Deterministic Summary Contracts and Pure Aggregation
+
+`UsageAggregator` accepts only an explicit built-in tuple of exact canonical
+`AIInvocationRecord` values plus a canonical session or run scope. The default
+implementation reconstructs every record, rejects duplicate invocation IDs
+and mixed correlation, enforces a conservative record bound, and returns one
+strict frozen `UsageSummary`. It never reads `UsageRepository`, silently
+filters input, or claims the caller's selection is complete.
+
+The summary has no generated timestamp and is therefore a pure deterministic
+function of its records and explicit scope. It includes exact invocation,
+status, retry, fallback, and duration counts. Retry and fallback counts use
+the explicit predecessor fields rather than inferring from attempt number.
+Duration sums canonical `duration_ms`; it is never recomputed from wall time.
+Integer and Decimal aggregate bounds fail safely rather than wrapping,
+clamping, truncating, or converting to float.
+
+Every `TokenField` appears once with an optional total plus observed and
+unavailable invocation counts. No observations produces `total=None`; one or
+more observed zeros produces numeric zero. A partial total can coexist with
+unavailable coverage and does not claim to cover missing evidence. An empty
+selection has zero counts and `total=None` for every field without fabricating
+unavailable invocations.
+
+Cost buckets preserve the complete compatible identity: cost type, currency,
+pricing source, pricing version, and pricing effective timestamp. Reported and
+estimated money never merge; currencies and distinct pricing provenance never
+merge. Subscription-included and unavailable evidence are non-monetary
+buckets, with unavailable reasons kept distinct. Decimal summation is exact
+and independent of ambient Decimal precision.
+
+Provider/model groups repeat the same non-recursive metrics for each exact
+provider plus known model or exact model-unavailable reason. Known and
+unavailable model identities never merge. Token fields, cost buckets, and
+provider/model groups use stable canonical ordering independent of input
+order.
+
+The summary contracts reuse the Run/Usage persistence and security boundary:
+strict frozen Pydantic v2 models, canonical JSON round trips, revalidated
+copies, bounded trees and identifiers, independently reconstructed nested
+records, and fixed safe errors. No second prohibited-key policy exists.
+
 ## Deferred Usage Tracking Work
 
 Later checkpoints may add provider/CLI parsers, pricing calculation,
-run/session aggregate models, summaries, CLI output, workflow integration,
-retention, compaction, archival, migration, budgets, and optimization. Task
-5C.6 adds none of those capabilities, and no real provider integration or
-provider-specific evidence is added.
+repository-backed selection and completeness, CLI rendering, outcome-metric
+joining, workflow integration, retention, compaction, archival, migration,
+budgets, and optimization. Task 5C.7 adds none of those capabilities, and no
+real provider integration or provider-specific evidence is added.

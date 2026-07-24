@@ -239,16 +239,28 @@ domain identifiers out of paths. Reads reject corrupt matching records rather
 than silently returning partial query results. Session, run, and recent
 queries are newest-first with an ascending invocation-ID tie-breaker.
 
+Task 5C.7 adds strict immutable `UsageSummary` contracts and the pure
+`UsageAggregator` boundary. The default implementation independently
+reconstructs an explicit bounded caller selection, validates session or run
+correlation, and deterministically derives status, predecessor, duration,
+token-field, cost-bucket, and provider/model metrics. It does not read the
+repository or infer selection completeness. Numeric zero remains observed;
+partial and unavailable token coverage remains explicit. Monetary evidence is
+partitioned by type, currency, and complete pricing provenance, while
+subscription-included and unavailable evidence remains non-monetary.
+
 Usage/cost records are not fields on `RunRecord`,
 `RunnerInvocationRecord`, reasoning `TraceRecord`, or LangGraph
 `WorkflowState`. A future runner may correlate zero or more model calls to one
-runner attempt, while collection, calculation, persistence, aggregation, and
-optimization remain separate future services.
+runner attempt, while collection, persistence, pure aggregation, calculation,
+and optimization remain separate components.
 
 The collector performs no parsing, pricing lookup, calculation, persistence
 callback, provider execution, or workflow integration; callers explicitly
 choose if and when to save its returned record. The repository performs no
 collection, aggregation, retention, provider parsing, or cost calculation.
+The aggregator performs no repository access, pricing lookup, outcome join,
+provider execution, or completeness inference.
 No automatic discovery, retry/fallback creation, approval execution, provider
 adapter, subprocess runner, UI, Copilot integration, Azure DevOps access,
 cost calculator, or pricing table exists yet.
@@ -256,7 +268,7 @@ See the [Run Contract architecture](architecture/run-contract.md) and
 [Runner boundary architecture](architecture/runner-boundary.md), plus the
 [Application Service architecture](architecture/application-service.md) and
 [Usage and cost contracts](architecture/usage-cost-contracts.md). Task
-5C.1–5C.5 passed architecture review; Task 5C.6 is ready for architecture
+5C.1–5C.6 passed architecture review; Task 5C.7 is ready for architecture
 review, and Task 5C remains in progress and unmerged.
 Task 5B, Task 6, and Task 7 remain not started.
 

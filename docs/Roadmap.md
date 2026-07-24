@@ -15,7 +15,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
 | Task 5A — Product Pack Adoption Foundation | Complete | Task 5A.1–5A.6 establish the experimental manifest, explicit loading, protocol, bounded transport, scaffolding/conformance, and external SauceDemo architecture-validation slice; merged through PR #22. |
-| Task 5C — Local Application and Run Layer | In progress | Task 5C.1–5C.5 passed architecture review; Task 5C.6 adds append-only local AI invocation persistence and is ready for architecture review. |
+| Task 5C — Local Application and Run Layer | In progress | Task 5C.1–5C.6 passed architecture review; Task 5C.7 adds deterministic usage summary contracts and pure aggregation and is ready for architecture review. |
 | Task 5B — Company-side MDE Read-Only Pilot | Not started | Validate Product Pack assumptions in a company-managed, private, read-only pilot before API v1 stabilization. |
 
 ## Task 4 closure
@@ -160,7 +160,7 @@ MDE.
 
 ## Task 5C — Local Application and Run Layer
 
-**Task 5C.1–5C.5 status: Architecture review passed. Task 5C.6 status: Ready
+**Task 5C.1–5C.6 status: Architecture review passed. Task 5C.7 status: Ready
 for architecture review.** Task 5C exists to establish the local
 application/run layer before the company-side Task 5B pilot. Its first
 checkpoint defines the versioned, provider-neutral contracts for requests,
@@ -214,10 +214,21 @@ the canonical record and deterministic session/run/recent queries order
 newest completion first with ascending invocation ID ties. The collector and
 repository remain decoupled.
 
+Task 5C.7 adds strict immutable usage summary contracts and a pure
+provider-neutral aggregator over an explicit caller-supplied bounded tuple of
+canonical invocation records. Session and run correlation is validated
+without silently filtering. Zero, partial, and unavailable token evidence
+remain distinct; reported and estimated monetary evidence stays separated by
+currency and pricing provenance; subscription-included and unavailable
+evidence remains non-monetary. Provider/model groups and all buckets have
+input-order-independent canonical ordering. The aggregator neither reads the
+repository nor claims the selection is complete.
+
 Task 5C remains in progress and unmerged. No automatic discovery, retry or
 fallback creation, approval execution, real provider adapter, subprocess
-runner, provider/CLI usage parser, cost calculator, pricing table, aggregation,
-CLI summary, optimizer, UI, or Azure DevOps integration has been added.
+runner, provider/CLI usage parser, cost calculator, pricing table,
+repository-backed selection/completeness, CLI summary, outcome-metric join,
+optimizer, UI, or Azure DevOps integration has been added.
 Task 5B remains Not started; Task 6 and Task 7 remain Not started.
 
 ## Task 5B — Company-side MDE Read-Only Pilot
