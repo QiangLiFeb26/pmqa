@@ -2,12 +2,12 @@
 
 ## Status
 
-Task 5C.1–5C.3 have passed architecture review. Task 5C.4 is **Ready for
+Task 5C.1–5C.4 have passed architecture review. Task 5C.5 is **Ready for
 architecture review**. Task 5C remains in progress and unmerged. Task 5B,
 Task 6, and Task 7 have not started.
 
-Task 5C.4 is a contracts and pricing-boundary checkpoint, not the Usage
-Tracking MVP.
+Task 5C.5 adds lifecycle collection to the Task 5C.4 contracts. It is not the
+Usage Tracking MVP.
 
 ## Relationship to Runs and Runner Attempts
 
@@ -109,9 +109,35 @@ Importing `pmqa.usage` performs no discovery, I/O, environment access, process
 launch, provider loading, product loading, pricing lookup, or global
 registration. The package is not exported from top-level `pmqa`.
 
+## Invocation Lifecycle Collector
+
+`AIInvocationCollector` is the provider-neutral synchronous runtime boundary.
+`DefaultAIInvocationCollector` validates only canonical invocation correlation
+and returns an opaque `AIInvocationHandle`. The handle is bound to its owning
+collector, cannot be constructed or serialized as domain data, and exposes no
+correlation or capability value. Its private active state contains only the
+metadata and timing needed to construct a terminal record.
+
+One handle produces at most one terminal `AIInvocationRecord` through success,
+failure, or cancellation. Mandatory `TokenUsageEvidence` and `CostEvidence`
+are independently reconstructed before any terminal clock is sampled. A
+caller-validation failure therefore leaves the handle active for corrected
+evidence. Ownership is consumed immediately before terminal clock sampling;
+an expected clock, duration, or final-record failure after that point cannot
+produce a later duplicate record. Resource and control-flow exceptions remain
+authoritative.
+
+The collector samples its injected wall and monotonic clocks once at start and
+once at the applicable terminal stage. Wall samples must be timezone-aware and
+become UTC timestamps. Monotonic samples must be exact finite integers or
+floats. Duration uses only their non-negative difference and deterministic
+decimal half-up rounding to milliseconds; wall-clock drift never replaces it.
+Unavailable usage, cost, or model evidence remains explicitly unavailable and
+is never guessed, clamped, converted to zero, or fabricated.
+
 ## Deferred Usage Tracking Work
 
-Later checkpoints may add explicit collectors, provider/CLI parsers, pricing
-calculation, persistence, run/session aggregation, CLI summaries, budgets, and
-optimization. None exists in Task 5C.4, and no real provider integration or
-provider-specific evidence is added.
+Later checkpoints may add provider/CLI parsers, pricing calculation,
+persistence, run/session aggregation, CLI summaries, budgets, and
+optimization. Task 5C.5 adds none of those capabilities, and no real provider
+integration or provider-specific evidence is added.

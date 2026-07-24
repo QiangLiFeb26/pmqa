@@ -137,6 +137,7 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         assert "pmqa/application/service.py" in names
         assert "pmqa/usage/__init__.py" in names
         assert "pmqa/usage/contracts.py" in names
+        assert "pmqa/usage/collector.py" in names
         assert "pmqa/usage/pricing.py" in names
         assert (
             "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json" in names
@@ -257,6 +258,8 @@ assert pmqa.usage.AIInvocationRecord
 assert pmqa.usage.TokenUsageEvidence
 assert pmqa.usage.CostEvidence
 assert pmqa.usage.PricingCatalog
+assert pmqa.usage.AIInvocationCollector
+assert pmqa.usage.DefaultAIInvocationCollector
 modules = (
     pmqa,
     pmqa.product_pack,

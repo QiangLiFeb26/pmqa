@@ -220,21 +220,34 @@ unavailable states without treating absence as zero. Immutable model-pricing
 records and the read-only `PricingCatalog` protocol provide versioned
 effective-date evidence without a built-in price table or cost calculation.
 
+Task 5C.5 adds `AIInvocationCollector` and its deterministic default
+implementation as a runtime lifecycle boundary. Starting an invocation returns
+an opaque collector-owned `AIInvocationHandle`, not persisted domain data.
+Exactly one success, failure, or cancellation path consumes the handle and
+returns a reconstructed `AIInvocationRecord`. Correlation and caller evidence
+are validated before terminal clocks; invalid caller evidence remains
+correctable until clock sampling begins. Once sampling begins, expected
+terminalization failures consume ownership to preserve at-most-once behavior.
+Wall time supplies canonical timestamps, while duration is derived only from
+monotonic samples using deterministic half-up millisecond rounding.
+
 Usage/cost records are not fields on `RunRecord`,
 `RunnerInvocationRecord`, reasoning `TraceRecord`, or LangGraph
 `WorkflowState`. A future runner may correlate zero or more model calls to one
 runner attempt, while collection, calculation, persistence, aggregation, and
 optimization remain separate future services.
 
-No automatic discovery, retry/fallback creation, approval execution, provider
-adapter, subprocess runner, persistence service, UI, Copilot integration,
-Azure DevOps access, usage collector, cost calculator, or pricing table exists
-yet.
+The collector performs no parsing, pricing lookup, calculation, persistence,
+callback, provider execution, or workflow integration. No automatic discovery,
+retry/fallback creation, approval execution, provider adapter, subprocess
+runner, persistence service, UI, Copilot integration, Azure DevOps access,
+cost calculator, or pricing table exists yet.
 See the [Run Contract architecture](architecture/run-contract.md) and
 [Runner boundary architecture](architecture/runner-boundary.md), plus the
 [Application Service architecture](architecture/application-service.md) and
 [Usage and cost contracts](architecture/usage-cost-contracts.md). Task 5C.4
-is ready for architecture review; Task 5C remains in progress and unmerged.
+passed architecture review; Task 5C.5 is ready for architecture review, and
+Task 5C remains in progress and unmerged.
 Task 5B, Task 6, and Task 7 remain not started.
 
 ### Memory

@@ -290,10 +290,15 @@ versioned AI invocation, token-usage, cost-evidence, and model-pricing
 contracts plus a read-only pricing lookup boundary. Usage/cost remains beside,
 not inside, Run Contract, LangGraph `WorkflowState`, and reasoning traces. The
 existing
-`pmqa.core.RunContext` remains a legacy compatibility contract. Task 5C.3 is
-approved and Task 5C.4 is ready for architecture review. This checkpoint adds
-no collector, calculator, persistence, aggregation, CLI summary, optimizer,
-real provider integration, or pricing table. See the
+`pmqa.core.RunContext` remains a legacy compatibility contract. Task 5C.4
+passed architecture review. Task 5C.5 adds a provider-neutral, exactly-once
+runtime collector that creates canonical `AIInvocationRecord` values from
+caller-supplied evidence and injected wall/monotonic clocks. Its opaque handle
+is runtime-only; invalid evidence remains correctable until terminal clock
+sampling begins, after which the handle is consumed. Task 5C.5 is ready for
+architecture review. This checkpoint adds no parser, calculator, persistence,
+aggregation, CLI summary, optimizer, real provider integration, or pricing
+table. See the
 [Run Contract architecture](docs/architecture/run-contract.md) and
 [Runner boundary architecture](docs/architecture/runner-boundary.md), plus
 the

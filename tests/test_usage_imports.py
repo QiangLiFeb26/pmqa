@@ -27,6 +27,8 @@ def test_usage_import_is_side_effect_free_and_provider_neutral() -> None:
             "assert usage.TokenUsageEvidence",
             "assert usage.CostEvidence",
             "assert usage.PricingCatalog",
+            "assert usage.AIInvocationCollector",
+            "assert usage.DefaultAIInvocationCollector",
             "assert tuple(sys.path) == before_path",
             "assert os.environ == before_environment",
             "builtins.open = original_open",

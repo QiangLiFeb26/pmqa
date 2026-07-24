@@ -137,6 +137,36 @@ class AIInvocationStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+def _validate_ai_invocation_metadata_values(
+    *,
+    invocation_id: str,
+    model: Optional[str],
+    model_unavailable_reason: Optional[EvidenceUnavailableReason],
+    attempt_number: int,
+    retry_of_invocation_id: Optional[str],
+    fallback_from_invocation_id: Optional[str],
+) -> None:
+    """Apply the canonical cross-field invocation-correlation policy."""
+
+    if (model is None) == (model_unavailable_reason is None):
+        raise ValueError("model identity or unavailable reason must be present")
+    if retry_of_invocation_id == invocation_id:
+        raise ValueError("retry cannot reference the invocation itself")
+    if fallback_from_invocation_id == invocation_id:
+        raise ValueError("fallback cannot reference the invocation itself")
+    predecessor_count = sum(
+        value is not None
+        for value in (
+            retry_of_invocation_id,
+            fallback_from_invocation_id,
+        )
+    )
+    if attempt_number == 1 and predecessor_count != 0:
+        raise ValueError("first attempt must not declare a predecessor")
+    if attempt_number > 1 and predecessor_count != 1:
+        raise ValueError("later attempt must declare exactly one predecessor")
+
+
 def _canonical_decimal(value: Any, field_name: str) -> Decimal:
     if type(value) is Decimal:
         candidate = value
@@ -530,27 +560,14 @@ class AIInvocationRecord(_UsageContract):
             raise ValueError(
                 "pricing evidence cannot take effect after invocation start"
             )
-        if (self.model is None) == (self.model_unavailable_reason is None):
-            raise ValueError(
-                "model identity or unavailable reason must be present"
-            )
-        if self.retry_of_invocation_id == self.invocation_id:
-            raise ValueError("retry cannot reference the invocation itself")
-        if self.fallback_from_invocation_id == self.invocation_id:
-            raise ValueError("fallback cannot reference the invocation itself")
-        predecessor_count = sum(
-            value is not None
-            for value in (
-                self.retry_of_invocation_id,
-                self.fallback_from_invocation_id,
-            )
+        _validate_ai_invocation_metadata_values(
+            invocation_id=self.invocation_id,
+            model=self.model,
+            model_unavailable_reason=self.model_unavailable_reason,
+            attempt_number=self.attempt_number,
+            retry_of_invocation_id=self.retry_of_invocation_id,
+            fallback_from_invocation_id=self.fallback_from_invocation_id,
         )
-        if self.attempt_number == 1 and predecessor_count != 0:
-            raise ValueError("first attempt must not declare a predecessor")
-        if self.attempt_number > 1 and predecessor_count != 1:
-            raise ValueError(
-                "later attempt must declare exactly one predecessor"
-            )
         if self.status is AIInvocationStatus.SUCCEEDED:
             if self.error_category is not None:
                 raise ValueError("successful invocation cannot have an error")

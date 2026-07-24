@@ -1,5 +1,12 @@
-"""Provider-neutral AI invocation usage, cost, and pricing contracts."""
+"""Provider-neutral AI invocation contracts and lifecycle collection."""
 
+from pmqa.usage.collector import (
+    AIInvocationCollectionError,
+    AIInvocationCollectionErrorCode,
+    AIInvocationCollector,
+    AIInvocationHandle,
+    DefaultAIInvocationCollector,
+)
 from pmqa.usage.contracts import (
     USAGE_CONTRACT_SCHEMA_VERSION,
     MAX_USAGE_INTEGER,
@@ -25,10 +32,15 @@ from pmqa.usage.pricing import (
 __all__ = [
     "USAGE_CONTRACT_SCHEMA_VERSION",
     "MAX_USAGE_INTEGER",
+    "AIInvocationCollectionError",
+    "AIInvocationCollectionErrorCode",
+    "AIInvocationCollector",
+    "AIInvocationHandle",
     "AIInvocationRecord",
     "AIInvocationStatus",
     "CostEvidence",
     "CostType",
+    "DefaultAIInvocationCollector",
     "EvidenceUnavailableReason",
     "ModelPricing",
     "PricingCatalog",
