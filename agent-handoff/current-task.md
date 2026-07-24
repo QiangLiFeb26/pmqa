@@ -2,9 +2,9 @@
 
 Owner: Architect
 
-Task: PMQA Task 5C.5 — Provider-Neutral AI Invocation Collector
+Task: PMQA Task 5C.6 — Append-Only Local AI Invocation Repository
 
-Task ID: `PMQA-5C.5`
+Task ID: `PMQA-5C.6`
 
 Attempt: `1`
 
@@ -13,327 +13,395 @@ Status: Ready for Coder
 Branch: `agent/task-5c-1-canonical-run-contract`
 
 Architect reviewed baseline:
-`f5a960d359b671c485d70871eecb2e150b9e23d6`
+`efe5ee01ec9ddfa574eef74f333fb98ed46528b2`
 
 Coder starting HEAD: derive and record the latest pushed branch commit that
 contains this task publication before changing implementation files.
 
 Repository Markdown and Git history are authoritative. Chat summaries are
-informational only. This task uses the now-adopted
+informational only. This task uses the adopted
 Coder → Independent Reviewer → Architect workflow.
 
 ## Task Objective
 
-Implement the first provider-neutral lifecycle service that creates canonical
-Task 5C.4 `AIInvocationRecord` values without storing prompts, responses,
-credentials, provider clients, or runtime objects.
+Add a provider-neutral, append-only local repository for canonical Task 5C.4/
+5C.5 `AIInvocationRecord` values.
 
-The service must:
+The repository must persist only canonical metrics and correlation metadata,
+never raw prompts, model responses, credentials, provider clients, CLI output,
+or runtime handles.
 
-- start one invocation and return an invocation-local runtime handle;
-- complete, fail, or cancel that invocation exactly once;
-- sample validated wall-clock and monotonic timing through injected clocks;
-- accept caller-supplied canonical usage and cost evidence without inventing
-  missing data;
-- return one fully correlated immutable `AIInvocationRecord`;
-- remain independent from provider SDKs, CLI formats, pricing calculation,
-  persistence, UI, LangGraph, and current Application Service behavior.
-
-This checkpoint is lifecycle collection only. It does not calculate cost,
-parse provider output, persist records, or integrate with a real workflow.
+This checkpoint is persistence and deterministic retrieval only. It does not
+integrate the collector, aggregate summaries, expose a CLI, parse provider
+output, or calculate cost.
 
 ## Background
 
-Task 5C.4 introduced:
+Task 5C.4 established provider-neutral invocation, usage, cost, and pricing
+contracts. Task 5C.5 added an exactly-once runtime collector that returns one
+canonical terminal `AIInvocationRecord`.
 
-- `TokenUsageEvidence`;
-- `CostEvidence`;
-- `AIInvocationRecord`;
-- `ModelPricing`;
-- the read-only `PricingCatalog` protocol.
-
-Those contracts describe evidence but do not own runtime timing or
-terminalization. A future provider/runner adapter needs a narrow neutral
-service equivalent to:
+Those records currently remain in memory. Task 5C.6 adds the smallest safe
+local persistence boundary needed by later run/session summaries:
 
 ```text
-handle = collector.start_invocation(...)
-
-record = collector.complete_invocation(handle, usage, cost)
-record = collector.fail_invocation(handle, usage, cost, error_category)
-record = collector.cancel_invocation(handle, usage, cost)
+AIInvocationRecord
+        |
+        v
+UsageRepository
+        |
+        v
+explicit local JSON repository
 ```
 
-The API may use different precise names if they are clearer and consistent
-with repository style.
+The existing `StorageProvider` stores generic mutable artifacts and allows
+replacement. It is not the correct contract for immutable invocation history.
+The existing SQLite reasoning trace store contains prompt/response-oriented
+trace semantics and must not be reused or extended for usage records.
+
+Do not introduce a database in this checkpoint.
 
 ## Scope
 
-Add a small collection boundary under `pmqa.usage` containing:
+Add:
 
-1. a runtime-only invocation handle;
-2. a provider-neutral collector interface;
-3. one deterministic synchronous default implementation;
-4. fixed safe collection failures;
-5. focused lifecycle, timing, ownership, security, import, and packaging
-   tests;
-6. concise Task 5C.5 architecture/status documentation.
+1. a provider-neutral `UsageRepository` protocol or abstract boundary;
+2. fixed safe repository failures;
+3. one explicit local JSON implementation using one immutable file per
+   invocation;
+4. deterministic retrieval by invocation, session, run, and recent order;
+5. duplicate-safe and concurrent-writer-safe publication;
+6. strict reconstruction and corruption detection;
+7. focused persistence, concurrency, security, import, and packaging tests;
+8. one durable threaded terminalization regression for the Task 5C.5
+   collector;
+9. concise architecture/status documentation.
 
-Do not change the Task 5C.4 persisted wire schema unless an independently
-demonstrated blocking defect makes that unavoidable. If such a defect is
-found, stop and report it rather than silently expanding scope.
+## Repository Interface
 
-## Collector Input and Correlation
+Expose a small synchronous interface equivalent to:
 
-Starting an invocation must receive only the canonical metadata needed to
-eventually construct `AIInvocationRecord`:
+```python
+class UsageRepository(Protocol):
+    def save(self, record: AIInvocationRecord) -> None:
+        ...
 
-- invocation ID;
-- session ID;
-- PMQA run ID;
-- optional runner invocation ID;
-- provider;
-- model or explicit model-unavailable reason;
-- operation;
-- attempt number;
-- optional retry predecessor;
-- optional fallback predecessor.
+    def get(self, invocation_id: str) -> AIInvocationRecord:
+        ...
 
-Reuse Task 5C.4 validation and identifiers. Do not duplicate correlation,
-attempt, predecessor, provider/model, or missing-reason policy in a second
-independent list.
+    def find_by_session(
+        self,
+        session_id: str,
+        *,
+        limit: int = ...,
+    ) -> tuple[AIInvocationRecord, ...]:
+        ...
 
-The collector must validate all caller metadata before sampling any clock or
-creating live handle state.
+    def find_by_run(
+        self,
+        run_id: str,
+        *,
+        limit: int = ...,
+    ) -> tuple[AIInvocationRecord, ...]:
+        ...
 
-## Runtime Handle Requirements
+    def list_recent(
+        self,
+        *,
+        limit: int = ...,
+    ) -> tuple[AIInvocationRecord, ...]:
+        ...
+```
 
-The handle is runtime-only coordination, not a persisted domain record.
+Exact names may differ if clearer. Do not add update, delete, overwrite,
+upsert, raw-query, arbitrary-filter, or mutable registration methods.
 
 Requirements:
 
-- it is immutable through its public API;
-- it contains or privately retains only canonical correlation and timing
-  needed by the owning collector;
-- it contains no prompt, response, credential, environment, provider client,
-  pricing catalog, storage object, browser/process handle, or arbitrary
-  metadata;
-- it is bound to exactly one collector instance;
-- a forged handle, subclass, foreign collector's handle, or mutated internal
-  handle is rejected safely;
-- it cannot be serialized into `AIInvocationRecord`, `RunRecord`,
-  `WorkflowState`, usage artifacts, or logs;
-- it does not expose a secret/token-like capability in public output;
-- finalization removes or irrevocably marks its active state.
+- exact canonical identifiers reuse the existing Run/Usage policy;
+- limits are exact bounded positive integers and reject `bool`;
+- results are immutable tuples of independently reconstructed records;
+- ordering is deterministic newest-first by `completed_at`, with one
+  documented invocation-ID tie-breaker;
+- missing `get` uses a fixed not-found error rather than returning fabricated
+  data;
+- queries distinguish an empty result from storage failure;
+- no method accepts or returns raw dictionaries.
 
-An opaque identity or collector-owned active-handle table is acceptable. Do
-not use a process-global registry.
+## Local JSON Layout
 
-## Lifecycle Requirements
+Use an explicit caller-supplied repository root. There is no implicit
+environment variable or current-working-directory discovery.
 
-Support exactly three terminal paths:
+Recommended layout:
 
-- success;
-- failure;
-- cancellation.
+```text
+<root>/
+  invocations/
+    <sha256-of-canonical-invocation-id>.json
+```
 
-Each successful terminalization returns one independently reconstructed
-canonical `AIInvocationRecord`.
+Requirements:
 
-Required behavior:
+- use lowercase SHA-256 of the canonical UTF-8 invocation ID for the filename;
+- do not place raw provider, model, session, run, or invocation identifiers in
+  filesystem paths;
+- each file contains exactly one canonical `AIInvocationRecord.to_dict()`
+  JSON object and a trailing newline;
+- serialized JSON uses deterministic UTF-8, sorted keys, and compact
+  separators;
+- the record's schema version remains authoritative;
+- no repository-specific metadata is inserted into the domain record;
+- read-time validation recomputes the filename digest from the reconstructed
+  invocation ID;
+- non-record files and private incomplete-publication siblings are never
+  treated as records.
 
-- one handle can terminalize exactly once;
-- a second terminalization attempt fails safely and creates no second record;
-- finalization status and error category obey Task 5C.4 invariants;
-- success has no error category;
-- failure requires a caller-supplied non-cancellation `RunErrorCategory`;
-- cancellation uses only `RunErrorCategory.CANCELLED`;
-- usage and cost evidence are mandatory on every terminal path, but may use
-  their explicit unavailable forms;
-- caller-owned usage/cost objects are reconstructed and not retained;
-- later caller mutation cannot change the returned record;
-- no retry, fallback, parser, pricing, or persistence policy is added;
-- no callback, event, record sink, or hidden global collection occurs.
+Document `artifacts/usage/` as an example operator-selected root, not a hidden
+default. Add only the narrow root-level ignore rule needed to prevent that
+example runtime output from being committed.
 
-If terminal record construction fails because caller evidence is invalid or
-correlation was tampered with, the collector must not publish a partial
-record. Define and test whether the handle remains retryable or becomes
-terminal after each failure category; the policy must be deterministic and
-must not permit duplicate successful records.
+## Append-Only and Publication Semantics
 
-Recommended default:
+Saving must:
 
-- caller-validation failure before terminal clock sampling leaves the handle
-  active so corrected evidence may be supplied;
-- once terminal clock sampling begins, any expected terminalization failure
-  consumes the handle to preserve at-most-once semantics;
-- resource/control-flow exceptions remain authoritative and must not be
-  silently converted.
+1. require an exact `AIInvocationRecord`;
+2. reconstruct an independent canonical snapshot before filesystem effects;
+3. serialize and enforce a bounded byte size before publication;
+4. create the repository directory safely;
+5. publish one complete same-filesystem record without replacing an existing
+   target;
+6. report an existing target as a fixed duplicate error whether its content
+   is identical or different;
+7. leave an already published record unchanged on every later failure.
 
-If the Coder chooses a different policy, document the exact safety advantage
-and test it comprehensively.
+Publication must be atomic and no-replace from the repository reader's point
+of view. Concurrent repository instances attempting the same invocation ID
+must produce exactly one success and duplicate failures for all losers.
 
-## Clock and Duration Requirements
+Do not use `os.replace()`, overwrite mode, unlink-and-retry, recursive cleanup,
+or a check-then-overwrite sequence.
 
-Inject:
+If the selected platform cannot provide the required safe publication
+primitive, fail with a fixed unsupported/IO error before replacing data.
 
-- a timezone-aware wall-clock callable;
-- a monotonic-clock callable.
+Temporary files:
 
-Start behavior:
+- must be created in the same private invocation directory;
+- use a restrictive file mode where supported;
+- must not contain identifiers in their names;
+- are not records and are ignored by readers;
+- may be left as private orphans after ambiguous publication/cleanup failure;
+- must never trigger deletion of an unknown replacement path;
+- owned descriptors are closed exactly once;
+- no recursive cleanup is allowed.
 
-- sample each clock exactly once after input validation;
-- wall time must be a timezone-aware `datetime`, normalized to UTC;
-- monotonic time must be an exact finite `int` or `float`, excluding `bool`;
-- invalid clock objects or returned values fail with fixed safe errors;
-- ordinary clock exceptions are contained as fixed safe clock failures;
-- `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit`
-  propagate unchanged;
-- a failed start returns no live handle.
+Keep the implementation proportional to a trusted local repository root. Do
+not claim protection against a malicious operating-system administrator.
 
-Terminal behavior:
+## Read and Corruption Semantics
 
-- validate handle and caller evidence before sampling terminal clocks;
-- sample each terminal clock exactly once;
-- terminal wall time cannot precede start;
-- terminal monotonic time cannot precede start;
-- `duration_ms` is derived only from monotonic evidence;
-- conversion uses a documented deterministic rounding policy and remains
-  bounded by `MAX_USAGE_INTEGER`;
-- wall-clock difference does not overwrite monotonic duration;
-- invalid/overflow/non-finite samples fail safely without leaking values;
-- no timestamp or duration is guessed, clamped, or fabricated.
+Reads must:
 
-Use the existing Runner clock-containment precedent where appropriate, but do
-not make the collector depend on a runner implementation.
+- consider only exact lowercase 64-character hexadecimal `.json` record
+  names;
+- reject symlink/non-regular record entries rather than following them;
+- enforce a bounded file size before reading;
+- require UTF-8 and one exact JSON object;
+- reject duplicate JSON keys, non-finite constants, excessive nesting,
+  noncanonical representations, unknown fields, and trailing non-whitespace
+  data;
+- reconstruct through `AIInvocationRecord.from_dict()`;
+- require exact canonical JSON equality with the stored object;
+- require filename digest to match reconstructed invocation ID;
+- expose corruption only through a fixed safe data error;
+- never expose file paths, record IDs, payload values, byte content, parser
+  messages, object repr, secret markers, or underlying exceptions.
 
-## Collector Interface Requirements
+A corrupt matching record must not be silently skipped by `get`, query, or
+recent-list operations. Queries fail safely rather than returning a misleading
+partial result.
 
-Expose a provider-neutral interface from `pmqa.usage`.
+Resource/control-flow exceptions (`MemoryError`, `KeyboardInterrupt`,
+`SystemExit`, `GeneratorExit`) remain authoritative.
 
-It must:
+## Repository Failure Vocabulary
 
-- have no provider-specific arguments;
-- return only the runtime handle from start and
-  `AIInvocationRecord` from a successful terminalization;
-- use Task 5C.4 evidence contracts directly;
-- not accept raw dictionaries as usage/cost evidence at the runtime method
-  boundary unless they are explicitly reconstructed before any state change;
-- define a fixed small error-code vocabulary and bounded messages;
-- suppress underlying cause/context for expected failures;
-- preserve unexpected resource/control-flow exceptions;
-- perform no I/O.
+Define a small fixed vocabulary for:
 
-An abstract base class or runtime-checkable protocol is acceptable. The default
-implementation must satisfy it and be testable with injected clocks.
+- invalid repository configuration;
+- invalid record or identifier;
+- duplicate record;
+- record not found;
+- persistence failure;
+- read failure;
+- corrupt/inconsistent stored data;
+- unsupported safe publication when needed.
 
-## Security and Ownership Requirements
+Exact names may vary, but:
 
-The collector must never accept, retain, return, log, or expose:
+- every expected error has a bounded static message;
+- no error exposes a root path, filename, identifier, JSON data, marker,
+  underlying exception, cause, or context;
+- callers can distinguish duplicate, not-found, invalid input, corruption,
+  and operational I/O failures;
+- unexpected programming errors are not silently mislabeled when they fall
+  outside the explicit repository boundary.
+
+## Security and Data-Minimization Requirements
+
+The repository accepts only exact canonical `AIInvocationRecord` values.
+Therefore it must never persist:
 
 - prompts or model responses;
-- credentials, passwords, API keys, PATs, tokens, cookies, authentication or
+- credentials, passwords, PATs, API keys, tokens, cookies, authentication or
   browser storage state;
 - environment mappings;
-- provider clients or SDK response objects;
-- raw CLI stdout/stderr, terminal output, command lines, executable paths,
-  working directories, or repository paths;
+- provider clients or SDK objects;
+- raw provider metadata;
+- CLI stdout/stderr, terminal output, commands, executable paths, working
+  directories, or repository paths;
 - DOM/HTML, screenshots, traces, selectors, Page/Locator/browser objects;
-- callables other than the two constructor-injected clocks;
-- arbitrary metadata or exception text.
+- `AIInvocationHandle`, collector objects, callables, locks, file handles, or
+  arbitrary metadata.
 
-Do not introduce a new prohibited-key list. Reuse the existing neutral
-contract/security boundary.
+Do not create a second prohibited-key list. Reuse the canonical Usage/Run
+contract boundary and reconstruct records on both write and read.
 
-Expected errors must not reveal invalid values, runtime repr, markers, clock
-output, handle identity, or underlying exceptions.
+## Collector Concurrency Follow-up
 
-The collector must not mutate caller-owned inputs, usage/cost evidence, clock
-objects, or returned records.
+Add one focused durable regression to `tests/test_usage_collector.py`:
 
-## Import and Dependency Requirements
+- create multiple real threads competing to terminalize the same handle;
+- use thread-safe deterministic fake clocks;
+- prove exactly one terminal record is returned;
+- prove every loser receives the fixed invalid-handle error;
+- prove terminal wall and monotonic clocks are each sampled exactly once;
+- avoid timing sleeps and probabilistic assertions.
 
-`import pmqa.usage` must remain side-effect free and must not:
+Do not change collector production code unless this deterministic test exposes
+a real defect. If it does, stop and report rather than expanding the storage
+task silently.
 
-- create a collector instance or global handle registry;
-- sample a clock;
+## Import and Dependency Isolation
+
+Importing `pmqa.usage` and the repository modules must not:
+
+- create directories or files;
 - inspect environment/configuration/distributions;
-- read or write files;
+- instantiate a repository or collector;
 - launch processes, browsers, Node.js, or network calls;
 - load products, Product Packs, Playwright, LangGraph, orchestration,
   Supervisor, concrete runners, Application Service, reasoning providers,
-  storage, SQLite, CLI, or UI.
+  trace storage, SQLite, CLI, or UI.
 
-The collector may depend on Task 5C.4 contracts and narrow neutral validation
-helpers only. No provider dependency or new runtime dependency may be added.
+The local JSON repository may use only the Python standard library and the
+neutral usage contracts. No runtime dependency may be added.
 
-The PMQA wheel must include the new neutral collector code and no runtime
-output or fixture data.
+The PMQA wheel must include the repository code and exclude usage runtime
+output, private temporary files, tests, caches, and generated artifacts.
 
 ## Required Tests
 
 At minimum cover:
 
-- successful start and completion;
-- failed invocation;
-- cancelled invocation;
-- unavailable usage/cost accepted without fabrication;
-- present zero evidence preserved;
-- model-unavailable correlation;
-- optional runner invocation correlation;
-- retry and fallback metadata preserved;
-- invalid start metadata rejected before clock sampling;
-- start wall-clock and monotonic-clock validation;
-- terminal wall-clock and monotonic-clock validation;
-- backwards wall and monotonic time;
-- non-finite and overflow duration;
-- deterministic duration rounding and zero duration;
-- ordinary clock exception containment;
-- exact propagation of `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and
-  `GeneratorExit`;
-- each clock sampled exactly once at each applicable stage;
-- exactly-once terminalization;
-- duplicate completion/fail/cancel combinations rejected;
-- foreign, forged, subclassed, and internally mutated handles rejected;
-- evidence validation failure and retry/consumption policy;
-- retained-reference mutation cannot change returned records;
-- no marker, invalid value, handle identity, or exception leakage;
-- no global registry or import side effect;
-- interface/default implementation conformance;
-- package exports, import isolation, and real-wheel inclusion;
-- all Task 5C.4, Run, Runner, Application, security, packaging, and Task 4
-  regressions.
+### Canonical save/load
 
-All new tests must be offline and use deterministic fake clocks. Do not invoke
-a model, provider CLI, network, browser, Node.js, or external Product Pack.
+- successful save/get round trip;
+- exact JSON/canonical byte form;
+- independent caller snapshot;
+- explicit unavailable usage/cost;
+- present numeric zero;
+- model-unavailable records;
+- optional runner invocation correlation;
+- retry/fallback records;
+- duplicate save with same and different content;
+- no overwrite after duplicate or later failure.
+
+### Queries
+
+- deterministic session filtering;
+- deterministic run filtering;
+- recent ordering;
+- tie-break ordering;
+- bounded limit;
+- empty query result;
+- missing get;
+- independently reconstructed returned records;
+- corrupt matching record fails the whole query.
+
+### Publication and concurrency
+
+- two or more repository instances publishing the same invocation
+  concurrently;
+- exactly one success and duplicate failures;
+- no partial published record;
+- private incomplete siblings ignored;
+- publication failure preserves existing targets;
+- descriptor/resource cleanup policy;
+- unsupported safe-publication behavior when applicable.
+
+### Corruption and security
+
+- malformed JSON;
+- duplicate keys;
+- non-finite constants;
+- non-UTF-8 bytes;
+- unknown/missing fields;
+- noncanonical coercible JSON;
+- oversized file;
+- filename/content digest mismatch;
+- symlink and non-regular record entries;
+- marker/path/payload/exception leakage;
+- prohibited/runtime values rejected before I/O;
+- resource/control-flow exception propagation.
+
+### Compatibility
+
+- threaded Task 5C.5 collector regression;
+- import isolation;
+- real-wheel inclusion and output exclusion;
+- Task 5C.4/5C.5 focused regressions;
+- Run/Runner/Application and boundary regressions;
+- Task 4 orchestration regressions;
+- full default suite.
+
+All new tests must use pytest temporary directories and deterministic fixtures.
+They must not use a model, provider CLI, network, browser, Node.js, external
+Product Pack, or repository-local runtime output.
 
 ## Documentation
 
 Update only what is necessary:
 
-- `docs/Roadmap.md`: mark Task 5C.4 architecture review passed and Task 5C.5
+- `docs/Roadmap.md`: mark Task 5C.5 architecture review passed and Task 5C.6
   ready for review after implementation;
-- `docs/architecture.md`: add the collector as a runtime lifecycle boundary,
-  not storage or provider integration;
-- extend the focused usage/cost architecture document;
-- update `README.md` only for concise current status.
+- `docs/architecture.md`: separate runtime collection from local persistence;
+- extend `docs/architecture/usage-cost-contracts.md`;
+- update `README.md` only for concise current status;
+- add the narrow root-level ignore rule for the documented example usage
+  output.
 
 Document:
 
-- runtime handle versus persisted invocation record;
-- exactly-once lifecycle;
-- monotonic duration semantics;
-- safe missing evidence;
-- failure/handle-consumption policy;
-- deferred parser, calculator, storage, summary, CLI, workflow integration,
-  and optimization work.
+- why generic `StorageProvider` and reasoning trace storage are not reused;
+- immutable per-invocation files versus JSONL/database trade-off;
+- digest filenames and append-only publication;
+- trusted local-root boundary;
+- corruption behavior;
+- collector and repository remain explicitly decoupled;
+- deferred aggregation, summaries, CLI, provider parsing, cost calculation,
+  workflow integration, retention, compaction, and optimization.
 
 ## Allowed Changes
 
-- new focused collector/runtime files under `pmqa/usage/`;
-- `pmqa/usage/__init__.py` exports;
+- focused repository files under `pmqa/usage/`;
+- `pmqa/usage/__init__.py`;
 - focused new tests under `tests/`;
-- minimal additive `tests/test_packaging.py` assertions if needed;
+- one additive threaded regression in `tests/test_usage_collector.py`;
+- minimal additive `tests/test_packaging.py` and
+  `tests/test_usage_imports.py` coverage;
+- `.gitignore`;
 - `README.md`;
 - `docs/Roadmap.md`;
 - `docs/architecture.md`;
@@ -346,8 +414,9 @@ The Coder must not modify:
 - `agent-handoff/current-task.md`;
 - `agent-handoff/reviewer-report.md`;
 - `agent-handoff/architect-review.md`;
-- existing Task 5C.4 wire fields or semantics without stopping for Architect
-  direction.
+- Task 5C.4 wire fields or semantics;
+- collector production behavior unless the required concurrent regression
+  proves a defect and the Coder stops for Architect direction.
 
 Use one focused implementation commit and one report-only Coder handoff
 commit. Do not amend prior commits.
@@ -356,115 +425,74 @@ commit. Do not amend prior commits.
 
 Do not implement:
 
-- provider or CLI adapter/parser;
-- raw provider metadata;
-- pricing selection or cost calculation;
-- concrete `PricingCatalog` or pricing table;
-- storage, JSONL, SQLite, repository, sink, or callback;
-- aggregation, summaries, CLI, UI, logs, feedback, or eval;
-- workflow, runner, reasoning-provider, or Application Service integration;
-- retry/fallback execution policy;
-- timeout enforcement or automatic cancellation;
-- budgets, optimization, routing, recommendations, or model selection;
+- collector-to-repository automatic wiring;
+- run/session aggregation or summary models;
+- CLI commands or output;
+- provider or CLI parser;
+- pricing selection, cost calculation, or pricing tables;
+- retention, deletion, compaction, archival, migration, or schema upgrade;
+- SQLite or another database;
+- background writer, queue, callback, sink, event bus, watcher, or daemon;
+- encryption or key management;
+- authorization or multi-user service semantics;
+- remote/object/cloud storage;
+- UI, API, dashboard, budgets, alerts, or optimization;
+- changes to RunRecord, RunnerInvocationRecord, WorkflowState, LangGraph,
+  Supervisor, Task 5, Product Pack, or existing provider behavior;
 - Task 5B, Task 6, or Task 7;
 - PR creation or merge.
-
-Do not modify `RunRecord`, `RunnerInvocationRecord`, `WorkflowState`,
-LangGraph, Task 5, Product Pack, Supervisor, or existing provider behavior.
-
-## Acceptance Criteria
-
-The task is complete only if:
-
-- the public collector interface is provider-neutral;
-- the runtime handle cannot become persisted domain data;
-- lifecycle terminalization is exactly once;
-- canonical evidence is snapshotted without fabrication or caller mutation;
-- wall and monotonic clocks are injected, bounded, and safely contained;
-- duration uses only monotonic evidence;
-- failure/status/error correlation is canonical;
-- expected failures are fixed, bounded, and marker-safe;
-- resource/control-flow exceptions remain authoritative;
-- imports remain side-effect free and isolated;
-- no provider, parser, calculator, pricing table, storage, CLI, UI, workflow
-  integration, or optimization is added;
-- all new and existing required tests pass;
-- Coder and Reviewer follow their exclusive write boundaries.
 
 ## Validation Commands
 
 Run and report:
 
 ```bash
-.venv/bin/python -m pytest <new collector tests> tests/test_usage_contracts.py tests/test_usage_pricing.py tests/test_usage_imports.py
-.venv/bin/python -m pytest tests/test_run_contracts.py tests/test_runner_contracts.py tests/test_application_contracts.py tests/test_application_service.py tests/test_boundary_policy.py tests/test_packaging.py
-.venv/bin/python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py
-.venv/bin/python -m pytest
-.venv/bin/python -m pytest products/demo/generated_tests
+.venv/bin/python -m pytest tests/test_usage_repository.py tests/test_usage_collector.py tests/test_usage_contracts.py tests/test_usage_pricing.py tests/test_usage_imports.py -q
+.venv/bin/python -m pytest tests/test_run_contracts.py tests/test_runner_contracts.py tests/test_application_contracts.py tests/test_application_service.py tests/test_boundary_policy.py tests/test_packaging.py -q
+.venv/bin/python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py -q
+.venv/bin/python -m pytest -q
+.venv/bin/python -m pytest products/demo/generated_tests -q
 .venv/bin/python -m compileall -q pmqa products
 git diff --check
 git status --short
 ```
 
-Use an isolated bytecode cache for `compileall`. Browser execution is limited
-to the existing generated Playwright regression.
+If the chosen repository test filename differs, document the exact
+substitution. Do not silently omit a validation.
 
 ## Expected Deliverables
 
-- provider-neutral collector interface;
-- deterministic synchronous default collector;
-- runtime-only handle with exactly-once ownership;
-- safe clock and terminalization behavior;
-- focused adversarial tests;
-- import isolation and wheel coverage;
-- concise documentation updates;
-- one implementation commit;
-- one report-only Coder handoff commit;
-- clean synchronized branch;
-- no PR and no merge.
+- Provider-neutral repository contract and fixed failures.
+- Explicit append-only local JSON implementation.
+- Canonical duplicate-safe save/get/query behavior.
+- Corruption detection and data-minimizing storage.
+- Concurrent no-replace publication evidence.
+- Durable collector contention regression.
+- Import/packaging coverage and concise documentation.
+- Updated `agent-handoff/coder-report.md`.
+- One implementation commit and one report-only commit.
+- Clean synchronized branch.
+- No PR, merge, Reviewer implementation, or out-of-scope integration.
 
 ## Required Coder Handoff
 
-Replace `agent-handoff/coder-report.md` with the complete Task 5C.5 attempt 1
-report. Include:
+Replace `agent-handoff/coder-report.md` with the complete Task 5C.6 report.
 
-- Task ID, Attempt, branch, and Git-derived Coder starting HEAD;
-- implementation commit SHA(s) created before the report;
-- changed files and public API;
-- handle ownership and terminalization policy;
-- clock sampling, duration, and failure decisions;
-- security/import/packaging evidence;
-- exact validation results;
-- remaining risks/open items;
-- scope confirmation;
+Include:
+
+- Task/Attempt, branch, and exact Git-derived Coder starting HEAD;
+- implementation commit;
+- changed files;
+- repository public API and layout;
+- publication/no-replace strategy;
+- query ordering and corruption policy;
+- security and import evidence;
+- validation results;
+- remaining risks and scope confirmation;
 - exactly one recommended review depth: `Light`, `Standard`, or `Deep`;
 - one-sentence reason;
 - 3–6 suggested Reviewer focus areas;
-- a 5–10 line Human Summary whose `Action Needed From Human` explicitly routes
-  the following note to the Independent Reviewer and which ends with exactly
-  one copy-ready `Handoff Note` sentence as defined in
-  `agent-handoff/README.md`.
+- copy-ready Reviewer Handoff Note in the Human Summary.
 
-Do not include the Coder report commit's own SHA. Commit the report separately
-after implementation; the Reviewer derives it from Git.
-
-## Handoff After Coder Completion
-
-After the Coder report is committed and pushed:
-
-1. Human wakes the Independent Reviewer without copying report content.
-2. Reviewer follows `agent-handoff/README.md`, derives the Coder report commit,
-   and reviews independently.
-3. Reviewer modifies only `agent-handoff/reviewer-report.md`, commits, pushes,
-   and sends the Human Summary.
-4. Human then wakes the Architect.
-5. Architect derives the Reviewer commit and publishes the final disposition.
-
-The Coder must not modify or reset `reviewer-report.md`.
-
-The preferred Coder completion note for this task is:
-
-```text
-Action Needed From Human: 请将下方 Handoff Note 传递给 Independent Reviewer。
-Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 review。
-```
+The Coder recommendation is advisory. The Independent Reviewer and Architect
+independently select their actual review depths.

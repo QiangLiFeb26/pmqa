@@ -2,9 +2,9 @@
 
 Owner: Architect
 
-Task: PMQA Task 5C.4 — Provider-Neutral AI Usage and Cost Contracts
+Task: PMQA Task 5C.5 — Provider-Neutral AI Invocation Collector
 
-Task ID: `PMQA-5C.4`
+Task ID: `PMQA-5C.5`
 
 Attempt: `1`
 
@@ -13,16 +13,16 @@ Status: Approved
 Branch: `agent/task-5c-1-canonical-run-contract`
 
 Reviewed Coder Starting HEAD:
-`150c265974eac9f73ffc76b5eb7cd70f94f9cb5c`
+`119330ec2355b2ab8d8f4afa66d23d0af8a06654`
 
 Reviewed Implementation Commit:
-`2252c14736a050e87be6b769f488754a64b144bc`
+`346cc7ccb667ff3be7f58a8282e7fad67a2bcae9`
 
 Derived Coder Report Commit:
-`68953a0999f479a0ffe4ee4c964aa3bb4daa637a`
+`5b8921bf6aa8f4db8cf4f27a453a26bcd3ab9e89`
 
 Derived Reviewer Report Commit:
-`f5a960d359b671c485d70871eecb2e150b9e23d6`
+`efe5ee01ec9ddfa574eef74f333fb98ed46528b2`
 
 The Reviewer report commit was derived from Git with:
 
@@ -30,160 +30,156 @@ The Reviewer report commit was derived from Git with:
 git log -1 --format=%H -- agent-handoff/reviewer-report.md
 ```
 
-This Architect review does not claim the SHA of its own containing commit. The
-next Coder records the publication commit containing this review and the next
-task as its starting HEAD.
+This review does not claim the SHA of its own containing commit. The next
+Coder records the publication commit containing this review and the next task
+as its starting HEAD.
 
 ## Correlation and Ownership Verification
 
-- active branch and upstream:
+- active branch and upstream are
   `agent/task-5c-1-canonical-run-contract`;
 - starting HEAD
-  `150c265974eac9f73ffc76b5eb7cd70f94f9cb5c` is an ancestor of implementation
-  commit `2252c14736a050e87be6b769f488754a64b144bc`;
+  `119330ec2355b2ab8d8f4afa66d23d0af8a06654` is an ancestor of implementation
+  commit `346cc7ccb667ff3be7f58a8282e7fad67a2bcae9`;
 - implementation commit is an ancestor of Coder report commit
-  `68953a0999f479a0ffe4ee4c964aa3bb4daa637a`;
-- Coder report commit is an ancestor of Reviewer report commit
-  `f5a960d359b671c485d70871eecb2e150b9e23d6`;
-- the Coder report identifies `PMQA-5C.4`, attempt `1`, and the exact starting
+  `5b8921bf6aa8f4db8cf4f27a453a26bcd3ab9e89`;
+- Coder report commit is the parent of Reviewer report commit
+  `efe5ee01ec9ddfa574eef74f333fb98ed46528b2`;
+- the Coder report identifies `PMQA-5C.5`, attempt `1`, and the exact starting
   and implementation commits;
-- the Reviewer report independently derived the Coder report commit and
-  identifies the same task, attempt, branch, and implementation;
-- the Reviewer commit changed only
-  `agent-handoff/reviewer-report.md`;
-- the Reviewer did not modify `architect-review.md`, production code, tests,
-  configuration, schemas, packaging, scripts, or product documentation.
+- the Reviewer independently derived the Coder report commit and identifies
+  the same task, attempt, branch, and implementation;
+- Coder report publication changed only `agent-handoff/coder-report.md`;
+- Reviewer publication changed only `agent-handoff/reviewer-report.md`;
+- the worktree and local/upstream branch were clean and synchronized before
+  this Architect disposition.
 
 ## Review Depth Selected
 
 Deep
 
-The Architect independently selected Deep review because these versioned
-contracts establish the persisted semantics for missing usage, monetary
-evidence, pricing, and future provider integration. The Reviewer also selected
-Deep independently and returned `Pass`.
+The Architect independently selected Deep review because the collector adds
+opaque runtime ownership, clock containment, evidence snapshots, and
+exactly-once terminalization. The Reviewer independently selected Deep and
+returned `Pass`.
 
 ## Overall Assessment
 
-Task 5C.4 is approved.
+Task 5C.5 is approved.
 
-The implementation establishes a small provider-neutral usage/cost vocabulary
-without coupling it to providers, CLI output, pricing data, storage, UI,
-LangGraph, or existing runner/application behavior.
+The implementation adds a small provider-neutral lifecycle service around the
+Task 5C.4 usage/cost contracts without introducing provider parsing, pricing
+calculation, persistence, workflow integration, or runtime I/O.
 
-The contracts clearly separate:
+The handle is runtime-only and collector-owned. Metadata is validated before
+clock sampling. Caller evidence is reconstructed before ownership transfer.
+Ownership is consumed atomically before terminal clocks, producing at most one
+canonical record. Expected failures remain fixed and marker-safe, while
+resource/control-flow exceptions remain authoritative.
 
-- provider-reported, CLI-parsed, estimated, and unavailable usage;
-- provider-reported, estimated, subscription-included, and unavailable cost;
-- present zero from missing data;
-- one AI/model invocation from one logical runner invocation;
-- pricing lookup evidence from cost calculation.
-
-No token count, total, currency, amount, price, provider identity, or model
-identity is fabricated.
+The Task 5C.4 wire schema remains unchanged. Its existing cross-field metadata
+policy was extracted into one private helper and reused without semantic
+drift.
 
 ## Independent Reviewer Result
 
 Reviewer verdict: `Pass`
 
-Reviewer findings: None
+Blocking findings: None
 
-The Reviewer independently:
+The Reviewer:
 
-- inspected the task, diff, implementation, and tests before reading the full
-  Coder report;
-- ran the focused, regression, full, generated-test, compile, and diff checks;
-- confirmed security, package scope, import isolation, and write ownership;
+- followed the required independent inspection order;
+- read the collector and focused tests in full;
+- independently ran every required focused, regression, full, generated,
+  compile, and diff check;
+- verified handle forgery/mutation/foreign-owner resistance;
+- verified retryable pre-consumption validation and terminal post-consumption
+  failures;
+- verified security, scope, packaging, and import isolation;
 - changed only its owned report.
-
-This successfully completes the first live
-Coder → Independent Reviewer → Architect pilot.
 
 ## Architect Findings
 
 No blocking finding remains.
 
-### A1 — Missing pricing-component reason granularity
+### A1 — Concurrent exactly-once coverage
 
-Disposition: Accepted current scope; future design checkpoint
+Disposition: Accepted and independently challenged
 
-`ModelPricing` allows each component to be independently present or absent but
-uses one shared bounded reason for all absent components. This meets Task 5C.4
-because independent presence/absence was required and no concrete pricing
-catalog exists yet.
+The committed tests exercise all sequential first/second terminal method
+combinations. The Reviewer noted that they did not create actual competing
+threads.
 
-Before a real catalog or stable public SDK freezes the schema, the future
-pricing/calculation task must validate whether mixed per-component reasons are
-needed. Do not silently infer a shared reason from heterogeneous provider
-evidence.
+The Architect independently ran 50 iterations with 12 simultaneous contenders
+per handle. Every iteration produced exactly one canonical record, eleven
+`invalid_handle` failures, and exactly one terminal wall/monotonic sample.
 
-### A2 — Duration versus wall-clock interval
+The lock-based ownership transfer is therefore accepted. A focused committed
+threaded regression is included as a non-blocking requirement in Task 5C.6 so
+this evidence remains durable.
+
+### A2 — Importable handle construction internals
 
 Disposition: Accepted by design
 
-`duration_ms` is independent monotonic timing evidence and is not derived from
-`completed_at - started_at`. This matches the existing Runner contract,
-supports queueing/wall-clock changes, and avoids fabricating timing. Future
-collectors must sample it from an injected monotonic clock and document that
-semantics.
+Python module privacy is not a security sandbox. The importable private
+sentinel and `_create` method are defense-in-depth only. The authoritative
+boundary is collector-owned active-table membership, exact handle type,
+collector owner identity, and per-handle integrity identity.
 
-### A3 — Reuse of private Run Contract helpers
+A newly constructed lookalike is absent from the active table and fails
+safely. Mutating an owned handle consumes its corrupted state. This is the
+intended in-process trust model.
 
-Disposition: Accepted internal dependency; monitor
+### A3 — Collection error-code vocabulary
 
-`pmqa.usage` reuses `_RunContract` and canonical validation helpers from
-`pmqa.run.models`. Within the same package and repository this avoids
-duplicating security and persistence policy, and it was explicitly allowed by
-the task.
+Disposition: Accepted as the Task 5C runtime boundary
 
-These helpers are not a public extension API. If a third independent domain
-package needs the same base, move the shared contract machinery to a neutral
-internal module in a separately reviewed task rather than expanding ad hoc
-private imports.
+The eight fixed codes are bounded, provider-neutral, and sufficient for the
+current lifecycle. They are a public Task 5C surface but not a stable external
+SDK v1 promise. Future changes require explicit compatibility review rather
+than provider-specific additions.
 
 ## Acceptance Criteria Coverage
 
-- complete, partial, zero, and unavailable usage: Met;
-- all required usage/cost provenance types remain distinct: Met;
-- estimated cost requires external pricing evidence: Met;
-- no embedded pricing table: Met;
-- AI invocation remains separate from runner and LangGraph state: Met;
-- strict canonical reconstruction and revalidated copying: Met;
-- safe decimal, currency, time, lifecycle, and predecessor invariants: Met;
-- security boundary and marker-safe failures: Met;
-- import isolation and real-wheel inclusion: Met;
-- existing Run/Runner/Application/Task 4 behavior unchanged: Met;
-- no collector, parser, calculator, storage, CLI, UI, or provider integration:
-  Met;
-- Coder and Reviewer ownership boundaries: Met.
+- provider-neutral start/complete/fail/cancel interface: Met
+- canonical metadata validation reuse: Met
+- opaque collector-owned runtime handle: Met
+- forged, foreign, subclassed, mutated, and finalized handle rejection: Met
+- caller evidence snapshot without fabrication: Met
+- exactly-once ownership transfer: Met
+- deterministic retryable versus consumed failure policy: Met
+- wall/monotonic sampling and duration semantics: Met
+- safe expected errors and exact resource/control-flow propagation: Met
+- import isolation and wheel inclusion: Met
+- no provider/parser/pricing/storage/workflow integration: Met
+- Coder and Reviewer write boundaries: Met
 
 ## Validation Evidence
 
 Independent Reviewer evidence:
 
-- new usage/pricing/import tests: `68 passed`;
+- usage collector/contracts/pricing/import tests: `138 passed`;
 - Run/Runner/Application/boundary/packaging regressions: `332 passed`;
 - Task 4 orchestration regressions: `98 passed`;
-- full default suite: `1629 passed, 5 skipped`;
+- full default suite: `1699 passed, 5 skipped`;
 - generated Playwright regressions: `2 passed`;
 - isolated compileall: passed;
 - `git diff --check`: passed.
 
 Architect verification:
 
-- full implementation and tests inspected;
-- new usage/pricing/import tests: `68 passed`;
-- Run/Runner/Application/boundary regressions:
-  `329 passed`;
-- correlation and ancestry checks: passed;
-- implementation-to-Reviewer `git diff --check`: passed;
-- worktree and local/upstream branch were clean and synchronized before
-  Architect-owned disposition edits.
+- complete implementation and relevant contract refactor inspected;
+- focused usage collector/contracts/pricing/import tests: `138 passed`;
+- 50 × 12-thread terminalization challenge: passed;
+- correlation, ancestry, write-boundary, and path-specific report derivation:
+  passed;
+- implementation-to-Reviewer `git diff --check`: passed.
 
 The Architect did not duplicate the full suite because the Independent
-Reviewer had already run it from the exact correlated implementation and
-reported complete evidence. This is the intended value of the new review
-stage.
+Reviewer already executed it from the exact correlated implementation. This
+is the intended value of the independent review stage.
 
 ## Required Changes
 
@@ -193,28 +189,14 @@ None.
 
 Approved
 
-Task 5C.4 is accepted through implementation commit
-`2252c14736a050e87be6b769f488754a64b144bc`.
-
-## Workflow Pilot Retrospective
-
-The first pilot succeeded:
-
-- Human did not copy the task or Coder report to the Reviewer;
-- Reviewer derived the report commit from Git;
-- Reviewer followed the independent inspection order;
-- Reviewer changed only its owned file;
-- Architect derived the Reviewer commit and performed final synthesis;
-- provider choice did not affect the protocol.
-
-No protocol or template defect was observed. The Human's Chat message named
-`architect-review.md`, but Git proved that the Reviewer correctly published
-`reviewer-report.md`; no repository or role-boundary failure occurred.
-
-The planned lightweight stabilization is therefore complete with no protocol
-change. Normal PMQA development now continues under the adopted workflow.
+Task 5C.5 is accepted through implementation commit
+`346cc7ccb667ff3be7f58a8282e7fad67a2bcae9`.
 
 ## Next Recommended Task
 
-Proceed to PMQA Task 5C.5 — Provider-Neutral AI Invocation Collector, defined
+Proceed to PMQA Task 5C.6 — Append-Only Local AI Invocation Repository, defined
 in `agent-handoff/current-task.md`.
+
+Task 5C remains in progress and unmerged. Provider/CLI parsing, cost
+calculation, summaries, workflow integration, Task 5B, Task 6, and Task 7
+remain not started.
