@@ -2,127 +2,135 @@
 
 Owner: Architect
 
-Task: PMQA Task 5C.3 — Explicit Application Registries and Single-Attempt Run Service
+Task: AI Team Workflow Foundation — Provider-Neutral Independent Review
 
-Implementation commit: `41a84d271df00980ffaf84d2df67a3515d9e961c`
+Task ID: `AI-TEAM-1`
 
-Remediation commit: `ad26cfd987526ba9efabc0130458d26df4ca8bcb`
+Attempt: `1`
 
-Coder report commit: `307ff706acc445c63880a253df0621dac82afd4d`
+Implementation commit: `838ed1deb24c5d4db7abe565c3f13c60385a312a`
 
-Status: Approved
+Coder report commit: `cfe78bf1a3ee95c69255e3e0547e4e169efbb989`
+
+Status: Needs Revision
 
 This file is the authoritative Architect review. Chat summaries are
 informational only.
 
 ## Review Depth Selected
 
-Deep
+Standard
 
-The Architect accepted the Coder's recommendation because the remediation
-changes ownership across workflow-validator and runner trust boundaries and
-strengthens the canonical terminal envelope.
+The Coder's recommendation is accepted. The change is Markdown-only, but it
+defines authority, commit correlation, and review sequencing for future
+implementation tasks.
 
 ## Overall Assessment
 
-Task 5C.3 is approved.
+The role boundaries, exclusive file ownership, Reviewer independence,
+inspection order, verdict vocabulary, Human escalation, provider neutrality,
+and manual VS Code lifecycle are coherent.
 
-The remediation closes all four blocking findings without redesigning the
-registries or expanding Application Service behavior. The service now retains
-authoritative canonical objects on its side of every runtime boundary,
-dispatches independently reconstructed snapshots, and validates returned data
-only against untouched service-owned state.
-
-No new blocking or non-blocking code finding was identified.
+One blocking correlation contradiction remains. The protocol says repository
+Markdown is the only formal handoff, but it requires a report to identify its
+own content-dependent commit SHA. The Coder report works around that
+impossibility by making the Chat Human Summary the authoritative source for its
+report commit. That reintroduces Chat as part of the formal handoff chain.
 
 ## Review Findings
 
-### F1 — Workflow validator isolation
+### F1 — Self-referential report SHAs break the Markdown-only source of truth
 
-Status: Resolved
+Severity: Blocking
 
-- Request and result validators receive fresh canonical snapshots.
-- The service retains and later uses only its authoritative `RunRequest` and
-  `StructuredResult`.
-- Immediate mutation and retained-reference mutation cannot change runner
-  selection, result assembly, output, or persisted canonical data.
-- Prohibited/runtime-like keys inserted by a validator do not cross the
-  boundary.
+Affected files:
 
-### F2 — Runner dispatch isolation
+- `agent-handoff/README.md`
+- `agent-handoff/coder-report.md`
+- `agent-handoff/reviewer-report.md`
 
-Status: Resolved
+The protocol requires the active task record to identify the Coder report,
+Reviewer report, and Architect review commit SHAs. A report cannot embed the
+SHA of the Git commit containing that exact report because changing the file
+changes the commit SHA.
 
-- The runner receives a fresh reconstructed `RunnerRequest`.
-- `validate_runner_response()` uses the untouched authoritative request.
-- Mutating request, context, invocation, attempt/predecessor, operation,
-  step, and expected-result correlations cannot redirect the run.
-- A response correlated only to the mutated dispatch fails with the fixed,
-  marker-safe `RUNNER_BOUNDARY_FAILED` error.
+The active Coder report acknowledges this and says its exact report commit is
+reported in the Human Summary. That conflicts with two accepted principles:
 
-### F3 — Single-attempt application invariant
+- Chat is informational and not a formal handoff;
+- repository Markdown is the single source of truth.
 
-Status: Resolved
+The same problem would recur for `reviewer-report.md` and
+`architect-review.md`.
 
-`ApplicationRunResult` now enforces the application-owned operation, no step,
-attempt number 1, and no retry or fallback predecessor during direct
-construction, `from_dict()`, and revalidated copying. The operation constant
-has one neutral application-contract definition reused by the service.
+Required correction:
 
-### F4 — Live property exception identity
+- explicitly state that a handoff file never embeds its own commit SHA;
+- define a deterministic receiving-stage verification rule, such as:
 
-Status: Resolved
+  ```bash
+  git log -1 --format=%H -- agent-handoff/coder-report.md
+  ```
 
-- Successfully returned malformed or changed live definition/metadata values
-  retain the existing fixed changed-state classification.
-- Exceptions raised while reading a live property propagate as the exact
-  original object.
-- Ordinary, resource, and control-flow exception cases are covered.
+- require the receiving stage to record the preceding handoff's derived commit
+  SHA in its own Markdown report;
+- define the chain as:
+  - Coder report records starting HEAD and implementation commit(s);
+  - Reviewer derives and records the Coder report commit;
+  - Architect derives and records the Reviewer report commit;
+  - the next Coder records the Architect task-publication starting HEAD;
+- require branch HEAD and ancestry verification before a receiving stage
+  begins;
+- keep Human Summary SHA output informational only;
+- update the Reviewer template and Coder report wording to match this rule.
+
+This produces complete repository evidence without an infinite
+self-reference or a Chat dependency.
+
+## Acceptance Criteria Coverage
+
+- Role authority and exclusive ownership: Met
+- Coder-only implementation authority: Met
+- Reviewer read-only independence: Met
+- Architect final technical disposition: Met
+- Human product/risk authority and escalation: Met
+- Provider-neutral manual VS Code lifecycle: Met
+- Bootstrap and Task 5C.4 pilot sequencing: Met
+- Markdown-only exact commit correlation: Not met
+- Scope limited to handoff Markdown: Met
 
 ## Required Changes
 
-None.
+Complete one focused AI-TEAM-1 attempt 2 remediation for F1. Do not redesign
+the role model or add automation.
 
-## Independent Validation Evidence
+## Validation Evidence
 
-Architect verification at
-`307ff706acc445c63880a253df0621dac82afd4d`:
+Architect verification:
 
-- combined Application, Run, Runner, security, packaging, and Task 4 focused
-  suites: `503 passed`;
-- full default suite under normal repository build permissions:
-  `1561 passed, 5 skipped, 1 existing LangGraph warning`;
-- existing generated Playwright regressions: `2 passed`;
-- isolated `compileall`: passed;
-- remediation `git diff --check`: passed;
-- worktree and local/upstream branch were clean and synchronized before this
+- implementation and report commits match the named branch history;
+- changed files are exactly:
+  - `agent-handoff/README.md`;
+  - `agent-handoff/reviewer-report.md`;
+  - `agent-handoff/coder-report.md`;
+- all five handoff files are regular repository files;
+- handoff relative links resolve;
+- authority and ownership statements are otherwise internally consistent;
+- `git diff --check`: passed;
+- no production test run is required for this Markdown-only task;
+- worktree and local/remote branch were clean and synchronized before this
   review update.
-
-The first sandboxed full-suite run produced one build-metadata permission
-failure while attempting to update a source-tree `egg-info` timestamp. The
-same full suite passed under normal repository permissions; this was an
-Architect execution-environment artifact, not a product or test defect.
-
-## Remaining Risks
-
-The remaining limitations are the intentionally deferred Task 5C scope:
-persistence, cross-record correlation, retry/fallback creation, approval
-execution, authorization, timeout enforcement, and real workflow/provider
-composition. None blocks Task 5C.3.
 
 ## Decision
 
-Approved
+Needs Revision
 
-Task 5C.3 is approved through remediation commit
-`ad26cfd987526ba9efabc0130458d26df4ca8bcb`.
+AI-TEAM-1 attempt 1 is not approved.
 
 ## Next Recommended Task
 
-Implement the provider-neutral AI Team Workflow Foundation defined in
-`agent-handoff/current-task.md` using the existing
-Architect → Coder → Architect process.
+Complete AI-TEAM-1 attempt 2 using
+`agent-handoff/current-task.md`.
 
-After that foundation is approved, PMQA Task 5C.4 will be the first
-Coder → Independent Reviewer → Architect pilot. A small stabilization task
-will follow the pilot.
+Do not invoke the Independent Reviewer during the bootstrap remediation and do
+not start Task 5C.4.
