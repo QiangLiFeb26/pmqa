@@ -2,9 +2,9 @@
 
 ## Status
 
-Task 5C.1 has passed architecture review. Task 5C.2 is **Ready for architecture
-review**. Task 5C remains in progress and unmerged. Task 5B, Task 6, and Task 7
-have not started.
+Task 5C.1 and Task 5C.2 have passed architecture review. Task 5C.3 is **Ready
+for architecture review**. Task 5C remains in progress and unmerged. Task 5B,
+Task 6, and Task 7 have not started.
 
 ## Responsibility
 
@@ -12,7 +12,7 @@ have not started.
 runner implementations. `pmqa.runners` defines the synchronous execution seam:
 
 ```text
-Future Application Service
+Explicit Application Service
         |
         v
 canonical RunnerRequest
@@ -74,11 +74,13 @@ executions may return temporally correlated diagnostic artifacts. A
 pre-execution cancellation returns no result and no output artifacts because
 the mock did not execute.
 
-## Future Application Service
+## Application Service
 
-Task 5C.2 does not select runners or workflows. A future Application Service
-remains responsible for registry lookup, authorization, approval policy,
-creation of retries or fallbacks, timeout policy, persistence, and assembly of
-application-level run records. No registry, automatic discovery, real
-provider adapter, subprocess runner, Usage/Cost record, UI, or API is added in
-this checkpoint.
+Task 5C.2 does not select runners or workflows. Task 5C.3 adds explicit
+registry lookup, safe pre-execution approval rejection, one supplied first
+attempt, and assembly of the terminal application-level run record. It does
+not execute approval-required workflows, create retries or fallbacks, enforce
+timeouts, persist records, or add authorization policy. No automatic
+discovery, real provider adapter, subprocess runner, Usage/Cost record, UI, or
+API is added. See
+[Application Service architecture](application-service.md).

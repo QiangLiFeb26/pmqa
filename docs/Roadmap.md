@@ -15,7 +15,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
 | Task 5A — Product Pack Adoption Foundation | Complete | Task 5A.1–5A.6 establish the experimental manifest, explicit loading, protocol, bounded transport, scaffolding/conformance, and external SauceDemo architecture-validation slice; merged through PR #22. |
-| Task 5C — Local Application and Run Layer | In progress | Task 5C.1 passed architecture review; Task 5C.2 adds the provider-neutral runner boundary and deterministic MockRunner and is ready for architecture review. |
+| Task 5C — Local Application and Run Layer | In progress | Task 5C.1 and 5C.2 passed architecture review; Task 5C.3 adds explicit immutable registries and a synchronous single-attempt Application Service and is ready for architecture review. |
 | Task 5B — Company-side MDE Read-Only Pilot | Not started | Validate Product Pack assumptions in a company-managed, private, read-only pilot before API v1 stabilization. |
 
 ## Task 4 closure
@@ -160,8 +160,8 @@ MDE.
 
 ## Task 5C — Local Application and Run Layer
 
-**Task 5C.1 status: Architecture review passed. Task 5C.2 status: Ready for
-architecture review.** Task 5C exists to
+**Task 5C.1 status: Architecture review passed. Task 5C.2 status: Architecture
+review passed. Task 5C.3 status: Ready for architecture review.** Task 5C exists to
 establish the local application/run layer before the company-side Task 5B
 pilot. Its first checkpoint defines the versioned, provider-neutral contracts
 for requests, workflow metadata, safe run correlation, structured results,
@@ -179,14 +179,21 @@ compatibility contract rather than the new application contract. See the
 Task 5C.2 adds a synchronous `PMQARunner` interface, canonical correlated
 runner request/response contracts, runtime-only cancellation, and a
 deterministic in-process `MockRunner`. The runner executes only the supplied
-attempt; retry and fallback orchestration remain future Application Service
-responsibilities. The mock validates the boundary and is not a production AI
-provider. See the
+attempt. The mock validates the boundary and is not a production AI provider.
+See the
 [Runner boundary architecture](architecture/runner-boundary.md).
 
-Task 5C remains in progress and unmerged. No Application Service, Workflow
-Registry, runner registry/discovery, real provider adapter, subprocess
-runner, UI, Azure DevOps integration, persistence repository, or usage/cost
+Task 5C.3 adds explicit, bounded, immutable Workflow and Runner Registries and
+a synchronous `PMQAApplicationService`. The service performs one deterministic
+pre-execution policy sequence, executes only caller-supplied attempt one, and
+returns a canonical `RunRecord` correlated with exactly one terminal runner
+invocation. The registries are explicit local composition, not discovery.
+See the
+[Application Service architecture](architecture/application-service.md).
+
+Task 5C remains in progress and unmerged. No automatic discovery, persistence
+repository, retry/fallback creation, approval execution, real provider
+adapter, subprocess runner, UI, Azure DevOps integration, or usage/cost
 tracking has been added.
 Task 5B remains Not started; Task 6 and Task 7 remain Not started.
 

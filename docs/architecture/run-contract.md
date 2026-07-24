@@ -2,11 +2,11 @@
 
 ## Status
 
-Task 5C.1 has **passed architecture review**. Task 5C.2 is **Ready for
-architecture review** and adds the separate provider-neutral runner boundary.
-Together they establish the local application/run layer before the
-company-side Task 5B read-only pilot. They do not start Task 5B, Task 6, or
-Task 7.
+Task 5C.1 and Task 5C.2 have **passed architecture review**. Task 5C.3 is
+**Ready for architecture review** and adds the explicit single-attempt
+Application Service. Together they establish the local application/run layer
+before the company-side Task 5B read-only pilot. They do not start Task 5B,
+Task 6, or Task 7.
 
 ## Boundary
 
@@ -15,11 +15,11 @@ The canonical Run Contract is provider-neutral application-level correlation:
 ```text
 Interface / future CLI
         ↓
-Future Application Service
+Explicit Application Service
         ↓
 Canonical Run Contract
         ↓
-Existing LangGraph workflow and future PMQARunner
+Provider-neutral PMQARunner
 ```
 
 The contracts describe what workflow was requested, one PMQA run and its
@@ -44,9 +44,9 @@ evidence and validation history. Run Contract fields are not added to
 The Run Contract carries `runner_id` and runner invocation identifiers but
 does not depend on `PMQARunner`, a concrete runner, process configuration,
 provider clients, or cancellation tokens. Task 5C.2 defines the runner
-boundary in the higher-level `pmqa.runners` package. A future Application
-Service will select registered workflow and runner implementations and use the
-canonical records for correlation.
+boundary in the higher-level `pmqa.runners` package. Task 5C.3 defines an
+Application Service that explicitly selects registered workflow and runner
+implementations and uses the canonical records for correlation.
 
 `RunnerInvocationRecord` describes one logical call to a runner. Its
 attempt number and retry/fallback links describe application execution
@@ -113,10 +113,12 @@ The dataclass `pmqa.core.RunContext` remains unchanged as a legacy
 compatibility contract. New callers import the application contracts from
 `pmqa.run`; they are intentionally not exported from top-level `pmqa`.
 
-No Application Service, Workflow Registry, runner registry, real provider
-adapter, subprocess runner, UI, Copilot integration, Azure DevOps access,
-usage/cost tracking, or persistence repository is implemented. The Task 5C.2
-runner boundary is documented in
-[Runner boundary architecture](runner-boundary.md). Existing WorkflowState
+The Task 5C.2 runner boundary is documented in
+[Runner boundary architecture](runner-boundary.md). Task 5C.3's explicit
+registries and single-attempt composition are documented in
+[Application Service architecture](application-service.md). No automatic
+discovery, persistence, retry/fallback creation, approval execution, real
+provider adapter, subprocess runner, UI, Copilot integration, Azure DevOps
+access, or usage/cost tracking is implemented. Existing WorkflowState
 serialization, LangGraph semantics, reasoning traces, Product Pack behavior,
 CLI behavior, and generated Playwright output remain unchanged.

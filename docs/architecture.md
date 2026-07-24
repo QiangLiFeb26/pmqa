@@ -177,9 +177,9 @@ runner-invocation attempts. It is above the existing LangGraph workflow:
 
 ```text
 Interface / future CLI
-    -> future Application Service
+    -> explicit Application Service
     -> canonical Run Contract
-    -> existing LangGraph workflow and future PMQARunner
+    -> provider-neutral PMQARunner
 ```
 
 `RunRecord` is not LangGraph `WorkflowState`: the former is a stable
@@ -194,17 +194,31 @@ Usage, cost, structured logs, feedback, and eval results stay outside
 policies. The existing `pmqa.core.RunContext` remains unchanged as a legacy
 compatibility contract.
 
-Task 5C.2 adds the provider-neutral synchronous `PMQARunner` boundary,
+Task 5C.2 passed architecture review and adds the provider-neutral synchronous
+`PMQARunner` boundary,
 canonical `RunnerRequest` and `RunnerResponse`, runtime-only cancellation, and
 a deterministic in-process `MockRunner`. The runner owns one supplied attempt,
 not retry/fallback policy; the mock is boundary-validation infrastructure, not
-a production provider. No Application Service, Workflow Registry, runner
-registry, provider adapter, subprocess runner, persistence service, UI,
-Copilot integration, Azure DevOps access, or usage/cost tracking exists yet.
+a production provider.
+
+Task 5C.3 adds bounded explicit Workflow and Runner Registries plus a
+synchronous single-attempt Application Service. Registry construction retains
+canonical identity snapshots without discovery; live definition or metadata
+drift fails before execution. The service validates the request, selected
+workflow and schema, workflow input, selected runner and capabilities,
+approval mode, caller IDs, and one application clock sample in a stable order.
+It invokes the runner at most once, authoritatively revalidates its response,
+validates a present workflow result, and returns a canonical
+`ApplicationRunResult`.
+
+No automatic discovery, retry/fallback creation, approval execution, provider
+adapter, subprocess runner, persistence service, UI, Copilot integration,
+Azure DevOps access, or usage/cost tracking exists yet.
 See the [Run Contract architecture](architecture/run-contract.md) and
-[Runner boundary architecture](architecture/runner-boundary.md). Task 5C.2 is
-ready for architecture review; Task 5C remains in progress and unmerged. Task
-5B, Task 6, and Task 7 remain not started.
+[Runner boundary architecture](architecture/runner-boundary.md), plus the
+[Application Service architecture](architecture/application-service.md).
+Task 5C.3 is ready for architecture review; Task 5C remains in progress and
+unmerged. Task 5B, Task 6, and Task 7 remain not started.
 
 ### Memory
 
