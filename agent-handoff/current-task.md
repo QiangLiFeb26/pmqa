@@ -2,191 +2,199 @@
 
 Owner: Architect
 
-Task: PMQA Task 5C.2 — Provider-Neutral Runner Boundary and Deterministic Mock Runner
+Task: PMQA Task 5C.2 Architecture Review Remediation — Runner Integrity
 
-Status: Coder report required
+Status: Changes Required
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
-Starting HEAD: `a340dfc661d77d53af5f7d8f0b7046a9daf14a71`
+Starting HEAD: `17bddd3b75321b206e413082f17f7d242baa43e1`
 
-This file is the authoritative task handoff. Chat summaries are informational only.
+This file is the authoritative task handoff. Chat summaries are informational
+only. The complete review evidence is in `agent-handoff/architect-review.md`.
 
 ## Task Objective
 
-Add a small, provider-neutral Runner boundary around the canonical Task 5C.1 Run
-Contract and validate it with a deterministic in-process `MockRunner`.
-
-The boundary must support future Copilot, Codex, OpenAI, Azure OpenAI, and private
-company runners without depending on any provider SDK today.
+Close the four blocking Runner integrity findings from the Task 5C.2 Deep
+architecture review without expanding scope or redesigning the provider-neutral
+Runner API.
 
 ## Background
 
-Task 5C.1 established the canonical PMQA Run Contract and passed architecture
-review at commit `a340dfc661d77d53af5f7d8f0b7046a9daf14a71`.
+Task 5C.2 implementation commit
+`502ae0826fffa14310439a8e010c4a2c0bd6408c` introduced the provider-neutral
+Runner boundary and passed the existing test suite. Deep adversarial review
+found four uncovered defects:
 
-Implementation commit `502ae0826fffa14310439a8e010c4a2c0bd6408c` has been detected
-on the task branch. The implementation is not ready for Architect review until the
-Coder completes `agent-handoff/coder-report.md`.
+1. clock validation and duration conversion can expose raw exceptions;
+2. output-artifact timestamps are not correlated to invocation time;
+3. MockRunner retains untyped mutable artifact configuration;
+4. pre-execution cancellation can return configured output artifacts.
 
-Task 5C.2 is intentionally limited to the Runner boundary. Application Service,
-Workflow Registry, provider adapters, and usage/cost tracking remain later work.
+Task 5C.2 remains unapproved until these findings are remediated and reviewed.
 
 ## Scope
 
-- Define a provider-neutral `PMQARunner` interface.
-- Define strict, frozen, canonical Runner metadata, request, and response contracts.
-- Compose the existing `RunRequest`, `PMQARunContext`,
-  `RunnerInvocationRecord`, `StructuredResult`, `RunArtifact`, and `RunError`
-  contracts rather than duplicating them.
-- Enforce complete request/response identity, lifecycle, timestamp, attempt,
-  predecessor, and result-schema correlation.
-- Add a minimal runtime-only cancellation token/control boundary.
-- Add a deterministic in-process `MockRunner`.
-- Preserve import isolation and wheel packaging.
-- Add focused contract, mock-runner, isolation, and packaging tests.
-- Update the relevant architecture and roadmap documentation.
+- Harden MockRunner clock sampling, timezone normalization, and duration
+  conversion.
+- Preserve resource/control-flow exception propagation.
+- Correlate every output artifact timestamp with the terminal invocation.
+- Enforce exact typed, immutable MockRunner output-artifact configuration.
+- Remove configured output artifacts from pre-execution-cancelled mock results.
+- Add focused adversarial regression tests.
+- Update Runner documentation only if the corrected invariant needs explicit
+  documentation.
+- Replace `agent-handoff/coder-report.md` with the remediation completion
+  report.
 
 ## Allowed Changes
 
-Changes may be made to:
+- `pmqa/runners/contracts.py`
+- `pmqa/runners/mock.py`
+- `tests/test_runner_contracts.py`
+- `tests/test_mock_runner.py`
+- focused Runner documentation when required
+- `agent-handoff/coder-report.md`
 
-- `pmqa/runners/`
-- focused additions to shared Run Contract code only when required by a proven
-  Runner-boundary invariant;
-- Runner, Run Contract, import-isolation, and packaging tests;
-- `README.md`;
-- `docs/Roadmap.md`;
-- `docs/architecture.md`;
-- focused Run Contract or Runner architecture documentation;
-- `agent-handoff/coder-report.md`.
+Do not modify the previous implementation or handoff commits. Add a new
+remediation commit.
 
 ## Out of Scope
 
-Do not implement or modify:
+Do not:
 
-- Application Service;
-- Workflow Registry or Runner Registry;
-- automatic discovery or registration;
-- Copilot, Codex, OpenAI, Azure OpenAI, ADO, or other real provider adapters;
-- AI usage, cost tracking, pricing, or optimization;
-- subprocess, terminal, browser, Node.js, or network execution;
-- prompt or response persistence;
-- UI, REST API, dashboard, event streaming, or approval workflow;
-- WorkflowState, reducer, Supervisor, ToolRegistry, LangGraph, Task 5, or
-  Product Pack execution semantics;
-- Task 5B, Task 6, or Task 7.
-
-Do not create a PR or merge this task.
+- change the overall `PMQARunner`, `RunnerRequest`, or `RunnerResponse`
+  architecture;
+- add input-artifact support;
+- implement timeout enforcement, in-flight cancellation, retry, or fallback;
+- add Application Service, Workflow Registry, Runner Registry, discovery, or
+  persistence;
+- add real provider, subprocess, terminal, browser, Node.js, network, usage,
+  cost, pricing, UI, API, or ADO behavior;
+- modify WorkflowState, reducer, Supervisor, ToolRegistry, LangGraph, Task 5,
+  or Product Pack semantics;
+- start Task 5C.3, Task 5B, Task 6, or Task 7;
+- create a PR or merge.
 
 ## Acceptance Criteria
 
-### Provider-neutral boundary
+### Clock and duration containment
 
-- `PMQARunner` exposes stable metadata and one execution method.
-- The public boundary contains no provider SDK objects, subprocess handles,
-  browser objects, environment mappings, credentials, raw prompts, raw
-  responses, or terminal output.
-- Importing Runner modules performs no registration, discovery, file access,
-  environment access, process launch, or `sys.path` mutation.
+- The complete wall-clock operation is contained, including:
+  - callable execution;
+  - timezone-awareness validation;
+  - `utcoffset()` evaluation;
+  - UTC conversion.
+- Expected clock/normalization failures become only the fixed
+  `RunnerBoundaryValidationError`.
+- Extreme finite monotonic samples cannot leak raw `OverflowError` or
+  `ValueError` during millisecond conversion.
+- Errors do not expose marker text, clock values, object representations,
+  paths, cause, context, or underlying messages.
+- `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit`
+  propagate unchanged from wall clock, timezone operations, monotonic clock,
+  and duration conversion wherever applicable.
+- Normal deterministic wall/monotonic behavior and zero duration remain
+  unchanged.
 
-### Contracts
+### Output-artifact temporal correlation
 
-- Runner wire contracts are strict, frozen, exact-field, deeply immutable, and
-  canonical plain JSON.
-- Every successfully constructed wire contract satisfies:
+- `validate_runner_response()` requires every output artifact to satisfy:
 
-  ```python
-  wire = contract.to_dict()
-  restored = type(contract).from_dict(wire)
-  assert restored == contract
+  ```text
+  invocation.started_at <= artifact.created_at <= invocation.completed_at
   ```
 
-- Construction, `from_dict()`, and `model_copy(update=...)` enforce the same
-  invariants.
-- The existing shared prohibited-key and canonical-tree policies are reused.
-- Request context, invocation, workflow, runner, references, timestamps,
-  attempt metadata, and expected result schema are fully correlated.
-- Responses are terminal and enforce:
-  - succeeded: result required, no errors;
-  - partially succeeded: result required, at least one safe error;
-  - failed: no result, at least one safe error;
-  - cancelled: no result, at least one safe cancellation error.
-- Output artifact IDs are unique.
-- Validation failures use bounded messages and do not expose invalid values or
-  runtime object representations.
+- Artifacts at either exact boundary are accepted.
+- Artifacts before start or after completion fail with the fixed safe Runner
+  boundary error.
+- Valid artifacts remain supported for success, partial success, and failure.
 
-### Cancellation
+### Typed immutable MockRunner configuration
 
-- Cancellation is explicit and idempotent.
-- Cancellation/control objects are runtime-only and cannot enter serialized
-  contracts, WorkflowState, artifacts, or results.
-- There is no global mutable cancellation state.
+- `output_artifacts` must be an exact tuple of exact `RunArtifact` objects.
+- Dictionaries, `RunArtifact` subclasses, mutable artifact-like objects,
+  runtime objects, and invalid items are rejected safely.
+- MockRunner retains an independently validated immutable snapshot rather than
+  a mutable caller-owned object.
+- Repeated execution cannot be changed by later caller mutation.
 
-### MockRunner
+### Pre-execution cancellation
 
-- Supports deterministic succeeded, partially succeeded, failed, and
-  pre-execution-cancelled outcomes.
-- Validates both its input and its returned response.
-- Produces exactly one terminal invocation.
-- Uses injected timezone-aware wall-clock and monotonic-clock evidence.
-- Performs no browser, network, subprocess, sleep, environment, or config-file
-  operation.
-- Does not fabricate AI usage, cost, retry, fallback, or provider metadata.
-- Does not mutate caller-owned objects.
+- A cancellation requested before `execute()` returns one canonical
+  `CANCELLED` response with the existing safe cancellation error.
+- Its `result` is `None`.
+- Its output artifact collection is empty even when the runner was configured
+  with valid artifacts.
+- The runner does not create a retry or fallback.
 
 ### Compatibility
 
-- Existing Task 4, Task 5, Task 5A, and Task 5C.1 behavior remains unchanged.
-- `import pmqa.runners` remains isolated from product, provider, Playwright,
-  LangGraph, runtime orchestration, and Product Pack implementation modules.
-- The real PMQA wheel contains the intended public Runner modules and no test or
-  temporary output.
+- All existing Runner request/response and MockRunner behavior outside these
+  corrections remains unchanged.
+- Public imports and wheel contents remain unchanged.
+- Task 4, Task 5, Task 5A, and Task 5C.1 regressions remain green.
+
+## Required Adversarial Tests
+
+At minimum add tests for:
+
+- `tzinfo.utcoffset()` raising an expected exception with a secret marker;
+- UTC conversion raising an expected exception;
+- extreme finite monotonic samples causing scaled-duration overflow;
+- `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit`
+  propagation from the clock/normalization boundary;
+- suppressed exception cause/context and marker leakage;
+- artifacts before invocation start;
+- artifacts exactly at invocation start;
+- artifacts exactly at invocation completion;
+- artifacts after invocation completion;
+- dictionary and `RunArtifact` subclass configuration rejection;
+- caller mutation after MockRunner construction;
+- pre-execution cancellation with configured artifacts.
+
+Use fixtures only. Do not invoke a paid model, browser, network, Node.js, or
+external CLI in the new tests.
 
 ## Validation Commands
 
-Use the repository environment and report the exact results for:
+Run and report:
 
 ```bash
-python -m pytest tests/test_runner_contracts.py tests/test_mock_runner.py tests/test_runner_imports.py
-python -m pytest tests/test_run_contracts.py tests/test_boundary_policy.py tests/test_packaging.py
-python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py
-python -m pytest
-python -m pytest products/demo/generated_tests
-python -m compileall -q pmqa products
+.venv/bin/python -m pytest tests/test_runner_contracts.py tests/test_mock_runner.py tests/test_runner_imports.py
+.venv/bin/python -m pytest tests/test_run_contracts.py tests/test_boundary_policy.py tests/test_packaging.py
+.venv/bin/python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py
+.venv/bin/python -m pytest
+.venv/bin/python -m pytest products/demo/generated_tests
+.venv/bin/python -m compileall -q pmqa products
 git diff --check
 git status --short
 ```
 
-If an exact listed test filename does not exist, run the closest existing
-focused suite and document the substitution. Do not silently omit a validation.
-
-Tests must not invoke a paid model, browser, network, Node.js, or external CLI,
-except for the repository's already established generated Playwright regression
-command when explicitly required by the existing suite.
-
 ## Expected Deliverables
 
-- Provider-neutral Runner public API.
-- Canonical Runner contracts and authoritative response-correlation validation.
-- Runtime-only cancellation boundary.
-- Deterministic `MockRunner`.
-- Focused tests and packaging/import-isolation coverage.
-- Concise architecture and roadmap updates.
-- New commit or commits on the current task branch, pushed without amending
-  Task 5C.1 history.
-- Clean worktree synchronized with the remote branch.
+- One new focused remediation commit; do not amend earlier commits.
+- Corrected Runner integrity behavior and adversarial tests.
+- Updated `agent-handoff/coder-report.md`.
+- Pushed branch with local, tracking, and GitHub HEADs equal.
+- Clean worktree.
+- No PR and no merge.
 
 ## Required Coder Handoff
 
-Before requesting review, the Coder must replace the pending template in
-`agent-handoff/coder-report.md` with a complete report for Task 5C.2.
+Replace `agent-handoff/coder-report.md` with the complete remediation report.
+Include:
 
-The report must recommend exactly one review depth:
+- branch and exact starting HEAD;
+- remediation commit SHA;
+- changed files;
+- correction for each Architect finding;
+- adversarial and full validation results;
+- remaining risks;
+- scope confirmation;
+- exactly one recommended review depth: `Light`, `Standard`, or `Deep`;
+- one-sentence reason;
+- 3–6 suggested review focus areas.
 
-- `Light`
-- `Standard`
-- `Deep`
-
-The recommendation is advisory. The Architect independently selects the actual
-review depth after inspecting the diff and risk boundaries.
+The Coder's review-depth recommendation is advisory. The Architect retains the
+final review-depth decision.
