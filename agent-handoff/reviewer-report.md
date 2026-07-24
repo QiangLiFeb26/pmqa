@@ -2,42 +2,42 @@
 
 Owner: Independent Reviewer
 
-Status: Executed for PMQA Task 5C.5, Attempt 1
+Status: Executed for PMQA Task 5C.6, Attempt 1
 
 ## Task Correlation
 
-Task: PMQA Task 5C.5 — Provider-Neutral AI Invocation Collector
+Task: PMQA Task 5C.6 — Append-Only Local AI Invocation Repository
 
-Task ID: `PMQA-5C.5`
+Task ID: `PMQA-5C.6`
 
 Attempt: `1`
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
-Reviewed Starting HEAD: `119330ec2355b2ab8d8f4afa66d23d0af8a06654`
+Reviewed Starting HEAD: `ce1334f4a096dd014170a8791d99969b40c4501b`
 
-Reviewed Implementation Commit(s): `346cc7ccb667ff3be7f58a8282e7fad67a2bcae9`
-("add Task 5C.5 invocation collector")
+Reviewed Implementation Commit(s): `08dee16d43c02f42c32591e242b30bc4035033cb`
+("add append-only usage repository")
 
-Derived Coder Report Commit: `5b8921bf6aa8f4db8cf4f27a453a26bcd3ab9e89`
-("report Task 5C.5 invocation collector")
+Derived Coder Report Commit: `ecc11c7e5375ba8c5eba5f5b272841650d2eaf7d`
+("report Task 5C.6 implementation")
 
 Correlation Verification:
 
 - derived with `git log -1 --format=%H -- agent-handoff/coder-report.md` ->
-  `5b8921bf6aa8f4db8cf4f27a453a26bcd3ab9e89`;
-- `git merge-base --is-ancestor 119330ec2355b2ab8d8f4afa66d23d0af8a06654 HEAD`
-  succeeds; `119330ec...` is an ancestor of `346cc7c...`, and `346cc7c...` is
-  an ancestor of `5b8921b...` (linear sequence
-  `119330e -> 346cc7c -> 5b8921b` on this branch);
-- the Task 5C.4 baseline named by `current-task.md`,
-  `f5a960d359b671c485d70871eecb2e150b9e23d6`, is an ancestor of the recorded
+  `ecc11c7e5375ba8c5eba5f5b272841650d2eaf7d`;
+- `git merge-base --is-ancestor ce1334f4a096dd014170a8791d99969b40c4501b HEAD`
+  succeeds; `ce1334f...` is an ancestor of `08dee16...`, and `08dee16...` is
+  an ancestor of `ecc11c7...` (linear sequence
+  `ce1334f -> 08dee16 -> ecc11c7` on this branch);
+- the Task 5C.5 baseline named by `current-task.md`,
+  `efe5ee01ec9ddfa574eef74f333fb98ed46528b2`, is an ancestor of the recorded
   starting HEAD;
 - the correlation header of `coder-report.md` at the derived commit names
-  Task ID `PMQA-5C.5`, Attempt `1`, branch
+  Task ID `PMQA-5C.6`, Attempt `1`, branch
   `agent/task-5c-1-canonical-run-contract`, and starting HEAD
-  `119330ec2355b2ab8d8f4afa66d23d0af8a06654`, matching `current-task.md`;
-- `git diff --stat 346cc7c..5b8921b` touches only
+  `ce1334f4a096dd014170a8791d99969b40c4501b`, matching `current-task.md`;
+- `git diff --stat 08dee16..ecc11c7` touches only
   `agent-handoff/coder-report.md`, so the derived commit is the report's
   latest authorized change with no later unauthorized replacement.
 
@@ -50,8 +50,9 @@ Architect derives the Reviewer report commit from Git and records it in
 Inspection order completed:
 
 1. `current-task.md` and acceptance criteria;
-2. named baseline-to-implementation diff (`119330e..346cc7c`) and the new/
-   modified tests, including a full read of `pmqa/usage/collector.py` and
+2. named baseline-to-implementation diff (`ce1334f..08dee16`) — full read of
+   `pmqa/usage/repository.py` (all 634 lines) and `tests/test_usage_repository.py`
+   (all 846 lines), plus the additive threaded regression in
    `tests/test_usage_collector.py`;
 3. independently selected validation (see Test Evidence);
 4. full `coder-report.md` (read only after steps 1-3).
@@ -59,136 +60,159 @@ Inspection order completed:
 Active-task `architect-review.md` read before publication: No
 
 Prior closed review or architecture material consulted, with reason:
-re-read the prior Task 5C.4 review context already established in this
-session (contracts.py, run/models.py conventions) to confirm the extracted
-`_validate_ai_invocation_metadata_values` helper matches the previously
-reviewed `AIInvocationRecord` cross-field policy byte-for-byte; no closed
-handoff report for this task was read.
+re-verified, via `git diff --stat`, that `pmqa/usage/collector.py`,
+`pmqa/usage/contracts.py`, and `pmqa/usage/pricing.py` are byte-identical to
+the Task 5C.5 baseline (empty diff), confirming the task's constraint that
+collector production code must not change unless the new threaded regression
+exposes a defect; no closed handoff report for this task was read.
 
 ## Review Depth
 
 Actual Review Depth: Deep
 
-Review Depth Reason: this checkpoint introduces a security-sensitive opaque
-runtime-ownership boundary (handle forgery/mutation/foreign-collector
-resistance) and an exactly-once concurrency-lock terminalization policy;
-correctness here cannot be assessed from test pass/fail counts alone, so I
-read `pmqa/usage/collector.py` in full, traced every lifecycle path
-(start / complete / fail / cancel / duplicate / corrupted-handle / evidence-
-failure / clock-failure / resource-exception) against the code, and
-independently executed all listed validation commands. This matches the
-Coder's advisory recommendation but was independently selected.
+Review Depth Reason: this checkpoint adds a security- and durability-
+sensitive local filesystem persistence boundary (atomic no-replace
+publication, descriptor ownership, symlink/TOCTOU resistance, corruption
+detection) whose correctness cannot be assessed from test pass/fail counts
+alone. I read the entire implementation file and the entire test file,
+traced every I/O code path (save, get, find_by_session, find_by_run,
+list_recent, and every internal helper) against the task's detailed
+publication/read/corruption requirements, and independently executed all
+listed validation commands. This matches the Coder's advisory recommendation
+but was independently selected.
 
 ## Overall Assessment
 
-The implementation is a tightly-scoped, careful addition that satisfies the
-task's lifecycle, ownership, clock, and security requirements. `pmqa/usage/
-collector.py` adds `AIInvocationCollectionErrorCode`,
-`AIInvocationCollectionError`, an opaque constructor-protected
-`AIInvocationHandle`, a `runtime_checkable` `AIInvocationCollector` protocol,
-and `DefaultAIInvocationCollector`. The one change to `pmqa/usage/
-contracts.py` is a pure refactor: the existing `AIInvocationRecord` cross-
-field model/predecessor validation was extracted verbatim into a private
-`_validate_ai_invocation_metadata_values` function so the collector can reuse
-it; I diffed the extracted logic against the original inline block and
-confirmed it is unchanged (only reindented and parameterized), so the Task
-5C.4 wire schema and semantics are unmodified.
+The implementation is a rigorous, carefully-engineered local persistence
+boundary that satisfies the task's publication, retrieval, corruption, and
+security requirements. `pmqa/usage/repository.py` adds
+`UsageRepositoryErrorCode` (10 fixed codes), `UsageRepositoryError`, a
+`runtime_checkable` `UsageRepository` protocol, and
+`LocalJSONUsageRepository`. No existing `pmqa/usage/collector.py`,
+`contracts.py`, or `pricing.py` file was touched (confirmed via an empty
+`git diff --stat` against those three paths), and the required durable
+threaded collector regression
+(`test_real_threads_terminalize_one_handle_exactly_once` in
+`tests/test_usage_collector.py`, 8 real threads racing via a `Barrier` to
+terminalize one handle) passed without needing any collector fix — this is
+independent empirical confirmation that the Task 5C.5 lock-based exactly-once
+design (which I flagged in the prior review as tested only sequentially) is
+in fact correct under real thread contention.
 
-I independently traced the handle-ownership design: handles are exact-type
-checked (`type(handle) is AIInvocationHandle`, rejecting subclasses),
-constructor-protected (`__init__` always raises; only `_create` with a
-private module-level sentinel can build one), bound to one collector
-instance via a private `owner` marker plus a per-invocation `integrity`
-token, and looked up by identity in a per-instance `dict`. A forged handle
-built by directly calling the private `_create` classmethod (even with the
-correct sentinel, which is importable since Python has no true privacy)
-still fails safely because it was never registered as a key in any
-collector's active-invocation table. An internally mutated handle (its
-private `owner`/`integrity` slot overwritten via `object.__setattr__`,
-bypassing the class's own `__setattr__` override) is detected because the
-stored `_ActiveInvocation.integrity` no longer matches, and the corrupted
-entry is deleted rather than left retryable. All of this is exercised by
-`test_foreign_forged_subclassed_and_mutated_handles_are_rejected` and
-`test_handle_is_opaque_immutable_and_not_serializable`, which I read and ran.
+I independently traced the publication mechanism: `save()` first
+reconstructs an independent canonical snapshot
+(`AIInvocationRecord.from_dict(record.to_dict())`, rejecting non-instances)
+and enforces the byte-size bound entirely before any filesystem effect
+(`test_invalid_record_fails_before_filesystem_effects`/
+`test_non_record_value_fails_before_filesystem_effects` confirm `root` is
+never even created). It then creates a mode-`0600` temporary file inside the
+mode-`0700` `invocations/` directory via `tempfile.mkstemp` (same directory
+as the target, avoiding cross-device link failures in the common case),
+writes the full payload with a partial-write-safe loop, `fsync`s the file
+descriptor, and publishes via `os.link(temporary_path, target)` — a
+same-filesystem hard link, which is atomic and inherently no-replace at the
+OS level (`FileExistsError` on an existing target, never silent overwrite).
+This is the correct primitive for the stated constraint ("do not use
+`os.replace()`, overwrite mode, unlink-and-retry, ... or a check-then-
+overwrite sequence"). After a successful link, the directory entry is
+`fsync`'d for durability, and the temporary name is unlinked only after
+verifying (via captured `st_dev`/`st_ino` identity) that the path still
+refers to the exact file this call created — preventing an unrelated file
+from being deleted if the temporary name were somehow reused.
+`errno.EXDEV`/`ENOSYS`/`ENOTSUP`/`EOPNOTSUPP` on `os.link` are mapped to a
+distinct `UNSUPPORTED_PUBLICATION` code rather than silently degrading to a
+weaker publish path. All of this is exercised by
+`test_concurrent_instances_publish_exactly_once` (8 real threads via
+`Barrier`, one success + seven `DUPLICATE_RECORD`),
+`test_reader_observes_absent_then_complete_atomic_publication` (a
+monkeypatched, `Event`-gated `os.link` proves a concurrent reader sees either
+nothing or one complete record, never a partial one),
+`test_publication_failure_preserves_existing_target_and_hides_detail`,
+`test_unsupported_publication_is_distinct_and_leaves_no_record`,
+`test_post_publication_failure_keeps_complete_record`,
+`test_cleanup_never_unlinks_changed_temporary_identity`, and
+`test_release_control_flow_failure_propagates_after_publication` (verifies a
+resource exception raised during post-publication descriptor cleanup still
+propagates by identity while the already-published record remains intact) —
+I read and ran all of these.
 
-The at-most-once terminalization policy matches the task's recommended
-default exactly: `_snapshot_evidence` (which independently reconstructs
-caller-supplied `TokenUsageEvidence`/`CostEvidence` via `from_dict(to_dict())`
-and rejects non-instances, including raw dicts) runs *before* the handle is
-removed from the active table, so evidence or failure-category validation
-failures leave the handle retryable; ownership is then consumed atomically
-under a `Lock` immediately before terminal clock sampling, so any expected
-failure afterward (bad clock value, backwards time, non-finite/overflow
-duration, or a final `AIInvocationRecord` construction failure such as
-pricing-effective-at-in-the-future) permanently consumes the handle. This is
-independently verified by
-`test_invalid_evidence_and_failure_category_leave_handle_retryable`,
-`test_mutated_evidence_is_rejected_before_clocks_and_can_be_corrected`,
-`test_invalid_terminal_clock_consumes_handle`,
-`test_backwards_and_overflow_terminal_timing_fail_safely`, and
-`test_pricing_correlation_failure_after_clock_sampling_consumes_handle`, all
-of which I read and ran. Duration is derived only from monotonic samples
-converted through `Decimal` (using `str()` conversion for floats to avoid
-binary-float imprecision) and rounded with `ROUND_HALF_UP`; wall-clock
-values are used only for the `started_at`/`completed_at` fields and the
-backwards-time invariant, never for duration, matching
-`test_duration_rounding_is_deterministic` and
-`test_successful_lifecycle_preserves_correlation_zero_and_duration`.
-`MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit` are
-re-raised unchanged (identity-checked, not just type-checked) at every clock
-stage in both the collector code and
-`test_resource_and_control_flow_exceptions_propagate_exactly`.
+Read-time corruption handling is equally thorough: `_read_record` re-`lstat`s
+the path, rejects non-regular/symlink entries, opens with `O_NOFOLLOW` where
+available, and re-verifies the opened descriptor's `(st_dev, st_ino)` against
+the pre-open `lstat` — a real double-layered symlink-swap/TOCTOU defense that
+I traced by hand: even without `O_NOFOLLOW` (e.g. a platform lacking it), a
+symlink swapped in between the two stats would still be caught because
+`fstat` on a followed descriptor reports the *target's* inode, which cannot
+match the *symlink's own* inode captured by the earlier `lstat`.
+`_parse_record` rejects duplicate JSON keys (`object_pairs_hook`), non-finite
+constants (`parse_constant` override, catching the non-standard
+`NaN`/`Infinity` tokens `json.loads` otherwise accepts silently), excessive
+nesting (via `RecursionError`, safely caught, plus the inherited
+`MAX_RUN_PAYLOAD_DEPTH`-bounded `AIInvocationRecord.from_dict()` check),
+trailing non-whitespace data (`json.JSONDecodeError: Extra data`), and
+byte-exact noncanonical formatting (`_canonical_bytes(record) != raw`, which
+independently re-serializes with `sort_keys`/compact separators and compares
+byte-for-byte against the file, catching reordered keys or extra whitespace
+that `AIInvocationRecord.from_dict()`'s own structural-equality check would
+not by itself distinguish). Filename/content digest mismatch is checked
+separately. `_query` never swallows a `UsageRepositoryError` raised by
+`_read_record` for a name-matching entry, so one corrupt file fails the
+entire query rather than silently dropping it — I confirmed this by reading
+the loop structure (no `try`/`except` around the per-entry `_read_record`
+call) and by running `test_corrupt_matching_record_fails_entire_query`.
 
-All validation commands listed in `current-task.md`, run independently rather
-than accepted from the Coder report, pass with no failures, errors, or
-unexplained skips.
+All 11 raises in `UsageRepositoryError.__init__`/call sites use `from None`
+or otherwise suppress cause/context; expected-error tests thread a
+`"runtime-secret-marker"` canary through paths, payloads, and monkeypatched
+exception messages and confirm it never appears in any raised error's string
+form. `MemoryError`/`KeyboardInterrupt`/`SystemExit`/`GeneratorExit` are
+re-raised by identity (not just type) at every injection point tested
+(`from_dict`, `os.read`, post-publication descriptor release).
+
+All validation commands listed in `current-task.md`, run independently
+rather than accepted from the Coder report, pass with no failures, errors,
+or unexplained skips.
 
 ## Findings
 
-None blocking. One non-blocking observation is recorded under Suggested
-Architect Focus: the "concurrent contenders are serialized by the private
-lock" claim in the Coder report is correct by code inspection (the
-`with self._lock: if self._active.get(handle) is not active: raise ... del
-self._active[handle]` block in `_terminalize` is the sole ownership-transfer
-point), but no test in `tests/test_usage_collector.py` exercises this with
-actual concurrent threads — coverage is sequential/single-threaded only. This
-does not block Pass because the task's Required Tests list asks for
-"exactly-once terminalization" and "duplicate completion/fail/cancel
-combinations rejected," both of which are covered sequentially, and does not
-explicitly require a multi-threaded stress test.
+None blocking. One trivial, non-blocking code-quality observation is
+recorded under Suggested Architect Focus (a defensive-but-unreachable
+equality check in `_parse_record`); it has no behavioral or security effect
+and does not affect the verdict.
 
 ## Acceptance Criteria Coverage
 
 | Acceptance criterion | Evidence | Result |
 | --- | --- | --- |
-| The public collector interface is provider-neutral | `AIInvocationCollector` Protocol (`pmqa/usage/collector.py:148-192`) takes only canonical correlation, `TokenUsageEvidence`, `CostEvidence`, `RunErrorCategory`; no provider-specific parameter anywhere | Met |
-| The runtime handle cannot become persisted domain data | `AIInvocationHandle.__reduce__` raises `TypeError`; no `to_dict`/serialization method exists; `test_handle_is_opaque_immutable_and_not_serializable` confirms `pickle.dumps`/`json.dumps` both raise | Met |
-| Lifecycle terminalization is exactly once | Lock-guarded atomic removal in `_terminalize` (`pmqa/usage/collector.py:401-406`); `test_every_terminal_combination_is_exactly_once` exercises all 9 first/second method combinations | Met |
-| Canonical evidence is snapshotted without fabrication or caller mutation | `_snapshot_evidence` uses `from_dict(to_dict())` round trip, exact-type-checks instances; `test_returned_record_does_not_retain_caller_evidence` mutates the caller's original objects post-hoc and confirms no effect | Met |
-| Wall and monotonic clocks are injected, bounded, and safely contained | `_sample_wall_clock`/`_sample_monotonic_clock` validate type/timezone/finiteness and wrap ordinary exceptions; `test_invalid_start_clock_values_fail_safely`/`test_ordinary_clock_exception_is_contained` independently run and pass | Met |
-| Duration uses only monotonic evidence | `_duration_milliseconds(started, completed)` takes only `Decimal` monotonic samples; wall-clock difference never enters the calculation | Met |
-| Failure/status/error correlation is canonical | `fail_invocation` rejects non-`RunErrorCategory`/`CANCELLED`; `cancel_invocation` hard-codes `RunErrorCategory.CANCELLED`; `complete_invocation` passes `error_category=None`, all enforced again by the reused `AIInvocationRecord` validators | Met |
-| Expected failures are fixed, bounded, and marker-safe | All 11 `AIInvocationCollectionError` raises use `from None`; fixed 8-code vocabulary with static messages; `_assert_safe_error` helper independently verified across all collector tests | Met |
-| Resource/control-flow exceptions remain authoritative | `_RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS` re-raised verbatim (identity-checked) at every try/except in `collector.py`; `test_resource_and_control_flow_exceptions_propagate_exactly` independently run and passes | Met |
-| Imports remain side-effect free and isolated | `tests/test_usage_imports.py` extended with `AIInvocationCollector`/`DefaultAIInvocationCollector` assertions and independently rerun; no collector instance or clock sampling occurs at import time | Met |
-| No provider, parser, calculator, pricing table, storage, CLI, UI, workflow integration, or optimization is added | Independent grep of `pmqa/usage/collector.py` for provider/orchestration keywords found none; diff confirms only additive test/doc/package changes elsewhere | Met |
-| All new and existing required tests pass | 138 focused + 332 regression + 98 Task 4 + 1699/5-skip full suite + 2 Playwright, all independently run, all pass | Met |
-| Coder and Reviewer follow their exclusive write boundaries | `git diff --stat` from starting HEAD to the derived report commit touches only allowed implementation/test/doc paths plus `agent-handoff/coder-report.md`; no Architect/Reviewer file changed | Met |
+| Publication is atomic, no-replace, and duplicate-safe under concurrency | `os.link()` hard-link publish (`repository.py:174-184`); `test_concurrent_instances_publish_exactly_once`, `test_save_snapshots_caller_and_duplicate_never_overwrites` independently run and pass | Met |
+| No `os.replace()`, overwrite, unlink-and-retry, or check-then-overwrite path exists | Read `save()` in full: only `os.link` (never `os.replace`/`os.rename` for publication) and no pre-check of target existence before the atomic link attempt | Met |
+| Temporary files are private, unidentifiable, and safely cleaned up | mode-`0600` `tempfile.mkstemp` in the private directory, no identifiers in the name (`_TEMPORARY_PREFIX`/`_TEMPORARY_SUFFIX` only), identity-verified unlink; `test_cleanup_never_unlinks_changed_temporary_identity`, `test_owned_descriptors_are_closed_once_and_success_cleans_temp` independently run and pass | Met |
+| Reads reject symlink/non-regular entries, corruption, and digest mismatch without leaking detail | `_read_record`/`_parse_record` traced in full; `test_symlink_and_non_regular_record_entries_are_corrupt`, `test_corrupt_record_forms_fail_safely` (7 parametrized forms), `test_filename_content_digest_mismatch_is_corrupt`, `test_noncanonical_and_oversized_records_are_corrupt` independently run and pass | Met |
+| Queries are deterministic (newest-first, ascending-ID tie-break), bounded, and fail closed on corruption | Double stable-sort in `_query` (`repository.py:447-448`) traced by hand; `test_queries_are_newest_first_with_ascending_id_tie_break`, `test_corrupt_matching_record_fails_entire_query`, `test_query_limits_are_exact_bounded_positive_integers` independently run and pass | Met |
+| No raw dictionaries accepted/returned; results are independently reconstructed immutable tuples | `save()`/`get()`/queries all type-check for `AIInvocationRecord` and round-trip via `from_dict(to_dict())`; `test_empty_queries_missing_get_and_independent_query_results` mutates a returned record's `__dict__` and confirms no effect on a fresh read | Met |
+| Fixed, marker-safe error vocabulary; resource/control-flow exceptions authoritative | 10-code `UsageRepositoryErrorCode`; all raises use `from None`; `test_release_control_flow_failure_propagates_after_publication`, `test_resource_and_control_flow_failures_propagate_before_io`, `test_resource_and_control_flow_read_failures_propagate` independently run and pass with identity-checked exceptions | Met |
+| Import isolation; no database; no runtime dependency added | `tests/test_usage_imports.py` extended and independently rerun; `repository.py` imports only stdlib (`enum`, `errno`, `hashlib`, `json`, `os`, `pathlib`, `re`, `stat`, `sys`, `tempfile`, `typing`) plus `pmqa.run`/`pmqa.usage.contracts` | Met |
+| No collector wiring, aggregation, CLI, parser, or cost calculation added; collector production code unchanged unless a defect was proven | `git diff --stat` confirms `collector.py`/`contracts.py`/`pricing.py` untouched; the required threaded regression passed without exposing a defect, so no fix was needed or made | Met |
+| Real-wheel inclusion and output/temp-file exclusion | `tests/test_packaging.py` extended with `repository.py` inclusion and `artifacts/usage`/`.pmqa-usage-` exclusion assertions, independently rerun as part of the 332-test regression set | Met |
+| All new and existing required tests pass | 199 focused + 332 regression + 98 Task 4 + 1760/5-skip full suite + 2 Playwright, all independently run, all pass | Met |
+| Coder and Reviewer follow their exclusive write boundaries | `git diff --stat` from starting HEAD to the derived report commit touches only allowed implementation/test/doc/`.gitignore` paths plus `agent-handoff/coder-report.md`; no Architect/Reviewer file changed | Met |
 
 ## Test Evidence
 
 ### Coder Evidence Reviewed
 
-The Coder report claims: 138 passed for focused collector + Task 5C.4 usage/
-pricing/import tests; 332 passed for the Run/Runner/Application/boundary/
-packaging regression set; 98 passed for the Task 4 orchestration set (one
-pre-existing LangGraph deprecation warning); 1699 passed, 5 skipped for the
-full default suite; 2 passed for `products/demo/generated_tests` (noting a
-transient macOS Chromium sandbox permission issue on first launch, resolved
-on rerun); `compileall` and `git diff --check` clean; clean worktree. This
+The Coder report claims: 199 passed for focused repository + collector +
+Task 5C.4 usage/pricing + import tests; 332 passed for the Run/Runner/
+Application/boundary/packaging regression set; 98 passed for the Task 4
+orchestration set (one pre-existing LangGraph deprecation warning); 1760
+passed, 5 skipped for the full default suite; 2 passed for
+`products/demo/generated_tests` (noting a transient macOS Chromium sandbox
+permission denial on first launch, resolved on rerun); `compileall`,
+Markdown-link validation, and `git diff --check` clean; clean worktree. This
 claimed evidence was read only after independent execution below and matches
 it exactly, except the Reviewer's environment did not encounter the noted
-transient Chromium permission issue.
+transient Chromium permission issue and did not independently run a
+Markdown-link validator (not part of the task's listed Validation Commands).
 
 ### Independently Run
 
@@ -196,54 +220,58 @@ All commands below were executed by the Reviewer directly, before reading
 the Coder's claimed results, from the repository root on the reviewed
 branch:
 
-- `.venv/bin/python -m pytest tests/test_usage_collector.py tests/test_usage_contracts.py tests/test_usage_pricing.py tests/test_usage_imports.py -q`
-  -> `138 passed`
+- `.venv/bin/python -m pytest tests/test_usage_repository.py tests/test_usage_collector.py tests/test_usage_contracts.py tests/test_usage_pricing.py tests/test_usage_imports.py -q`
+  -> `199 passed`
 - `.venv/bin/python -m pytest tests/test_run_contracts.py tests/test_runner_contracts.py tests/test_application_contracts.py tests/test_application_service.py tests/test_boundary_policy.py tests/test_packaging.py -q`
   -> `332 passed`
 - `.venv/bin/python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py -q`
   -> `98 passed, 1 warning` (pre-existing `LangChainPendingDeprecationWarning`,
   unrelated to this change)
-- `.venv/bin/python -m pytest -q` (full default suite) -> `1699 passed, 5 skipped, 1 warning`
+- `.venv/bin/python -m pytest -q` (full default suite) -> `1760 passed, 5 skipped, 1 warning`
 - `.venv/bin/python -m pytest products/demo/generated_tests -q` -> `2 passed`
 - `PYTHONPYCACHEPREFIX=<isolated scratch directory> .venv/bin/python -m compileall -q pmqa products`
   -> exit code `0`, no output
 - `git diff --check` -> exit code `0`, no output
 - `git status --short` -> empty (clean worktree)
 
-No listed validation command was left unrun. No test was skipped by Reviewer
-choice. Environment: local `.venv` (Python 3.9), macOS/Darwin, no network
-access used or required.
+No listed validation command was left unrun. No test was skipped by
+Reviewer choice. Environment: local `.venv` (Python 3.9), macOS/Darwin, no
+network access used or required. The filesystem primitives exercised
+(`os.link`, `O_NOFOLLOW`, `fsync`) all behaved as expected on this platform;
+Windows-specific hard-link behavior was not exercised (noted under Suggested
+Architect Focus).
 
 ## Security, Scope, and Compatibility
 
-Security observations: the collector and handle retain no prompt, response,
-credential, environment, provider client, or arbitrary metadata — confirmed
-by reading `pmqa/usage/collector.py` in full and by
-`test_handle_is_opaque_immutable_and_not_serializable`. All expected error
-paths raise the fixed `AIInvocationCollectionError` with `from None` and a
-static per-code message, never echoing caller input, clock output, or handle
-identity; `_assert_safe_error` independently verified this across the full
-parametrized test matrix (including a `"runtime-secret-marker"` canary value
-threaded through metadata, clock, and evidence inputs). The handle-ownership
-model correctly resists forged, foreign-collector, subclassed, and
-internally-mutated handles as detailed in Overall Assessment.
+Security observations: the repository accepts and returns only exact
+`AIInvocationRecord` instances (never raw dicts), so it structurally cannot
+carry prompts, credentials, provider clients, or the Task 5C.5
+`AIInvocationHandle`. All ten expected-error paths use bounded static
+messages, suppress cause/context, and were independently confirmed (via a
+canary marker threaded through paths/payloads/monkeypatched exceptions) to
+never leak file paths, identifiers, JSON content, or underlying exception
+text. The publication and read paths defend against TOCTOU/symlink-swap
+races via captured device/inode identity comparisons rather than relying on
+`O_NOFOLLOW` alone, which is a stronger guarantee than the task's minimum
+"reject symlink/non-regular record entries" wording requires. No new
+prohibited-key list was introduced; the repository reuses
+`validate_run_identifier` from `pmqa.run` and `AIInvocationRecord.from_dict`
+for reconstruction, as required.
 
-Scope observations: the diff touches only `pmqa/usage/collector.py` (new),
-one small refactor-only hunk in `pmqa/usage/contracts.py`, `pmqa/usage/
-__init__.py` exports, one new focused test file, small additive blocks in
-`tests/test_packaging.py` and `tests/test_usage_imports.py`, and the four
-allowed documentation files, plus the Coder-owned report in a separate
-commit. No file under `pmqa/run`, `pmqa/runners`, `pmqa/application`,
-`pmqa/security`, or `products/` was modified, and no `RunRecord`/
-`RunnerInvocationRecord`/`WorkflowState` field was touched.
+Scope observations: the diff touches only `pmqa/usage/repository.py` (new),
+`pmqa/usage/__init__.py` exports, one new focused test file, an additive
+threaded-regression block in `tests/test_usage_collector.py`, small additive
+blocks in `tests/test_packaging.py` and `tests/test_usage_imports.py`, one
+new `.gitignore` line, and the four allowed documentation files, plus the
+Coder-owned report in a separate commit. No file under `pmqa/run`,
+`pmqa/runners`, `pmqa/application`, `pmqa/security`, or `products/` was
+modified, and `pmqa/usage/collector.py`/`contracts.py`/`pricing.py` are
+byte-identical to the Task 5C.5 baseline.
 
-Compatibility observations: the `pmqa/usage/contracts.py` change is a
-verified pure refactor (identical validation logic relocated into a shared
-private function) with no wire-schema or behavioral change — all pre-
-existing Task 5C.4 contract tests pass unchanged. `pmqa.usage` still imports
-only from `pmqa.run`/`pmqa.run.models` plus the standard library
-(`dataclasses`, `datetime`, `decimal`, `enum`, `math`, `threading`, `time`,
-`typing`); no new runtime dependency was added.
+Compatibility observations: `pmqa.usage` still imports only from
+`pmqa.run`/`pmqa.run.models` plus the standard library; no new runtime
+dependency was added. All pre-existing suites listed in `current-task.md`,
+plus the full default suite, pass unchanged.
 
 ## Verdict
 
@@ -254,24 +282,30 @@ disposition.
 
 ## Suggested Architect Focus
 
-- No test exercises the lock-based exactly-once guarantee under actual
-  concurrent (multi-threaded) contention; the guarantee is correct by code
-  inspection (single atomic `Lock`-guarded check-and-delete), but coverage is
-  sequential only. Not a blocking gap against the stated Required Tests list,
-  but worth a follow-up test if the collector is ever expected to run under
-  real thread-level concurrency rather than single-threaded async/await
-  usage.
-- The private `_HANDLE_FACTORY_KEY` sentinel and `AIInvocationHandle._create`
-  classmethod are technically importable/callable by a determined caller
-  (Python has no true privacy), so "forged" handles are only rejected
-  because they were never registered in a collector's active-invocation
-  table, not because `_create` itself is unreachable. This is sufficient
-  (verified) but relies on dict-membership as the actual security boundary
-  rather than construction-time gating; worth confirming this is the
-  intended defense-in-depth layering for future review.
-- Confirm the `AIInvocationCollectionErrorCode` vocabulary (8 fixed codes) is
-  the intended stable public surface, since a future provider/runner adapter
-  will likely branch on these codes.
+- `_parse_record` (`pmqa/usage/repository.py:527-528`) contains
+  `if record.to_dict() != value: raise ValueError` immediately after a
+  successful `AIInvocationRecord.from_dict(value)` call. By construction,
+  `from_dict()` only returns when the input is already `_plain_json_equal`
+  to its own canonical re-serialization, which is strictly stronger than
+  Python's native `!=`, so this specific line is defensively redundant and
+  currently unreachable. This is harmless (no behavioral or security effect,
+  and the *next* line's byte-exact `_canonical_bytes` comparison is the real,
+  necessary canonical-formatting check) — purely a minor code-clarity note,
+  not a defect.
+- The publication mechanism depends on the target filesystem supporting
+  same-directory hard links (`os.link`); this is well-handled (a distinct
+  `UNSUPPORTED_PUBLICATION` code on `ENOSYS`/`ENOTSUP`/`EOPNOTSUPP`/`EXDEV`),
+  but the Reviewer's environment is macOS/Darwin only — Windows NTFS hard-
+  link behavior (permission requirements, `os.link` availability) was not
+  exercised by either the Coder or this review. Worth confirming this is an
+  acceptable scope limitation if the project ever targets Windows operators.
+- The task explicitly scopes this repository to a "trusted local repository
+  root" and disclaims protection against a malicious OS administrator; this
+  is correctly reflected in the implementation (e.g., relying on directory/
+  file mode bits rather than any stronger isolation) and documentation, and
+  is not a gap against this checkpoint's stated acceptance criteria — noting
+  it here only so the trust boundary is explicit for whoever designs the
+  next checkpoint (collector-to-repository wiring) on top of it.
 
 ## Reviewer Write-Boundary Confirmation
 
