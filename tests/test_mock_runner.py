@@ -1,7 +1,7 @@
 """Tests for the deterministic in-process MockRunner."""
 
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from threading import Thread
 
 import pytest
@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from pmqa.run import (
     PMQARunContext,
+    RunArtifact,
     RunReference,
     RunRequest,
     RunnerInvocationRecord,
@@ -40,6 +41,50 @@ class SequenceClock:
         if isinstance(value, BaseException):
             raise value
         return value
+
+
+class RaisingTimezone(tzinfo):
+    def __init__(
+        self,
+        exception: BaseException,
+        *,
+        raise_on_call: int,
+    ) -> None:
+        self.exception = exception
+        self.raise_on_call = raise_on_call
+        self.calls = 0
+
+    def utcoffset(self, value):
+        self.calls += 1
+        if self.calls == self.raise_on_call:
+            raise self.exception
+        return timedelta(0)
+
+    def dst(self, value):
+        return timedelta(0)
+
+    def tzname(self, value):
+        return "raising-timezone"
+
+
+class RunArtifactSubclass(RunArtifact):
+    pass
+
+
+class MutableArtifactLike:
+    def __init__(self) -> None:
+        self.artifact_id = "runtime-secret-marker"
+
+
+def _artifact() -> RunArtifact:
+    return RunArtifact(
+        artifact_id="artifact.mock-output",
+        artifact_type="playwright-tests",
+        artifact_schema_version="1",
+        storage_key="runs/run.1/artifacts/mock-output",
+        content_digest="a" * 64,
+        created_at=COMPLETED_AT,
+    )
 
 
 def _request(
@@ -271,6 +316,32 @@ def test_invalid_wall_clock_fails_safely(wall_value) -> None:
         runner.execute(_request(), RunnerControl())
 
     assert "runtime-secret-marker" not in str(captured.value)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
+@pytest.mark.parametrize("raise_on_call", (1, 2))
+def test_wall_clock_timezone_failures_are_fully_contained(
+    raise_on_call: int,
+) -> None:
+    marker = "runtime-secret-marker"
+    zone = RaisingTimezone(
+        ValueError(marker),
+        raise_on_call=raise_on_call,
+    )
+    runner = MockRunner(
+        wall_clock=SequenceClock(
+            datetime(2026, 7, 24, 12, 1, tzinfo=zone)
+        ),
+        monotonic_clock=SequenceClock(1.0, 2.0),
+    )
+
+    with pytest.raises(RunnerBoundaryValidationError) as captured:
+        runner.execute(_request(), RunnerControl())
+
+    assert marker not in str(captured.value)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
 
 
 @pytest.mark.parametrize(
@@ -292,6 +363,116 @@ def test_invalid_monotonic_clock_fails_safely(values) -> None:
         runner.execute(_request(), RunnerControl())
 
     assert "runtime-secret-marker" not in str(captured.value)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
+def test_extreme_finite_monotonic_duration_fails_safely() -> None:
+    runner = MockRunner(
+        wall_clock=SequenceClock(COMPLETED_AT),
+        monotonic_clock=SequenceClock(0.0, 1e308),
+    )
+
+    with pytest.raises(RunnerBoundaryValidationError) as captured:
+        runner.execute(_request(), RunnerControl())
+
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
+def test_equal_monotonic_samples_preserve_zero_duration() -> None:
+    runner = MockRunner(
+        wall_clock=SequenceClock(COMPLETED_AT),
+        monotonic_clock=SequenceClock(5.0, 5.0),
+    )
+
+    response = runner.execute(_request(), RunnerControl())
+
+    assert response.invocation.duration_ms == 0
+
+
+@pytest.mark.parametrize(
+    "exception_type",
+    (MemoryError, KeyboardInterrupt, SystemExit, GeneratorExit),
+)
+def test_resource_and_control_flow_exceptions_propagate_from_wall_callable(
+    exception_type,
+) -> None:
+    marker = "runtime-secret-marker"
+    expected = exception_type(marker)
+    runner = MockRunner(
+        wall_clock=SequenceClock(expected),
+        monotonic_clock=SequenceClock(1.0, 2.0),
+    )
+
+    with pytest.raises(exception_type) as captured:
+        runner.execute(_request(), RunnerControl())
+
+    assert captured.value is expected
+
+
+@pytest.mark.parametrize(
+    "exception_type",
+    (MemoryError, KeyboardInterrupt, SystemExit, GeneratorExit),
+)
+@pytest.mark.parametrize("raise_on_call", (1, 2))
+def test_resource_and_control_flow_exceptions_propagate_from_timezone(
+    exception_type,
+    raise_on_call: int,
+) -> None:
+    expected = exception_type("runtime-secret-marker")
+    zone = RaisingTimezone(expected, raise_on_call=raise_on_call)
+    runner = MockRunner(
+        wall_clock=SequenceClock(
+            datetime(2026, 7, 24, 12, 1, tzinfo=zone)
+        ),
+        monotonic_clock=SequenceClock(1.0, 2.0),
+    )
+
+    with pytest.raises(exception_type) as captured:
+        runner.execute(_request(), RunnerControl())
+
+    assert captured.value is expected
+
+
+@pytest.mark.parametrize(
+    "exception_type",
+    (MemoryError, KeyboardInterrupt, SystemExit, GeneratorExit),
+)
+def test_resource_and_control_flow_exceptions_propagate_from_monotonic_clock(
+    exception_type,
+) -> None:
+    expected = exception_type("runtime-secret-marker")
+    runner = MockRunner(
+        wall_clock=SequenceClock(COMPLETED_AT),
+        monotonic_clock=SequenceClock(expected),
+    )
+
+    with pytest.raises(exception_type) as captured:
+        runner.execute(_request(), RunnerControl())
+
+    assert captured.value is expected
+
+
+@pytest.mark.parametrize(
+    "exception_type",
+    (MemoryError, KeyboardInterrupt, SystemExit, GeneratorExit),
+)
+def test_resource_and_control_flow_exceptions_propagate_from_duration(
+    monkeypatch,
+    exception_type,
+) -> None:
+    expected = exception_type("runtime-secret-marker")
+
+    def raise_expected(value):
+        raise expected
+
+    monkeypatch.setattr("pmqa.runners.mock.math.isfinite", raise_expected)
+
+    with pytest.raises(exception_type) as captured:
+        MockRunner._duration_milliseconds(0.0, 1.0)
+
+    assert captured.value is expected
 
 
 def test_noncallable_clocks_and_unsupported_outcome_fail_safely() -> None:
@@ -304,6 +485,93 @@ def test_noncallable_clocks_and_unsupported_outcome_fail_safely() -> None:
     ):
         with pytest.raises(RunnerBoundaryValidationError):
             MockRunner(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "invalid_artifact",
+    (
+        {"artifact_id": "runtime-secret-marker"},
+        MutableArtifactLike(),
+        object(),
+    ),
+)
+def test_mock_runner_rejects_untyped_mutable_artifacts_safely(
+    invalid_artifact,
+) -> None:
+    marker = "runtime-secret-marker"
+
+    with pytest.raises(RunnerBoundaryValidationError) as captured:
+        MockRunner(output_artifacts=(invalid_artifact,))
+
+    assert marker not in str(captured.value)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
+def test_mock_runner_rejects_run_artifact_subclasses() -> None:
+    subclass = RunArtifactSubclass(**_artifact().model_dump(mode="python"))
+
+    with pytest.raises(RunnerBoundaryValidationError):
+        MockRunner(output_artifacts=(subclass,))
+
+
+def test_mock_runner_retains_independent_immutable_artifact_snapshot() -> None:
+    caller_artifact = _artifact()
+    runner = MockRunner(
+        output_artifacts=(caller_artifact,),
+        wall_clock=SequenceClock(COMPLETED_AT, COMPLETED_AT),
+        monotonic_clock=SequenceClock(1.0, 2.0, 1.0, 2.0),
+    )
+    caller_artifact.__dict__["artifact_id"] = "artifact.caller-mutated"
+
+    first = runner.execute(_request(), RunnerControl())
+    second = runner.execute(_request(), RunnerControl())
+
+    assert first.artifacts[0].artifact_id == "artifact.mock-output"
+    assert second.artifacts == first.artifacts
+    assert first.artifacts[0] is not caller_artifact
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    (
+        RunnerInvocationStatus.SUCCEEDED,
+        RunnerInvocationStatus.PARTIALLY_SUCCEEDED,
+        RunnerInvocationStatus.FAILED,
+    ),
+)
+def test_mock_runner_retains_valid_output_artifacts_for_executed_outcomes(
+    outcome: RunnerInvocationStatus,
+) -> None:
+    runner = MockRunner(
+        outcome=outcome,
+        output_artifacts=(_artifact(),),
+        wall_clock=SequenceClock(COMPLETED_AT),
+        monotonic_clock=SequenceClock(1.0, 2.0),
+    )
+
+    response = runner.execute(_request(), RunnerControl())
+
+    assert response.artifacts == (_artifact(),)
+
+
+def test_pre_execution_cancellation_discards_configured_output_artifacts() -> None:
+    token = CancellationToken()
+    token.cancel()
+    runner = MockRunner(
+        output_artifacts=(_artifact(),),
+        wall_clock=SequenceClock(COMPLETED_AT),
+        monotonic_clock=SequenceClock(1.0, 2.0),
+    )
+
+    response = runner.execute(_request(), RunnerControl(token))
+
+    assert response.invocation.status is RunnerInvocationStatus.CANCELLED
+    assert response.result is None
+    assert response.artifacts == ()
+    assert response.invocation.attempt_number == 1
+    assert response.invocation.retry_of_invocation_id is None
+    assert response.invocation.fallback_from_invocation_id is None
 
 
 def test_mock_runner_rejects_identity_mismatch_and_bad_control() -> None:

@@ -445,6 +445,43 @@ def test_authoritative_validation_preserves_attempt_predecessor_correlation() ->
         validate_runner_response(request, _response(invocation=unrelated))
 
 
+@pytest.mark.parametrize(
+    "status",
+    (
+        RunnerInvocationStatus.SUCCEEDED,
+        RunnerInvocationStatus.PARTIALLY_SUCCEEDED,
+        RunnerInvocationStatus.FAILED,
+    ),
+)
+@pytest.mark.parametrize("created_at", (_time(), _time(1)))
+def test_output_artifacts_accept_invocation_time_boundaries(
+    status: RunnerInvocationStatus,
+    created_at: datetime,
+) -> None:
+    artifact = _artifact().model_copy(update={"created_at": created_at})
+    response = _response(status, artifacts=(artifact,))
+
+    assert validate_runner_response(_runner_request(), response) == response
+
+
+@pytest.mark.parametrize("created_at", (_time(-1), _time(2)))
+def test_output_artifacts_reject_impossible_timestamps_safely(
+    created_at: datetime,
+) -> None:
+    marker = "runtime-secret-marker"
+    artifact = _artifact().model_copy(update={"created_at": created_at})
+
+    with pytest.raises(RunnerBoundaryValidationError) as captured:
+        validate_runner_response(
+            _runner_request(),
+            _response(artifacts=(artifact,)),
+        )
+
+    assert marker not in str(captured.value)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
 def test_runner_response_preserves_zero_duration_and_missing_result() -> None:
     response = _response(
         RunnerInvocationStatus.FAILED,

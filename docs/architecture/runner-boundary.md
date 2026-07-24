@@ -29,7 +29,9 @@ pending `RunnerInvocationRecord`. It adds only the expected result schema and
 a bounded timeout. `RunnerResponse` contains exactly one correlated terminal
 invocation, an outcome-appropriate structured result, and logical output
 artifact references. The authoritative response validator prevents a runner
-from returning a valid but unrelated invocation.
+from returning a valid but unrelated invocation. Every output artifact is
+created no earlier than invocation start and no later than invocation
+completion; exact start and completion boundaries are valid.
 
 The interface contains no provider request object, prompt, raw response,
 terminal output, environment, credential, browser, subprocess handle, or
@@ -62,7 +64,15 @@ environment, provider, prompt, usage, or cost work. Injected timezone-aware
 wall-clock and monotonic-clock evidence produces deterministic completion and
 duration data. Configured success, partial success, and failure outcomes plus
 pre-execution cancellation exercise the canonical lifecycle and correlation
-rules.
+rules. Clock call, timezone-awareness, UTC normalization, and duration
+conversion failures are contained behind the safe runner boundary while
+resource and control-flow exceptions remain authoritative.
+
+Configured output artifacts are exact, independently reconstructed
+`RunArtifact` snapshots. Successful, partially successful, and failed
+executions may return temporally correlated diagnostic artifacts. A
+pre-execution cancellation returns no result and no output artifacts because
+the mock did not execute.
 
 ## Future Application Service
 

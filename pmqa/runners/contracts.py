@@ -201,6 +201,12 @@ def validate_runner_response(
         raise RunnerBoundaryValidationError() from None
     if actual.completed_at is None or actual.completed_at < request.context.started_at:
         raise RunnerBoundaryValidationError() from None
+    if any(
+        artifact.created_at < actual.started_at
+        or artifact.created_at > actual.completed_at
+        for artifact in response.artifacts
+    ):
+        raise RunnerBoundaryValidationError() from None
     if response.result is not None and (
         response.result.schema_id != request.expected_result_schema_id
         or (

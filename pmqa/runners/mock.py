@@ -32,6 +32,12 @@ _SUPPORTED_OUTCOMES = frozenset(
         RunnerInvocationStatus.FAILED,
     }
 )
+_RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS = (
+    MemoryError,
+    KeyboardInterrupt,
+    SystemExit,
+    GeneratorExit,
+)
 
 
 def _default_wall_clock() -> datetime:
@@ -63,7 +69,23 @@ class MockRunner:
             raise RunnerBoundaryValidationError() from None
         if not callable(wall_clock) or not callable(monotonic_clock):
             raise RunnerBoundaryValidationError() from None
-        if type(output_artifacts) is not tuple:
+        if (
+            type(output_artifacts) is not tuple
+            or any(type(artifact) is not RunArtifact for artifact in output_artifacts)
+        ):
+            raise RunnerBoundaryValidationError() from None
+        artifact_snapshot_failed = False
+        artifact_snapshot: Tuple[RunArtifact, ...] = ()
+        try:
+            artifact_snapshot = tuple(
+                RunArtifact.from_dict(artifact.to_dict())
+                for artifact in output_artifacts
+            )
+        except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
+            raise
+        except Exception:
+            artifact_snapshot_failed = True
+        if artifact_snapshot_failed:
             raise RunnerBoundaryValidationError() from None
         self._outcome = outcome
         self._metadata = metadata or RunnerMetadata(
@@ -73,7 +95,7 @@ class MockRunner:
             display_name="Deterministic mock runner",
             capabilities=("deterministic-execution",),
         )
-        self._output_artifacts = tuple(output_artifacts)
+        self._output_artifacts = artifact_snapshot
         self._wall_clock = wall_clock
         self._monotonic_clock = monotonic_clock
 
@@ -102,10 +124,10 @@ class MockRunner:
             raise RunnerBoundaryValidationError() from None
         if completed_at < request.invocation.started_at:
             raise RunnerBoundaryValidationError() from None
-        elapsed = completed_monotonic - started_monotonic
-        if not math.isfinite(elapsed):
-            raise RunnerBoundaryValidationError() from None
-        duration_ms = int(elapsed * 1000)
+        duration_ms = self._duration_milliseconds(
+            started_monotonic,
+            completed_monotonic,
+        )
 
         status = (
             RunnerInvocationStatus.CANCELLED
@@ -126,35 +148,73 @@ class MockRunner:
             schema_version=RUNNER_CONTRACT_SCHEMA_VERSION,
             invocation=invocation,
             result=result,
-            artifacts=self._output_artifacts,
+            artifacts=() if cancelled else self._output_artifacts,
         )
         return validate_runner_response(request, response)
 
     def _sample_wall_clock(self) -> datetime:
+        failed = False
+        normalized: Optional[datetime] = None
         try:
             sampled = self._wall_clock()
-        except (KeyboardInterrupt, SystemExit, GeneratorExit):
+            if (
+                type(sampled) is not datetime
+                or sampled.tzinfo is None
+                or sampled.utcoffset() is None
+            ):
+                failed = True
+            else:
+                normalized = sampled.astimezone(timezone.utc)
+        except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
             raise
         except Exception:
+            failed = True
+        if failed or normalized is None:
             raise RunnerBoundaryValidationError() from None
-        if (
-            type(sampled) is not datetime
-            or sampled.tzinfo is None
-            or sampled.utcoffset() is None
-        ):
-            raise RunnerBoundaryValidationError() from None
-        return sampled.astimezone(timezone.utc)
+        return normalized
 
     def _sample_monotonic(self) -> float:
+        failed = False
+        normalized: Optional[float] = None
         try:
             sampled = self._monotonic_clock()
-        except (KeyboardInterrupt, SystemExit, GeneratorExit):
+            if (
+                type(sampled) not in {int, float}
+                or not math.isfinite(sampled)
+            ):
+                failed = True
+            else:
+                normalized = float(sampled)
+        except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
             raise
         except Exception:
+            failed = True
+        if failed or normalized is None:
             raise RunnerBoundaryValidationError() from None
-        if type(sampled) not in {int, float} or not math.isfinite(sampled):
+        return normalized
+
+    @staticmethod
+    def _duration_milliseconds(started: float, completed: float) -> int:
+        failed = False
+        duration_ms: Optional[int] = None
+        try:
+            elapsed = completed - started
+            scaled = elapsed * 1000
+            if (
+                elapsed < 0
+                or not math.isfinite(elapsed)
+                or not math.isfinite(scaled)
+            ):
+                failed = True
+            else:
+                duration_ms = int(scaled)
+        except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
+            raise
+        except Exception:
+            failed = True
+        if failed or duration_ms is None:
             raise RunnerBoundaryValidationError() from None
-        return float(sampled)
+        return duration_ms
 
     @staticmethod
     def _result(
