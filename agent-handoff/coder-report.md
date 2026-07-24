@@ -2,16 +2,16 @@
 
 Owner: Coder
 
-Task: AI Team Workflow Foundation — Provider-Neutral Independent Review
+Task: AI Team Workflow Foundation — Commit Correlation Remediation
 
 Task ID: `AI-TEAM-1`
 
-Attempt: `1`
+Attempt: `2`
 
-Status: Ready for Architect review
+Status: Ready for Architect re-review
 
 This file is the authoritative Coder-to-Architect handoff. The Independent
-Reviewer stage was intentionally not invoked for this bootstrap task.
+Reviewer stage remains intentionally omitted for the AI-TEAM-1 bootstrap.
 
 ## Branch and Starting HEAD
 
@@ -21,202 +21,185 @@ Branch:
 
 Exact Coder starting HEAD:
 
-`b3b2ef3f9a833447121577e4192bd997178f25e1`
+`5c61397465c08436ffe75d55169f2bfbbbbdfb95`
 
-The starting commit contained the Architect-owned AI-TEAM-1 handoff. The
-worktree and tracking branch were clean and synchronized before changes.
+The starting commit contained the Architect-owned Attempt 2 task and review
+handoff. The branch and tracking branch were synchronized and the worktree was
+clean before implementation.
 
-## Protocol Implementation Commit
+## Remediation Implementation Commit
 
-`838ed1deb24c5d4db7abe565c3f13c60385a312a`
+`84cc307134bfad9f828dba3040cd280c4956dbb9`
 
 Commit message:
 
-`add independent reviewer handoff protocol`
+`fix AI team commit correlation`
 
-## Coder Report Commit
+The implementation commit changes only:
 
-This file is delivered in the one report-only commit whose parent is
-`838ed1deb24c5d4db7abe565c3f13c60385a312a` and whose message is:
+- `agent-handoff/README.md`; and
+- `agent-handoff/reviewer-report.md`.
 
-`report AI team workflow foundation`
+This Coder report is committed separately after that implementation commit.
 
-Because a Git commit cannot contain its own content-dependent SHA, the exact
-report commit SHA is the branch HEAD that contains this file. It is reported
-in the mandatory Human Summary and must be verified with `git rev-parse HEAD`
-before Architect review.
+## Non-Circular Receiving-Stage Derivation
 
-## Changed Files
+No handoff file embeds, predicts, or claims the SHA of the Git commit that
+contains that same file. The publishing role records only evidence that
+already exists before its report commit: Task, Attempt, branch, starting HEAD,
+and implementation commits.
 
-Protocol implementation commit:
+The receiving role derives the preceding report commit from repository history
+with the path-specific command:
 
-- `agent-handoff/README.md`
-- `agent-handoff/reviewer-report.md`
-
-Report-only handoff commit:
-
-- `agent-handoff/coder-report.md`
-
-No other file changed.
-
-## Protocol Summary
-
-`agent-handoff/README.md` establishes repository Markdown as the formal source
-of truth and Chat as a concise Human-facing status surface. It defines the
-manual sequential lifecycle:
-
-```text
-Architect publishes current-task
-Coder implements and publishes coder-report
-Reviewer independently publishes reviewer-report
-Architect publishes architect-review and next disposition
-Human receives concise stage summaries and resolves escalations
+```bash
+git log -1 --format=%H -- agent-handoff/<preceding-report>.md
 ```
 
-The protocol requires Task/Attempt, branch, starting HEAD, implementation and
-report commit correlation, exact-SHA verification by each later stage, full
-replacement of stale active reports, sequential role-attributed commits, and
-no concurrent handoff writes. The Human wakes the next role but does not copy
-tasks or reports between roles. No automatic triggering or provider-specific
-configuration is introduced.
+It then verifies:
 
-The documented VS Code plan uses one shared checkout and branch with separate
-persistent panels for Architect, Coder, and Reviewer. Each role reads formal
-inputs from `agent-handoff/`, verifies branch/SHA, and writes only authorized
-surfaces.
+- exact active branch and reachability from branch HEAD;
+- matching Task ID and Attempt in the report at the derived commit;
+- implementation ancestry from the recorded starting HEAD through the report
+  commit; and
+- absence of a later unauthorized replacement of that active report.
 
-## Authority and Escalation Summary
+The receiving role records the derived SHA and verification in its own
+Markdown report. The chain is therefore complete without self-reference:
 
-- Human owns product direction, business priority, final approval, conflict
-  resolution, and material risk acceptance.
-- Architect owns task/acceptance criteria, architecture within approved
-  direction, review synthesis, and final technical disposition. It may write
-  only its three handoff files and may not modify implementation.
-- Coder is the only AI-team role that may modify implementation surfaces,
-  owns `coder-report.md`, implements only the active task, and cannot
-  self-approve.
-- Independent Reviewer is repository-read-only except
-  `reviewer-report.md`, does not implement or direct remediation, and returns
-  only an advisory `Pass`, `Changes Requested`, or `Inconclusive`.
+```text
+current-task publication commit
+  -> Coder records it as starting HEAD
+Coder report commit
+  -> Reviewer derives and records it
+Reviewer report commit
+  -> Architect derives and records it
+Architect disposition/current-task publication commit
+  -> next Coder records it as starting HEAD
+```
 
-Technical findings within accepted direction remain with the Architect.
-Product direction, user experience, business priority, significant scope
-expansion, material security/cost/operational risk, unresolved ambiguity, and
-irreconcilable or high-severity disagreement route to the Human. The compact
-`Human Decision Required` section records the decision, why Architect cannot
-safely decide, options/trade-offs, recommendation when supportable, and the
-default pause limited to the affected decision.
+Because Attempt 2 intentionally omits the Reviewer, the bootstrap Architect
+derives this Coder report commit directly and records it in
+`architect-review.md`. Future live Reviewers derive the Coder report commit;
+the Architect then derives the Reviewer report commit.
 
-Every stage must send the required 5–10 line Human Summary without replacing
-the formal Markdown record.
+This report does not contain its own report commit SHA. Chat and the Human
+Summary may display that SHA for observability after publication, but neither
+is authoritative or required for formal correlation.
 
-## Independent Reviewer Template
+## Protocol Corrections
 
-`agent-handoff/reviewer-report.md` is an inactive template for AI-TEAM-1 and
-must be replaced in full by the Reviewer for the first live pilot.
+`agent-handoff/README.md` now:
 
-It requires:
+- defines active records collectively as the formal evidence chain;
+- explicitly forbids a report from claiming its own containing commit;
+- makes exact-SHA verification refer only to the preceding stage;
+- requires the receiving role to derive and record the preceding handoff
+  commit;
+- requires branch, reachability, path identity, Task/Attempt, implementation
+  ancestry, and latest-authorized-change checks;
+- documents the complete Coder → Reviewer → Architect → next-Coder chain;
+- defines direct Architect derivation for a bootstrap without Reviewer;
+- states that Human Summary SHAs are informational and Git history is
+  authoritative;
+- retains mismatch pausing, sequential publication, and exclusive ownership;
+  and
+- extends the bootstrap exception only through Attempt 2, ending after
+  approval.
 
-- Task, Task ID, Attempt, branch, starting HEAD, implementation commit(s), and
-  Coder report commit;
-- independent actual review depth (`Light`, `Standard`, or `Deep`) and reason;
-- overall assessment and severity/evidence/file-line findings;
-- acceptance-criteria coverage;
-- claimed Coder evidence separated from independently run validation;
-- security, scope, and compatibility observations;
-- advisory verdict;
-- Suggested Architect Focus; and
-- explicit confirmation that the Reviewer changed only its owned report.
+`agent-handoff/reviewer-report.md` now:
 
-The Reviewer must inspect the task and acceptance criteria first, then the
-named diff/tests, then independently selected validation, and only then the
-full Coder report. A narrow correlation-header read is allowed solely to
-locate exact commits before substantive review. The active task's
-`architect-review.md` remains unread until the Reviewer publishes its report.
+- retains Task, Task ID, Attempt, branch, starting HEAD, and implementation
+  fields;
+- records a Git-derived Coder report commit and explicit correlation checks;
+- retains independent inspection order, depth, findings, acceptance coverage,
+  independent tests, scope, security, compatibility, verdict, Architect
+  focus, and write-boundary confirmation; and
+- explicitly states that it does not contain its own commit SHA and that the
+  Architect derives and records the Reviewer report commit.
 
-## Bootstrap and Pilot
+No unfillable Reviewer self-SHA field or extra self-attestation loop was added.
 
-AI-TEAM-1 uses the existing Architect → Coder → Architect flow. The Coder's
-creation of the Architect-owned protocol README and Reviewer-owned initial
-template is explicitly limited to this bootstrap attempt.
+## Preserved Authority and Workflow
 
-After foundation approval, PMQA Task 5C.4 is the first complete Coder →
-Independent Reviewer → Architect pilot. A single lightweight retrospective
-then changes only demonstrated pain points, templates, or ownership wording.
-Task 5C.4 was not started here.
+The remediation does not change:
 
-## Manual Authority and Consistency Audit
-
-- Human authority is limited to product/business/final approval/conflict/risk
-  decisions and does not make Human a routine messenger.
-- Architect has exactly three writable handoff files and is explicitly
-  prohibited from modifying all implementation surfaces.
-- Coder alone may modify implementation and owns exactly one handoff report.
-- Reviewer owns exactly one writable file, is otherwise repository-read-only,
-  and cannot implement, repair, manage, or direct Coder remediation.
-- Reviewer findings flow only to Architect; Architect records evidence for
-  disagreement and escalates high-severity disagreement or risk acceptance.
-- Every product-direction, business, significant-scope, material-risk, or
-  genuinely unresolved decision routes to Human.
-- Lifecycle stages are sequential, prohibit concurrent handoff writes, and
-  require later-stage branch and exact-SHA verification.
-- Stale reports are replaced for each active Task/Attempt and preserved in Git
-  history.
-- Reviewer inspection order, verdict vocabulary, and advisory authority are
-  explicit and separate from Architect's final technical disposition.
-- The mandatory Human Summary is six fields and remains a Chat-only summary.
-- The setup is manual and provider-neutral; no named provider dependency or
-  normative provider example exists.
-- AI-TEAM-1 does not invoke Reviewer; Task 5C.4 is only the future first pilot.
-
-No inconsistent authority or ownership statement was found.
+- Human product, business, final approval, conflict, and material-risk
+  authority;
+- Architect task, architecture, synthesis, technical-disposition, and Human
+  escalation authority;
+- Coder-exclusive implementation authority and prohibition on self-approval;
+- Reviewer read-only independence, exclusive report ownership, inspection
+  order, advisory verdict, and prohibition on implementation or direct Coder
+  management;
+- sequential single-writer publication;
+- mismatch pausing;
+- provider-neutral manual VS Code operation;
+- the Task 5C.4 full-pilot plan; or
+- the post-pilot lightweight retrospective.
 
 ## Validation Results
 
-- `git diff --check`: passed before the protocol commit and after preparing
-  this report; it is rechecked after the report commit.
-- Handoff relative-link validation:
-  - all links in the five `agent-handoff/*.md` files resolved.
-- Authority keyword audit:
-  - confirmed exclusive write boundaries, prohibited implementation changes,
-    Human escalation, exact-SHA correlation, sequential publication, and no
-    direct Reviewer-to-Coder remediation.
-- Provider/automation audit:
-  - no named provider appears in the new protocol or template;
-  - automation terms appear only in explicit prohibitions.
-- `git diff --name-only b3b2ef3f9a833447121577e4192bd997178f25e1..HEAD`:
-  - after the report commit, expected and rechecked files are only
-    `agent-handoff/README.md`,
-    `agent-handoff/reviewer-report.md`, and
-    `agent-handoff/coder-report.md`.
-- `git status --short`:
-  - clean after both commits.
+- `git diff --check`: passed for the implementation commit and this report
+  content; it is rechecked after the report commit.
+- Handoff relative links:
+  - all relative links in the five `agent-handoff/*.md` files resolve.
+- Self-reference audit:
+  - no active requirement makes a handoff report claim its own containing
+    commit;
+  - no self-attestation update loop exists.
+- Authority audit:
+  - exclusive ownership, Reviewer inspection order, advisory verdict,
+    Architect disposition, Human escalation, and sequential publication remain
+    consistent.
+- Chat authority audit:
+  - repository Markdown and Git history remain formal;
+  - Chat and Human Summary SHAs are explicitly informational.
+- Changed-file scope from the Coder starting HEAD through the implementation
+  commit:
+  - `agent-handoff/README.md`;
+  - `agent-handoff/reviewer-report.md`.
+- Path-specific history before this report commit:
+  - `git log -1 --format=%H -- agent-handoff/reviewer-report.md` returned the
+    implementation commit
+    `84cc307134bfad9f828dba3040cd280c4956dbb9`;
+  - the previous Coder report remained at the Attempt 1 report commit until
+    this report-only publication.
+- Ancestry:
+  - starting HEAD
+    `5c61397465c08436ffe75d55169f2bfbbbbdfb95` is an ancestor of implementation
+    commit `84cc307134bfad9f828dba3040cd280c4956dbb9`;
+  - after this report is committed, the implementation commit is rechecked as
+    an ancestor of the Git-derived Coder report commit.
+- Final changed-file, status, path-history, ancestry, and remote synchronization
+  checks are performed after the report-only commit and before the Human
+  Summary.
 
 No production tests were run because the authoritative task permits only
-handoff Markdown changes and explicitly does not require a production suite.
+handoff Markdown changes and explicitly requires no production suite.
 
-## Remaining Risks and Open Items
+## Remaining Risks
 
-- The protocol remains manual; missed wakeups or a role failing to verify SHA
-  are process risks rather than automated enforcement failures.
-- The narrow pre-review correlation-header read relies on role discipline to
-  avoid reading Coder conclusions early.
-- Task 5C.4 must test the full Reviewer stage before ownership wording and
-  templates are considered stabilized.
-- The post-pilot retrospective should change only proven friction, not add
-  speculative automation.
+- The protocol remains manual, so a receiving role can still fail to perform a
+  required check; the formal rule is now deterministic and non-circular.
+- Latest-authorized-change verification remains a role discipline until the
+  future pilot demonstrates whether additional documentation is needed.
+- Task 5C.4 must exercise the complete Reviewer stage before the protocol is
+  considered operationally stabilized.
 
 ## Scope Confirmation
 
-- Only the three allowed `agent-handoff/` Markdown files changed.
+- Only `agent-handoff/README.md`, `agent-handoff/reviewer-report.md`, and this
+  `agent-handoff/coder-report.md` changed.
+- `agent-handoff/current-task.md` and
+  `agent-handoff/architect-review.md` were not modified.
 - No production code, tests, configuration, schemas, packaging, scripts,
   project README, Roadmap, architecture/product documentation, runtime, CLI,
   persistence, telemetry, Usage/Cost, UI, or API changed.
-- `current-task.md` and `architect-review.md` were not modified.
-- No MCP, event bus, scheduler, state machine, agent network, daemon, watcher,
-  webhook, automatic trigger, or provider SDK was added.
+- No automation, MCP, watcher, scheduler, hook, state machine, bot, provider
+  integration, or extra attestation commit was added.
 - The Independent Reviewer stage was not executed for this bootstrap.
-- PMQA Task 5C.4, Task 5B, Task 6, and Task 7 were not started.
+- Task 5C.4, Task 5B, Task 6, and Task 7 were not started.
 - No PR was created and nothing was merged.
 - No prior commit was amended.
 
@@ -224,19 +207,18 @@ handoff Markdown changes and explicitly does not require a production suite.
 
 Recommendation: Standard
 
-Reason: The change is Markdown-only but establishes authority, ownership, and
-review sequencing that will govern future implementation work.
+Reason: The change is Markdown-only but corrects the formal commit-correlation
+chain that every future role will rely on.
 
 ## Suggested Review Focus
 
-- Verify all four role boundaries are exclusive and internally consistent.
-- Confirm Reviewer independence, inspection order, and advisory verdict do not
-  displace Architect or Human authority.
-- Check that every material product/risk ambiguity has an explicit Human
-  escalation path.
-- Exercise the manual VS Code lifecycle and exact-commit correlation without
-  Human copy/paste.
-- Confirm the bootstrap exception ends after AI-TEAM-1 and Task 5C.4 remains
-  only the first future pilot.
+- Verify no report is required to predict or embed its own commit SHA.
+- Derive this Coder report commit from Git and confirm the bootstrap Architect
+  can record it without Chat.
+- Walk the complete Coder → Reviewer → Architect → next-Coder evidence chain.
+- Confirm branch, ancestry, Task/Attempt, path, and unauthorized-replacement
+  checks are explicit.
+- Recheck that authority, ownership, escalation, independence, and rollout
+  behavior did not change.
 
 The Coder recommendation is advisory and does not approve the task.
