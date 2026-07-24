@@ -2,208 +2,403 @@
 
 Owner: Architect
 
-Task: PMQA Task 5C.6 — Repository Root and Platform Boundary Hardening
+Task: PMQA Task 5C.7 — Deterministic Usage Summary Contracts and Pure Aggregation
 
-Task ID: `PMQA-5C.6`
+Task ID: `PMQA-5C.7`
 
-Attempt: `2`
+Attempt: `1`
 
-Status: Changes Required
+Status: Ready for Coder
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
-Reviewed attempt 1 Reviewer HEAD:
-`339191498e7b2a2cfcb473483f1f88509f06bc8a`
+Architect-reviewed baseline Reviewer HEAD:
+`a258ba59b7fdd1edb6e01ab738ea9203610e954b`
 
 Coder starting HEAD: derive and record the latest pushed branch commit that
-contains this remediation publication before changing implementation files.
+contains this task publication before changing implementation files.
 
 Repository Markdown and Git history are authoritative. Chat summaries are
 informational only.
 
 ## Task Objective
 
-Close three Task 5C.6 persisted-boundary findings without changing repository
-layout, public query behavior, canonical invocation schemas, or append-only
-publication semantics:
+Add a provider-neutral, deterministic, immutable summary contract and pure
+aggregation service for canonical `AIInvocationRecord` values.
 
-1. reject semantic-root and invalid OS repository paths;
-2. contain missing/unsupported platform capabilities behind fixed safe
-   failures;
-3. contain JSON parser overflow as corrupt persisted data.
+This checkpoint must make zero distinct from unavailable, keep reported and
+estimated cost separate, preserve currency and pricing provenance, expose
+retry/fallback/status counts, and provide stable provider/model grouping
+without reading storage, launching providers, calculating prices, or changing
+existing records.
+
+The result is the domain/service layer needed before a later repository-backed
+CLI summary. It is not itself a CLI or workflow integration.
 
 ## Background
 
-Task 5C.6 attempt 1 implemented a strong per-invocation local JSON repository
-and passed Coder and Independent Reviewer validation. Architect review found
-three adversarial gaps:
+Task 5C.4 defined provider-neutral usage, cost, and pricing evidence. Task
+5C.5 added exactly-once invocation collection. Task 5C.6 added append-only
+local persistence and deterministic retrieval.
 
-```text
-LocalJSONUsageRepository(Path("/tmp/.."))
-    -> accepted; target becomes /invocations
+The current architecture can record and retrieve exact invocation evidence,
+but it does not yet derive a bounded, canonical view suitable for:
 
-LocalJSONUsageRepository(Path("/tmp/runtime\0marker")).save(record)
-    -> raw ValueError("embedded null byte")
+- one PMQA session;
+- one PMQA run;
+- provider/model comparison;
+- status, retry, fallback, duration, token, and cost reporting;
+- future cost-per-success and cache-benefit analysis.
 
-os.fchmod absent during save
-    -> raw AttributeError and private temporary orphan
-```
-
-The complete evidence and disposition are in
-`agent-handoff/architect-review.md`.
+Aggregation must not manufacture missing evidence. A numeric zero is an
+observed value. An absent token field remains absent even when other records
+provide that field. Provider-reported cost must never be combined with
+estimated cost, subscription inclusion must never become a zero-dollar amount,
+and different currencies must never be summed together.
 
 ## Scope
 
-- Harden caller-supplied repository root validation.
-- Harden optional/unsupported platform-function handling.
-- Add parser `OverflowError` containment.
-- Add focused adversarial regressions.
-- Update the focused usage architecture document only if platform support
-  wording needs clarification.
-- Replace `agent-handoff/coder-report.md` with the attempt 2 report.
+- Add immutable summary contracts under `pmqa.usage`.
+- Add one provider-neutral pure aggregation boundary and deterministic default
+  implementation.
+- Aggregate only caller-supplied canonical `AIInvocationRecord` snapshots.
+- Support session and run scope.
+- Add deterministic provider/model groups.
+- Add stable status, retry/fallback, duration, token-field, and cost buckets.
+- Add strict correlation, duplicate, overflow, canonical-round-trip, and
+  safe-error behavior.
+- Update focused documentation and Task 5C status text.
+- Replace `agent-handoff/coder-report.md` with the Task 5C.7 report.
 
-Do not otherwise refactor the repository.
+Do not connect the aggregator to the repository or any workflow in this task.
 
-## Required Correction 1 — Repository Root Validation
+## Required Public Design
 
-The constructor must remain side-effect free and require one explicit absolute
-non-root `Path`.
+Place the implementation in a focused module such as:
 
-Reject before any filesystem effect:
+```text
+pmqa/usage/summary.py
+```
 
-- the filesystem anchor itself;
-- any path containing a `..` component;
-- any absolute path that could lexically or semantically select the anchor
-  after normalization;
-- an embedded NUL;
-- invalid/unrepresentable path values that would later produce a raw
-  `ValueError`, `TypeError`, or platform conversion failure;
-- non-`Path`, relative, and existing prohibited cases.
+Export the approved public API from `pmqa.usage`, but do not export it from
+top-level `pmqa`.
 
-Requirements:
+Use names equivalent in meaning to:
 
-- do not silently rewrite a traversal-containing operator path;
-- do not call `resolve()` in a way that follows symlinks and converts an
-  existing symlink root into an accepted target;
-- retain one private canonical path snapshot not controlled by a mutable
-  caller object;
-- valid absolute paths, including ordinary spaces, remain supported;
-- expected invalid paths raise only
-  `UsageRepositoryErrorCode.INVALID_CONFIGURATION`;
-- error message, cause, and context expose no path or marker.
+```python
+class UsageSummaryScope(str, Enum):
+    SESSION = "session"
+    RUN = "run"
 
-Add tests using platform-derived anchors rather than hard-coded POSIX-only
-assertions where practical:
 
-- `<anchor>/tmp/..`;
-- nested parent traversal that would reach the anchor;
-- parent traversal that would select a different directory;
-- embedded NUL with a secret marker;
-- existing file and symlink roots;
-- valid absolute paths with spaces;
-- no directory/file creation for every rejected constructor input.
+class UsageAggregator(Protocol):
+    def summarize(
+        self,
+        records: tuple[AIInvocationRecord, ...],
+        *,
+        scope: UsageSummaryScope,
+        scope_id: str,
+    ) -> UsageSummary:
+        ...
 
-## Required Correction 2 — Platform Capability Boundary
 
-Inventory every OS capability used by publication:
+class DefaultUsageAggregator:
+    ...
+```
 
-- temporary creation;
-- restrictive descriptor mode when supported;
-- file synchronization;
-- hard-link no-replace publication;
-- directory synchronization;
-- identity-based cleanup and descriptor release.
+Exact class names may vary only if the Coder documents a materially clearer
+fit with the existing repository style. Do not add asynchronous APIs,
+callbacks, dependency injection containers, or provider-specific concepts.
+
+## Required Summary Semantics
+
+The canonical top-level summary must contain:
+
+- schema version;
+- scope type and canonical scope ID;
+- total invocation count;
+- succeeded, failed, and cancelled counts;
+- retry invocation count;
+- fallback invocation count;
+- exact total duration in milliseconds;
+- one deterministic token-field summary for every `TokenField`;
+- deterministic cost buckets;
+- deterministic provider/model groups.
+
+Do not add a generated timestamp. The summary must be a pure deterministic
+function of its records and explicit scope.
+
+### Status and predecessor counts
+
+- Status counts must add exactly to invocation count.
+- `retry_invocation_count` counts records with
+  `retry_of_invocation_id is not None`.
+- `fallback_invocation_count` counts records with
+  `fallback_from_invocation_id is not None`.
+- Do not infer retries from `attempt_number` alone.
+- Do not require predecessor records to be present in the selected input;
+  cross-record lineage validation remains outside this checkpoint.
+
+### Duration
+
+- Sum the exact canonical `duration_ms` values.
+- Do not derive duration from wall timestamps.
+- Enforce an explicit bounded aggregate maximum.
+- Overflow must fail through a fixed safe aggregation error; it must not wrap,
+  clamp, convert to float, or silently truncate.
+
+### Token-field summaries
+
+For each `TokenField`, preserve at least:
+
+- the field identity;
+- total value, which is optional;
+- number of invocations with an observed value;
+- number of invocations where the field is unavailable.
+
+Required invariant:
+
+```text
+observed_invocation_count + unavailable_invocation_count
+    == total invocation count
+```
+
+Required meaning:
+
+- total is `None` exactly when no invocation observed that field;
+- total is numeric zero when one or more invocations observed only zero;
+- a partial total may exist while `unavailable_invocation_count > 0`;
+- the summary must not claim that a partial total covers unavailable records;
+- unavailable reasons remain in invocation evidence and are not guessed or
+  collapsed into a fake numeric value.
+
+Token totals must use bounded integer arithmetic and fail safely on overflow.
+
+### Cost buckets
+
+Never combine incompatible cost evidence.
+
+Group monetary evidence by the complete compatible identity needed to avoid
+mixing meanings:
+
+- `cost_type`;
+- currency;
+- pricing source ID;
+- pricing version;
+- pricing effective timestamp.
+
+Provider-reported and estimated amounts therefore remain separate. Estimated
+amounts with different pricing provenance remain separate. Different
+currencies remain separate.
+
+Group non-monetary evidence separately:
+
+- subscription-included evidence;
+- unavailable evidence, including its exact bounded unavailable reason.
+
+Each cost bucket must contain:
+
+- exact evidence identity/provenance fields;
+- invocation count;
+- amount only for monetary buckets.
 
 Required behavior:
 
-- missing or explicitly not-implemented optional functions must never leak
-  `AttributeError` or `NotImplementedError`;
-- absence of `os.fchmod` must either:
-  - use the secure `mkstemp` result under the documented trusted local
-    directory when this is safe for the platform; or
-  - fail before target publication through a fixed safe unsupported error;
-- absence of `os.link`, or a mandatory hard-link capability that reports
-  unsupported, must produce `UNSUPPORTED_PUBLICATION` before a target exists;
-- if directory synchronization is mandatory for the claimed durability,
-  preflight it before target publication on a platform that cannot perform it;
-- if a post-publication synchronization call fails unexpectedly, preserve the
-  complete published target and return the existing fixed persistence error;
-- Unix restrictive mode checks remain enforced where supported;
-- a platform without meaningful Unix mode bits must not leak an exception or
-  silently claim a guarantee it did not enforce;
-- no fallback may use overwrite, `os.replace`, rename-over-target,
-  check-then-write, unlink-and-retry, or a weaker publication primitive;
-- no platform-specific runtime dependency may be added.
+- monetary zero remains an observed amount of zero;
+- subscription-included does not carry amount or currency and is not treated
+  as monetary zero;
+- unavailable does not carry amount or currency;
+- Decimal arithmetic remains exact;
+- canonical decimal bounds remain enforced;
+- no conversion to float;
+- bucket ordering is deterministic and independent of input order.
 
-Full Windows support is not required. A deterministic, documented, fixed safe
-unsupported result is acceptable.
+### Provider/model groups
 
-Add simulated capability tests that do not depend on the test host:
+Create one deterministic group for each exact provider/model identity:
 
-- `os.fchmod` absent;
-- `os.fchmod` reports `NotImplementedError`;
-- `os.link` absent;
-- hard-link unsupported errno;
-- mandatory directory-sync capability unavailable before publication;
-- post-publication directory-sync failure preserves the record;
-- no raw platform exception or marker leaks;
-- descriptors close exactly once;
-- only identity-verified owned temporary paths may be removed;
-- no target exists for pre-publication unsupported failures.
+- canonical provider;
+- model when known;
+- exact model-unavailable reason when model is unavailable.
 
-The Coder must choose and document whether a private orphan is permitted for
-each pre-publication failure. Any orphan must remain non-record, restrictive,
-and identifier-free.
+Each group must expose the same status, retry/fallback, duration, token-field,
+and cost-bucket semantics as the top-level aggregate, without recursively
+nesting further provider/model groups.
 
-## Required Correction 3 — Parser Overflow
+Ordering must be deterministic and independent of input order. A known model
+and unavailable-model evidence must never be merged.
 
-Contain `OverflowError` raised inside persisted JSON/numeric reconstruction as
-fixed `UsageRepositoryErrorCode.CORRUPT_DATA`.
+### Empty input
 
-Requirements:
+An empty tuple is valid when the explicit scope is valid.
 
-- containment is scoped to `_parse_record`/JSON reconstruction;
-- the public error exposes no raw data, marker, parser message, cause, or
-  context;
-- `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit`
-  continue to propagate with exact identity;
-- valid canonical records remain unchanged.
+The empty summary must contain:
 
-Add:
+- invocation count and all status/retry/fallback/duration counts equal to
+  numeric zero;
+- every token field exactly once with `total=None`, observed count `0`, and
+  unavailable count `0`;
+- no cost buckets;
+- no provider/model groups.
 
-- one simulated `json.loads` `OverflowError` regression;
-- one real oversized/extreme numeric payload case where the interpreter can
-  produce a bounded parser/contract rejection;
-- cause/context and marker-leak assertions;
-- controls proving resource/control-flow exceptions still propagate.
+This is an empty selected set, not fabricated unavailable invocation evidence.
 
-## Preserve Existing Behavior
+## Correlation and Input Boundary
 
-Do not change:
+The aggregator must:
 
-- `UsageRepository` public methods;
-- file layout or digest naming;
-- canonical sorted compact UTF-8 bytes plus trailing newline;
-- `AIInvocationRecord` fields or validation;
-- duplicate/not-found/query semantics;
-- newest-first and invocation-ID tie ordering;
-- exact bounded limits;
-- atomic hard-link no-replace publication on supported platforms;
-- corruption fails whole matching query;
-- symlink/non-regular/digest/canonical-byte checks;
-- collector implementation or threading behavior;
-- import and packaging isolation.
+- require a built-in tuple of exact `AIInvocationRecord` instances;
+- independently reconstruct every record before aggregation;
+- never retain caller-owned records or containers;
+- reject duplicate invocation IDs;
+- validate the explicit scope and `scope_id` through canonical existing
+  identifier policy;
+- for session scope, require every record's `session_id == scope_id`;
+- for run scope, require every record's `run_id == scope_id`;
+- reject mixed or mismatched correlation rather than silently filtering;
+- accept records in any input order and produce byte-equivalent canonical
+  output;
+- propagate `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and
+  `GeneratorExit` with exact identity.
 
-The redundant structural equality check noted by the Reviewer may remain.
+Do not verify repository completeness, predecessor existence, run existence,
+session existence, or runner-invocation existence. The input tuple is an
+explicit bounded selection supplied by the caller.
+
+Define and enforce a conservative maximum number of records per aggregation.
+Reject excess input before performing aggregation. Do not silently truncate.
+
+## Error Boundary
+
+Add one fixed provider-neutral aggregation exception and a small bounded enum,
+for example:
+
+```text
+invalid_request
+invalid_record
+correlation_mismatch
+duplicate_invocation
+aggregate_overflow
+```
+
+Exact vocabulary may be consolidated if the distinctions remain deterministic
+and tests demonstrate them.
+
+Expected failures must:
+
+- expose only fixed bounded messages;
+- suppress cause and context;
+- never expose identifiers, provider/model names, amounts, paths, caller
+  payloads, runtime object representations, or injected markers.
+
+Do not reuse repository errors for a pure aggregation failure.
+
+## Canonical Contract Requirements
+
+All public summary records must follow existing usage/run contract style:
+
+- Pydantic v2;
+- strict and frozen;
+- `extra="forbid"`;
+- explicit schema version;
+- deeply immutable tuples and independently reconstructed nested records;
+- canonical plain-JSON `to_dict()` / `from_dict()` round trips;
+- `model_copy(update=...)` full revalidation;
+- unknown fields and coercion rejected;
+- caller-owned containers not retained;
+- complete tree depth/item/string bounds;
+- stable field order and deterministic collection ordering;
+- fixed safe reconstruction errors.
+
+Do not add a new prohibited/sensitive-key list. Reuse the existing canonical
+contract/security boundary.
+
+## Import and Dependency Isolation
+
+Importing `pmqa.usage` or the new summary module must not:
+
+- read usage repository files;
+- create directories or artifacts;
+- inspect environment variables;
+- load products, external Product Packs, Playwright, LangGraph, Supervisor,
+  orchestration, provider SDKs, or reasoning providers;
+- inspect installed distributions;
+- launch subprocesses;
+- perform pricing lookup;
+- register global state.
+
+Add no runtime dependency.
+
+## Required Tests
+
+At minimum cover:
+
+- exact public field sets and enum values;
+- empty summary semantics;
+- one complete zero-valued invocation;
+- one fully unavailable invocation;
+- mixed observed/unavailable token fields with partial totals;
+- success, failure, and cancellation counts;
+- retry and fallback counts;
+- exact duration aggregation;
+- duration and token overflow rejection;
+- provider-reported and estimated costs remain separate;
+- different currencies remain separate;
+- estimated pricing versions/effective timestamps remain separate;
+- monetary zero versus subscription-included versus unavailable;
+- exact Decimal summation without float conversion;
+- provider/model group separation and deterministic ordering;
+- unavailable model grouping by reason;
+- input-order-independent canonical output;
+- duplicate invocation IDs;
+- session and run correlation mismatch;
+- non-tuple, subclass, malformed, mutated, or excessive record input;
+- independent snapshots and caller mutation after summary construction;
+- canonical JSON round trips;
+- revalidated copies;
+- unknown/runtime/prohibited data rejection;
+- marker-safe fixed errors with no cause/context;
+- exact propagation of resource/control-flow exceptions;
+- import isolation;
+- real PMQA wheel packaging if the new module is not already covered by the
+  package allowlist;
+- existing collector/repository/contracts/pricing regressions.
+
+New tests remain offline and invoke no provider, model, CLI, network, browser,
+Node.js, or external Product Pack.
+
+## Documentation
+
+Update only the focused status and architecture surfaces needed to record:
+
+- Task 5C.6 passed architecture review;
+- Task 5C.7 adds summary contracts and pure aggregation;
+- summaries operate on an explicit caller-supplied bounded selection;
+- zero, partial, unavailable, reported, estimated, subscription-included, and
+  currency/provenance meanings remain distinct;
+- repository access, completeness, CLI display, outcome metrics, price
+  calculation, and provider integration remain deferred;
+- Task 5C remains in progress and unmerged.
+
+Expected documentation surfaces:
+
+- `README.md`;
+- `docs/Roadmap.md`;
+- `docs/architecture.md`;
+- `docs/architecture/usage-cost-contracts.md`.
+
+Do not change Task 5A/5B/6/7 status except where an existing sentence needs
+to preserve their unchanged state.
 
 ## Allowed Changes
 
-- `pmqa/usage/repository.py`;
-- `tests/test_usage_repository.py`;
-- minimal additive `tests/test_usage_imports.py` or
-  `tests/test_packaging.py` only if the correction changes those boundaries;
-- `docs/architecture/usage-cost-contracts.md` only if needed to state platform
-  capability behavior accurately;
+- `pmqa/usage/summary.py`;
+- `pmqa/usage/__init__.py`;
+- focused summary tests, preferably `tests/test_usage_summary.py`;
+- minimal additive `tests/test_usage_imports.py`;
+- minimal additive `tests/test_packaging.py` only if required by the real
+  wheel allowlist;
+- the four focused documentation surfaces listed above;
 - `agent-handoff/coder-report.md`.
 
 Do not modify:
@@ -215,35 +410,42 @@ Do not modify:
 - `pmqa/usage/contracts.py`;
 - `pmqa/usage/pricing.py`;
 - `pmqa/usage/collector.py`;
-- `RunRecord`, Runner, Application Service, WorkflowState, LangGraph,
-  Supervisor, Task 5, or Product Pack behavior;
-- general README, Roadmap, or architecture status.
+- `pmqa/usage/repository.py`;
+- RunRecord, Runner, Application Service, WorkflowState, LangGraph,
+  Supervisor, Task 5, or Product Pack behavior.
 
-Use one focused remediation implementation commit and one report-only Coder
-handoff commit. Do not amend attempt 1.
+Use one focused implementation commit and one report-only Coder handoff
+commit. Do not amend Task 5C.6.
 
 ## Out of Scope
 
 Do not add:
 
-- a different persistence format or database;
-- collector-to-repository wiring;
-- aggregation, summaries, CLI, UI, or workflow integration;
-- pricing selection or cost calculation;
-- provider parsing or adapters;
-- retention, deletion, compaction, migration, background work, remote storage,
-  authorization, encryption, or key management;
-- automatic platform fallbacks that weaken no-replace safety;
+- repository reads or writes in the aggregator;
+- pagination or repository completeness claims;
+- CLI commands or terminal rendering;
+- outcome-metric joining;
+- pricing lookup or cost calculation;
+- a built-in pricing table;
+- provider/CLI parsing or adapters;
+- Copilot, Codex, OpenAI, Azure OpenAI, or other SDK integration;
+- automatic collector persistence;
+- workflow/Application Service/Runner integration;
+- prompts, responses, raw terminal output, or provider metadata;
+- retry/fallback execution policy;
+- retention, deletion, compaction, migration, database, background work, or
+  remote storage;
+- budgets, optimization, model routing, or quality scoring;
 - new runtime dependencies;
 - Task 5B, Task 6, or Task 7;
 - PR creation or merge.
 
-## Required Tests
+## Validation Commands
 
 Run and report:
 
 ```bash
-.venv/bin/python -m pytest tests/test_usage_repository.py tests/test_usage_collector.py tests/test_usage_contracts.py tests/test_usage_pricing.py tests/test_usage_imports.py -q
+.venv/bin/python -m pytest tests/test_usage_summary.py tests/test_usage_repository.py tests/test_usage_collector.py tests/test_usage_contracts.py tests/test_usage_pricing.py tests/test_usage_imports.py -q
 .venv/bin/python -m pytest tests/test_run_contracts.py tests/test_runner_contracts.py tests/test_application_contracts.py tests/test_application_service.py tests/test_boundary_policy.py tests/test_packaging.py -q
 .venv/bin/python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py -q
 .venv/bin/python -m pytest -q
@@ -253,49 +455,52 @@ git diff --check
 git status --short
 ```
 
-Use an isolated bytecode cache. New tests remain offline and do not invoke a
-model, provider CLI, network, browser, Node.js, or external Product Pack.
+Use an isolated bytecode cache for compileall. New tests must remain offline.
 
 ## Acceptance Criteria
 
-- traversal/root-equivalent paths cannot target an anchor-level repository;
-- invalid OS paths fail at construction with fixed safe errors;
-- no raw `ValueError`, `AttributeError`, `NotImplementedError`, path, marker,
-  or platform message escapes expected boundaries;
-- missing/unsupported mandatory capabilities fail safely before publication;
-- supported-platform atomic no-replace semantics remain unchanged;
-- post-publication failure preserves the target;
-- descriptor and temporary ownership remain exactly controlled;
-- parser overflow is fixed corrupt-data evidence;
-- existing repository, collector, contract, import, package, and orchestration
-  regressions remain green;
+- summary contracts are strict, immutable, canonical, and provider-neutral;
+- empty, zero, partial, and unavailable evidence remain semantically distinct;
+- reported, estimated, subscription-included, unavailable, currency, and
+  pricing provenance are never conflated;
+- status, retry/fallback, duration, token, and cost aggregation is exact and
+  bounded;
+- provider/model groups are deterministic and non-recursive;
+- input order cannot change canonical output;
+- duplicate or mismatched records fail safely rather than being filtered;
+- no storage, pricing, provider, workflow, or CLI side effect is added;
+- import and packaging isolation remain intact;
+- existing usage, application, Task 4, Task 5, and Product Pack behavior
+  remains unchanged;
 - only allowed files change.
 
 ## Expected Deliverables
 
-- hardened root validation;
-- deterministic platform-capability behavior;
-- parser overflow containment;
-- focused adversarial tests;
-- one remediation implementation commit;
+- immutable usage summary contracts;
+- pure provider-neutral aggregation protocol and default implementation;
+- focused adversarial and deterministic tests;
+- focused documentation updates;
+- one implementation commit;
 - one report-only Coder handoff commit;
 - clean synchronized branch;
 - no PR or merge.
 
 ## Required Coder Handoff
 
-Replace `agent-handoff/coder-report.md` with the complete Task 5C.6 attempt 2
+Replace `agent-handoff/coder-report.md` with the complete Task 5C.7 Attempt 1
 report. Include:
 
 - Task/Attempt, branch, and exact Git-derived starting HEAD;
-- remediation implementation commit;
+- implementation commit;
 - changed files;
-- F1–F3 correction evidence;
-- platform capability policy;
-- test results;
+- exact public contracts and aggregation API;
+- empty/zero/unavailable, token, cost, grouping, and correlation semantics;
+- validation results;
 - remaining risks and scope confirmation;
-- one recommended review depth with reason and 3–6 focus areas;
-- Human Summary using the required routing and one-sentence Handoff Note.
+- one recommended review depth (`Light`, `Standard`, or `Deep`);
+- one-sentence reason for that recommendation;
+- 3–6 suggested Reviewer focus areas;
+- Human Summary using the mandatory routing and one-sentence Handoff Note.
 
 Do not include the report commit's own SHA. The Independent Reviewer derives
 it from Git.
