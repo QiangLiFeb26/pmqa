@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import json
 import pickle
+from threading import Barrier, Lock
 from typing import Any
 
 import pytest
@@ -16,6 +18,7 @@ from pmqa.usage import (
     AIInvocationCollectionErrorCode,
     AIInvocationCollector,
     AIInvocationHandle,
+    AIInvocationRecord,
     AIInvocationStatus,
     CostEvidence,
     CostType,
@@ -49,6 +52,16 @@ class SequenceClock:
         if isinstance(value, BaseException):
             raise value
         return value
+
+
+class ThreadSafeSequenceClock(SequenceClock):
+    def __init__(self, *values: object) -> None:
+        super().__init__(*values)
+        self._lock = Lock()
+
+    def __call__(self) -> object:
+        with self._lock:
+            return super().__call__()
 
 
 def _usage(**updates: Any) -> TokenUsageEvidence:
@@ -181,6 +194,54 @@ def test_successful_lifecycle_preserves_correlation_zero_and_duration() -> None:
     assert record.cost.amount == Decimal("0")
     assert record.error_category is None
     assert wall.calls == monotonic.calls == 2
+
+
+def test_real_threads_terminalize_one_handle_exactly_once() -> None:
+    wall = ThreadSafeSequenceClock(STARTED_AT, COMPLETED_AT)
+    monotonic = ThreadSafeSequenceClock(10, 11)
+    collector, _, _ = _collector(wall=wall, monotonic=monotonic)
+    handle = _start(collector)
+    competitors = 8
+    barrier = Barrier(competitors)
+
+    def complete():
+        barrier.wait()
+        try:
+            return collector.complete_invocation(
+                handle,
+                _usage(),
+                _cost(),
+            )
+        except AIInvocationCollectionError as error:
+            return error
+
+    with ThreadPoolExecutor(max_workers=competitors) as executor:
+        outcomes = tuple(
+            executor.map(
+                lambda _index: complete(),
+                range(competitors),
+            )
+        )
+
+    records = tuple(
+        outcome
+        for outcome in outcomes
+        if isinstance(outcome, AIInvocationRecord)
+    )
+    errors = tuple(
+        outcome
+        for outcome in outcomes
+        if isinstance(outcome, AIInvocationCollectionError)
+    )
+    assert len(records) == 1
+    assert records[0].status is AIInvocationStatus.SUCCEEDED
+    assert len(errors) == competitors - 1
+    assert all(
+        error.code is AIInvocationCollectionErrorCode.INVALID_HANDLE
+        for error in errors
+    )
+    assert wall.calls == 2
+    assert monotonic.calls == 2
 
 
 @pytest.mark.parametrize(

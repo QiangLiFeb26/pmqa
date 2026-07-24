@@ -139,6 +139,7 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         assert "pmqa/usage/contracts.py" in names
         assert "pmqa/usage/collector.py" in names
         assert "pmqa/usage/pricing.py" in names
+        assert "pmqa/usage/repository.py" in names
         assert (
             "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json" in names
         )
@@ -174,6 +175,8 @@ def test_actual_wheel_excludes_runtime_outputs_and_unrelated_files(
     assert not any(name.endswith("package-lock.json") for name in names)
     assert not any(name.endswith("product_backend.ts") for name in names)
     assert not any(name.endswith("main.js") for name in names)
+    assert not any("artifacts/usage" in name for name in names)
+    assert not any(".pmqa-usage-" in name for name in names)
     for name in names:
         path = PurePosixPath(name)
         root = path.parts[0]
@@ -260,6 +263,8 @@ assert pmqa.usage.CostEvidence
 assert pmqa.usage.PricingCatalog
 assert pmqa.usage.AIInvocationCollector
 assert pmqa.usage.DefaultAIInvocationCollector
+assert pmqa.usage.UsageRepository
+assert pmqa.usage.LocalJSONUsageRepository
 modules = (
     pmqa,
     pmqa.product_pack,

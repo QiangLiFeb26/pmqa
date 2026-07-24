@@ -28,10 +28,22 @@ from pmqa.usage.pricing import (
     PricingComponentKind,
     PricingUnit,
 )
+from pmqa.usage.repository import (
+    DEFAULT_USAGE_QUERY_LIMIT,
+    MAX_USAGE_QUERY_LIMIT,
+    MAX_USAGE_RECORD_BYTES,
+    LocalJSONUsageRepository,
+    UsageRepository,
+    UsageRepositoryError,
+    UsageRepositoryErrorCode,
+)
 
 __all__ = [
     "USAGE_CONTRACT_SCHEMA_VERSION",
     "MAX_USAGE_INTEGER",
+    "DEFAULT_USAGE_QUERY_LIMIT",
+    "MAX_USAGE_QUERY_LIMIT",
+    "MAX_USAGE_RECORD_BYTES",
     "AIInvocationCollectionError",
     "AIInvocationCollectionErrorCode",
     "AIInvocationCollector",
@@ -42,6 +54,7 @@ __all__ = [
     "CostType",
     "DefaultAIInvocationCollector",
     "EvidenceUnavailableReason",
+    "LocalJSONUsageRepository",
     "ModelPricing",
     "PricingCatalog",
     "PricingComponent",
@@ -51,5 +64,8 @@ __all__ = [
     "TokenFieldAbsence",
     "TokenUsageEvidence",
     "UsageContractValidationError",
+    "UsageRepository",
+    "UsageRepositoryError",
+    "UsageRepositoryErrorCode",
     "UsageSource",
 ]
