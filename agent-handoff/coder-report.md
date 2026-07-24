@@ -2,11 +2,11 @@
 
 Owner: Coder
 
-Task: PMQA Task 5C.6 — Repository Root and Platform Boundary Hardening
+Task: PMQA Task 5C.7 — Deterministic Usage Summary Contracts and Pure Aggregation
 
-Task ID: `PMQA-5C.6`
+Task ID: `PMQA-5C.7`
 
-Attempt: `2`
+Attempt: `1`
 
 Status: Ready for Independent Reviewer
 
@@ -18,213 +18,227 @@ Branch:
 
 Exact Git-derived Coder starting HEAD:
 
-`a99f06cd95d583320257b4d5c5f8504d3281b0e1`
+`4128ef969e1a3dc90297a74c513a6cd2eabf0376`
 
 That commit is the latest path-specific publication of
-`agent-handoff/current-task.md`, identifies Task `PMQA-5C.6` Attempt `2`, and
-was the clean local and tracking-branch HEAD before remediation. The reviewed
-Attempt 1 Reviewer HEAD
-`339191498e7b2a2cfcb473483f1f88509f06bc8a` is its ancestor. The Attempt 1
-implementation and report were not amended.
+`agent-handoff/current-task.md`, identifies Task `PMQA-5C.7` Attempt `1`, and
+was the clean local and tracking-branch HEAD before implementation. The
+Architect-reviewed Task 5C.6 Reviewer baseline
+`a258ba59b7fdd1edb6e01ab738ea9203610e954b` is its parent and ancestor. No
+Task 5C.6 commit was amended.
 
-## Remediation Implementation Commit
+## Implementation Commit
 
-`fdb075dcad311ee6848dab5e6454871e2d8ce56b`
+`eeba9a9dd1d2fac6a007580d4511fbb51722bd15`
 
 Commit message:
 
-`harden Task 5C.6 repository boundaries`
+`add deterministic usage summaries`
 
-This report is committed separately after the remediation commit. The
+This report is committed separately after the implementation commit. The
 Independent Reviewer derives the report commit from Git; this report does not
 claim its own future commit SHA.
 
 ## Changed Files
 
-Remediation implementation commit:
+Implementation commit:
 
-- `pmqa/usage/repository.py`
-- `tests/test_usage_repository.py`
+- `README.md`
+- `docs/Roadmap.md`
+- `docs/architecture.md`
 - `docs/architecture/usage-cost-contracts.md`
+- `pmqa/usage/__init__.py`
+- `pmqa/usage/summary.py`
+- `tests/test_packaging.py`
+- `tests/test_usage_imports.py`
+- `tests/test_usage_summary.py`
 
 Report-only handoff commit:
 
 - `agent-handoff/coder-report.md`
 
-No other implementation, documentation, packaging, test, or handoff file
-changed.
+No Architect- or Reviewer-owned handoff file changed.
 
-## F1 — Repository Root Correction
+## Public Contracts and Aggregation API
 
-Construction now creates one private `Path` snapshot from one bounded
-filesystem-string conversion and validates it before retaining any state. It
-requires a platform-absolute non-anchor path, rejects every lexical `..`
-component, rejects paths that normalize to their filesystem anchor, rejects
-embedded NUL, and exercises platform encoding before any filesystem effect.
-All ordinary conversion, path, and `lstat` failures become the fixed
-`INVALID_CONFIGURATION` error without cause, context, path, or marker.
+`pmqa.usage` now exports:
 
-The check is lexical and uses `lstat`; it never calls `resolve()` or follows a
-symlink to make it acceptable. Existing files and symlink roots now fail in
-the constructor. Existing real directories remain valid, and an ordinary
-absolute path containing spaces successfully saves and reads a record.
+- `UsageSummaryScope` with exact `session` and `run` values;
+- strict frozen `UsageTokenFieldSummary`, `UsageCostBucket`,
+  `UsageProviderModelSummary`, and `UsageSummary` contracts;
+- runtime-checkable synchronous `UsageAggregator`;
+- pure stateless `DefaultUsageAggregator`;
+- fixed `UsageAggregationErrorCode` and `UsageAggregationError`;
+- fixed `UsageSummaryValidationError`; and
+- explicit schema, record-count, and aggregate-integer bounds.
 
-Platform-derived tests cover the anchor itself, `<anchor>/tmp/..`, nested
-traversal back to the anchor, traversal selecting a different directory,
-embedded NUL with a marker, existing file and symlink roots, and a valid path
-with spaces. Rejected constructors never call directory or temporary creation.
+The aggregator accepts only a built-in tuple of exact
+`AIInvocationRecord` instances, an exact scope enum, and a canonical existing
+identifier. It independently reconstructs every invocation, rejects duplicate
+IDs and mixed correlation, and returns an independently reconstructed
+canonical summary. It retains no caller container or record and has no
+repository, clock, provider, pricing, callback, workflow, or CLI dependency.
 
-## F2 — Platform Capability Correction
+## Empty, Zero, Partial, and Unavailable Semantics
 
-Save captures one immutable private capability snapshot before directory
-creation. The inventory covers:
+An empty explicit selection is valid and yields numeric zero for invocation,
+status, predecessor, and duration counts; every `TokenField` appears once with
+`total=None` and zero observed/unavailable coverage; cost buckets and
+provider/model groups are empty. No unavailable invocation is fabricated.
 
-- directory and temporary creation;
-- descriptor mode enforcement and verification;
-- descriptor stat, write, and file synchronization;
-- hard-link no-replace publication;
-- directory open and synchronization; and
-- path identity checks, unlink, and descriptor close.
+Each non-empty token-field summary records an optional total, observed count,
+and unavailable count whose sum equals invocation count. No observation means
+`None`; an observed zero remains numeric zero. Partial totals coexist with
+explicit unavailable coverage and do not claim to cover missing records.
+Unavailable reasons remain on invocation evidence rather than being guessed
+or collapsed.
 
-The implementation deliberately fails closed outside a POSIX mode-capable
-platform. Missing `makedirs`, `mkstemp`, `fchmod`, `fstat`, `write`, `fsync`,
-`link`, `open`, `lstat`, `unlink`, or `close` produces fixed
-`UNSUPPORTED_PUBLICATION` before repository directory creation. No weaker
-rename, replacement, check-then-write, unlink-and-retry, or overwrite fallback
-exists.
+Status counts cover every invocation. Retry and fallback counts use only the
+explicit predecessor fields, not `attempt_number`. Duration sums canonical
+`duration_ms`, never wall-clock differences. Exact integer overflow fails with
+the fixed aggregate-overflow error.
 
-Directory synchronization is exercised after directory preparation but before
-temporary creation and target publication. A missing/not-implemented or
-unsupported mandatory directory-sync capability therefore leaves no target.
-Unexpected pre-publication operational failure is fixed
-`PERSISTENCE_FAILURE`. The directory is synchronized again after hard-link
-publication; any later failure returns fixed `PERSISTENCE_FAILURE` while
-preserving the complete published target.
+## Cost and Decimal Semantics
 
-`mkstemp` remains the restrictive private creation primitive. The descriptor
-identity is captured before `fchmod`; mode `0600` and identity are verified
-afterward. `fchmod` `NotImplementedError` produces
-`UNSUPPORTED_PUBLICATION`, one temporary-descriptor close attempt, no target,
-and identity-verified cleanup. Missing `fchmod` fails before any directory or
-temporary exists.
+Every invocation contributes to exactly one cost bucket. Monetary bucket
+identity includes cost type, currency, pricing source ID, pricing version, and
+pricing effective timestamp. Provider-reported and estimated evidence,
+different currencies, and distinct pricing versions/effective times therefore
+never merge.
 
-Hard-link `NotImplementedError` and the established unsupported errnos produce
-`UNSUPPORTED_PUBLICATION` before a target exists. All ordinary platform
-`OSError`, `ValueError`, `TypeError`, and `AttributeError` at the publication
-boundary are contained behind fixed safe codes. Resource/control-flow
-exceptions remain authoritative.
+Subscription-included and unavailable evidence remain non-monetary; unavailable
+reasons form distinct buckets. Monetary zero remains a real amount. Decimal
+addition uses an explicit high-precision local context, never float or ambient
+precision, and the existing canonical Decimal bound is revalidated after each
+addition. Aggregate Decimal overflow fails safely.
 
-Temporary cleanup still unlinks only a path whose current device/inode equals
-the captured descriptor identity. Every ownership record receives one release
-call and every descriptor receives one close attempt. If capability failure
-occurs before identity can be captured, cleanup deliberately preserves only
-the empty restrictive random-name `mkstemp` orphan; it is not a record and its
-name contains no domain identifier. After identity capture, unsupported
-failures are cleaned when ownership is still verifiable.
+## Provider/Model Grouping and Determinism
 
-Simulated tests cover absent `fchmod`, `link`, `fsync`, and directory creation;
-`fchmod` and `link` `NotImplementedError`; unsupported hard-link errno;
-unavailable pre-publication directory sync; post-publication sync failure;
-non-POSIX mode semantics; descriptor close count; identity-changed cleanup;
-safe messages; orphan cleanup; and target absence/preservation at the correct
-stage.
+Each exact provider plus known model or exact model-unavailable reason produces
+one non-recursive `UsageProviderModelSummary` with the same status,
+retry/fallback, duration, token, and cost semantics as the top level. Known
+models and unavailable-model reasons cannot merge.
 
-## F3 — Parser Overflow Correction
+Token fields follow `TokenField` order. Cost buckets follow stable cost-type
+and complete-identity order. Provider/model groups sort by provider, known
+model before unavailable model, then exact identity. Reversed and arbitrary
+input orders produce equal summaries and byte-equivalent canonical JSON
+trees. The defined maximum of 64 records is validated with 64 distinct
+provider groups and 64 distinct cost buckets, including a complete canonical
+round trip.
 
-`OverflowError` is now contained only inside `_parse_record` alongside the
-existing persisted JSON and contract reconstruction failures. It becomes
-fixed `CORRUPT_DATA` with no raw value, marker, parser message, cause, or
-context.
+## Contract, Error, and Security Boundaries
 
-One simulated `json.loads` overflow test exercises the public `get` boundary.
-A real compact payload containing an extreme JSON exponent exercises bounded
-parser/contract rejection. Separate parser tests prove exact identity
-propagation for `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and
-`GeneratorExit`. Valid canonical record bytes and round trips remain
-unchanged.
+All public records reuse the existing strict frozen Pydantic v2 Run/Usage
+boundary: forbidden extras, hidden invalid input, canonical plain-JSON
+`to_dict()`/`from_dict()`, fully revalidated `model_copy`, bounded trees and
+identifiers, deep immutable tuples, and reconstructed nested contracts.
+Summary reconstruction has one fixed safe error; aggregation has five fixed
+bounded errors for invalid request, invalid record, correlation mismatch,
+duplicate invocation, and aggregate overflow.
 
-## Preserved Behavior
+Tests inject unknown prohibited keys, runtime objects, invalid identifiers,
+mutated records, and marker-bearing values. Expected failures expose no
+identifier, provider/model, amount, payload, object representation, cause, or
+context. `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and
+`GeneratorExit` propagate with exact identity. No second prohibited-key list
+was added.
 
-The remediation does not change `UsageRepository` methods, record layout,
-digest naming, canonical sorted compact UTF-8 plus newline bytes,
-`AIInvocationRecord`, query ordering or limits, duplicate/not-found behavior,
-hard-link no-replace semantics on supported platforms, corruption handling,
-collector behavior, import isolation, or wheel contents.
+## Import and Packaging Isolation
 
-The focused architecture document now states the fail-closed platform policy,
-directory-sync preflight, post-publication preservation, and bounded private
-orphan policy. No general status document changed.
+Import coverage proves the expanded `pmqa.usage` surface performs no
+filesystem, environment, distribution, process, browser, product, Product
+Pack, provider, runner, Application Service, workflow, LangGraph, storage,
+SQLite, pricing lookup, CLI, or UI work. Top-level `pmqa` remains usage-lazy.
+The real-wheel regression explicitly includes `pmqa/usage/summary.py` and
+imports the summary protocol/default implementation from an unrelated
+directory. No runtime or build dependency was added.
+
+## Documentation
+
+The four allowed status/architecture surfaces now record that Task 5C.6 passed
+architecture review and Task 5C.7 is ready for review. They document explicit
+bounded caller selection, zero/partial/unavailable meaning, cost type/currency/
+provenance separation, deterministic grouping, and the absence of repository
+completeness claims. Repository-backed selection, CLI rendering,
+outcome-metric joining, pricing calculation, provider integration, retention,
+and optimization remain deferred. Task 5C remains in progress and unmerged;
+Task 5B, Task 6, and Task 7 remain not started.
 
 ## Validation Results
 
-- Repository-only focused tests: `76 passed`.
-- Repository, collector, usage contracts, pricing, and usage-import tests:
-  `215 passed`.
+- Focused summary, repository, collector, usage contracts, pricing, and import
+  tests: `245 passed`.
 - Run, Runner contract, Application contract/service, boundary-policy, and
   real-wheel packaging regressions: `332 passed`.
 - Task 4 runtime, reducer, Supervisor, and LangGraph regressions:
   `98 passed` with one existing LangGraph pending-deprecation warning.
-- Full default suite: `1776 passed, 5 skipped` with the same existing warning.
+- Full default suite: `1806 passed, 5 skipped` with the same existing warning.
   The skips are existing opt-in live/external environment gates.
 - Generated SauceDemo Playwright regressions: `2 passed`.
 - Isolated `compileall` for `pmqa` and `products`: passed with bytecode routed
-  to `/private/tmp`.
+  to a temporary directory.
+- Markdown relative-link validation: passed.
 - `git diff --check`: passed.
 - Pre-report implementation worktree: clean.
 
-The default and focused remediation tests remained offline. New tests invoked
-no model, provider CLI, network, browser, Node.js, or external Product Pack.
-
-## Remaining Risks and Open Items
-
-- Full Windows repository support remains intentionally deferred; platforms
-  that cannot enforce the required POSIX permission and durability semantics
-  fail with `UNSUPPORTED_PUBLICATION`.
-- A failure before temporary inode identity is available may preserve the
-  empty restrictive random-name orphan rather than delete an unverified path.
-- The explicit root remains a trusted local operator boundary and does not
-  defend against a malicious operating-system administrator.
-
-These are documented task boundaries, not known acceptance blockers.
+All new and default summary tests remained offline. They invoked no model,
+provider CLI, network, browser, Node.js, external Product Pack, or repository
+runtime output.
 
 ## Scope Confirmation
 
-No persistence format, schema, public method, collector wiring, aggregation,
-summary, CLI/UI, pricing, provider parser, retention, deletion, background
-work, remote storage, fallback publication primitive, or runtime dependency
-was added. `pmqa/usage/contracts.py`, pricing, collector, Run, Runner,
-Application Service, WorkflowState, LangGraph, Supervisor, Task 5, and Product
-Pack behavior were not modified. Task 5B, Task 6, and Task 7 were not started.
-No PR was created and nothing was merged.
+No repository read/write or completeness logic, pagination, CLI command or
+rendering, outcome-metric join, price lookup or calculation, provider parser
+or SDK, collector persistence, workflow/Application Service/Runner
+integration, retry/fallback execution policy, retention, database, background
+work, remote storage, budget, optimization, model routing, or quality scoring
+was added. Existing usage contracts, pricing, collector, repository, Run,
+Runner, Application Service, WorkflowState, LangGraph, Supervisor, Task 5,
+and Product Pack behavior were not modified. Task 5B, Task 6, and Task 7 were
+not started. No PR was created and nothing was merged.
+
+## Remaining Risks and Open Items
+
+- A summary describes only the caller's explicit bounded selection and cannot
+  prove repository completeness; that integration remains deferred.
+- The conservative 64-record limit is intentional for canonical tree bounds;
+  pagination and larger repository-backed reporting remain future policy.
+- Provider-reported and estimated amounts are aggregated exactly as supplied;
+  evidence reliability, price calculation, and outcome interpretation remain
+  outside this pure domain service.
+
+These are explicit task boundaries, not known acceptance blockers.
 
 ## Recommended Review Depth
 
 **Deep**
 
-Reason: this remediation changes path selection, platform capability
-preflighting, descriptor ownership, publication phase classification, and
-hostile parser containment at a security-sensitive persistence boundary.
+Reason: the new canonical aggregate tree encodes subtle missing-versus-zero,
+cost-provenance, overflow, and input-order invariants that warrant adversarial
+contract review despite broad focused coverage.
 
 ## Suggested Reviewer Focus
 
-- Reproduce anchor-equivalent, traversal, NUL, file, and symlink roots and
-  confirm construction is side-effect free and marker-safe.
-- Challenge missing and `NotImplemented` capability handling before and after
-  target publication, including exact error-code phase classification.
-- Verify every temporary descriptor receives one close attempt and cleanup
-  never unlinks an identity-mismatched path.
-- Confirm restrictive-mode verification and hard-link no-replace semantics
-  remain fail-closed with no weaker fallback.
-- Verify parser overflow is contained while resource/control-flow exceptions
-  propagate with exact identity.
+- Challenge empty, zero, partial, unavailable, status, predecessor, and
+  overflow invariants at both top-level and provider/model-group contracts.
+- Verify reported/estimated, currency, pricing provenance,
+  subscription-included, unavailable reason, and Decimal identities never
+  merge incorrectly.
+- Confirm all ordering is input-independent and public contract round trips or
+  revalidated copies cannot admit noncanonical nested collections.
+- Exercise exact tuple/record boundaries, duplicate and correlation rejection,
+  fixed marker-safe errors, and resource/control-flow propagation.
+- Confirm import/wheel isolation and absence of repository, pricing,
+  provider, workflow, CLI, or new dependency coupling.
 
 ## Human Summary
 
-PMQA-5C.6 Attempt 2 已完成，精确起点为 `a99f06cd95d583320257b4d5c5f8504d3281b0e1`。
-remediation 提交为 `fdb075dcad311ee6848dab5e6454871e2d8ce56b`。
-F1 已阻止 anchor/traversal/NUL/file/symlink root，并保持 constructor 无写入副作用。
-F2 已加入 fail-closed capability snapshot、directory-sync preflight、mode 验证与发布后 target 保留。
-F3 已将 parser `OverflowError` 安全归类为 `CORRUPT_DATA`，resource/control-flow 仍原样传播。
-验证结果：focused 215、边界/packaging 332、Task 4 回归 98、全量 1776 passed / 5 skipped、Playwright 2 passed。
+Task 5C.7 Attempt 1 已在指定分支完成，精确起点为 `4128ef969e1a3dc90297a74c513a6cd2eabf0376`。
+实现提交为 `eeba9a9dd1d2fac6a007580d4511fbb51722bd15`。
+新增严格 usage summary contracts 与纯聚合器，保持 zero/partial/unavailable、cost provenance 和 provider/model 分组语义。
+输入顺序、Decimal、overflow、correlation、canonical round-trip、import/wheel 隔离均有专项验证。
+验证结果：focused 245、边界/packaging 332、Task 4 回归 98、全量 1806 passed / 5 skipped、Playwright 2 passed。
+未接入 repository、CLI、pricing/provider/workflow，也未开始 Task 5B、Task 6 或 Task 7。
 Action Needed From Human: 请将下方 Handoff Note 传递给 Independent Reviewer。
-Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 review。
+Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 PMQA-5C.7 review。
