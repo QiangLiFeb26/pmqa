@@ -6,9 +6,11 @@ Task: PMQA Task 5C.3 — Explicit Application Registries and Single-Attempt Run 
 
 Implementation commit: `41a84d271df00980ffaf84d2df67a3515d9e961c`
 
-Coder report commit: `a839154619485b8b19e14bc1ad34cd9b3e97d70b`
+Remediation commit: `ad26cfd987526ba9efabc0130458d26df4ca8bcb`
 
-Status: Needs Revision
+Coder report commit: `307ff706acc445c63880a253df0621dac82afd4d`
+
+Status: Approved
 
 This file is the authoritative Architect review. Chat summaries are
 informational only.
@@ -17,217 +19,110 @@ informational only.
 
 Deep
 
-The Coder's recommendation is accepted because Task 5C.3 introduces the first
-application composition boundary across workflow validation, runner execution,
-identity correlation, and canonical terminal records.
+The Architect accepted the Coder's recommendation because the remediation
+changes ownership across workflow-validator and runner trust boundaries and
+strengthens the canonical terminal envelope.
 
 ## Overall Assessment
 
-The explicit registry design, dependency direction, pre-execution ordering,
-safe error vocabulary, packaging, and import isolation are directionally
-correct. Existing focused and full regressions pass.
+Task 5C.3 is approved.
 
-Task 5C.3 is not approved because adversarial review found four trust-boundary
-defects. Runtime workflow adapters and runners can mutate nominally frozen
-Pydantic objects through their underlying Python state. The current service
-passes its authoritative objects directly across those runtime boundaries and
-then trusts the same mutated objects afterward.
+The remediation closes all four blocking findings without redesigning the
+registries or expanding Application Service behavior. The service now retains
+authoritative canonical objects on its side of every runtime boundary,
+dispatches independently reconstructed snapshots, and validates returned data
+only against untouched service-owned state.
 
-This permits prohibited data and changed run/invocation identities to enter a
-valid `ApplicationRunResult`.
+No new blocking or non-blocking code finding was identified.
 
 ## Review Findings
 
-### F1 — Workflow validators can mutate authoritative request and result data
+### F1 — Workflow validator isolation
 
-Priority: Blocking
+Status: Resolved
 
-Location:
+- Request and result validators receive fresh canonical snapshots.
+- The service retains and later uses only its authoritative `RunRequest` and
+  `StructuredResult`.
+- Immediate mutation and retained-reference mutation cannot change runner
+  selection, result assembly, output, or persisted canonical data.
+- Prohibited/runtime-like keys inserted by a validator do not cross the
+  boundary.
 
-- `pmqa/application/service.py`
-- request and result workflow-validator calls
+### F2 — Runner dispatch isolation
 
-The service passes its authoritative canonical `RunRequest` and
-`StructuredResult` objects directly to workflow validators. A validator can
-bypass Pydantic `frozen` through `__dict__`, return normally, and leave the
-service using the modified object.
+Status: Resolved
 
-Independent reproductions confirmed:
+- The runner receives a fresh reconstructed `RunnerRequest`.
+- `validate_runner_response()` uses the untouched authoritative request.
+- Mutating request, context, invocation, attempt/predecessor, operation,
+  step, and expected-result correlations cannot redirect the run.
+- A response correlated only to the mutated dispatch fails with the fixed,
+  marker-safe `RUNNER_BOUNDARY_FAILED` error.
 
-```text
-request validator inserts inputs.provider_client
-    -> prohibited field appears in ApplicationRunResult.to_dict()
+### F3 — Single-attempt application invariant
 
-result validator inserts result.data.provider_client
-    -> prohibited field appears in RunRecord and ApplicationRunResult
-```
+Status: Resolved
 
-The validator can also change runner selection or request correlation fields
-before later service stages.
+`ApplicationRunResult` now enforces the application-owned operation, no step,
+attempt number 1, and no retry or fallback predecessor during direct
+construction, `from_dict()`, and revalidated copying. The operation constant
+has one neutral application-contract definition reused by the service.
 
-Required correction:
+### F4 — Live property exception identity
 
-- retain one authoritative independently reconstructed request/result inside
-  the service;
-- pass a separate fresh canonical snapshot to each workflow validator;
-- discard the validator-owned snapshot after validation;
-- validator mutation or later retained-reference mutation must not affect
-  runner selection, RunnerRequest construction, RunnerResponse, RunRecord, or
-  ApplicationRunResult;
-- add tests for mutation of IDs, runner ID, schema IDs, inputs, result schema,
-  result data, prohibited keys, and retained references;
-- ensure caller-owned and service-owned canonical objects remain unchanged.
+Status: Resolved
 
-### F2 — A runner can rewrite the expected RunnerRequest correlation
-
-Priority: Blocking
-
-Location:
-
-- `pmqa/application/service.py`
-- runner dispatch and response validation
-
-The same `RunnerRequest` object is passed to the runner and later used as the
-authoritative expected request for `validate_runner_response()`.
-
-A runner can mutate the pending request's context and invocation, return a
-response matching the mutated values, and pass authoritative validation.
-
-Independent reproduction:
-
-```text
-caller requested run.original / invocation.original
-runner rewrites request to run.redirected / invocation.redirected
-ApplicationRunResult accepts run.redirected / invocation.redirected
-```
-
-Required correction:
-
-- construct and retain an authoritative canonical `RunnerRequest` snapshot;
-- pass a separate independently reconstructed dispatch snapshot to the runner;
-- validate the returned response only against the untouched authoritative
-  snapshot;
-- runner mutation of the dispatch snapshot must not alter run ID, invocation
-  ID, request correlation, operation, step, attempt, predecessors, expected
-  result schema, or final records;
-- mutation attempts must produce the fixed safe runner-boundary application
-  failure with no marker, cause, context, or mutated value exposure;
-- add adversarial mutations covering the complete RunnerRequest correlation.
-
-### F3 — ApplicationRunResult does not enforce the single-attempt contract
-
-Priority: Blocking
-
-Location:
-
-- `pmqa/application/contracts.py`
-
-`ApplicationRunResult` correlates the run and response but does not require
-the application-owned operation, attempt number 1, `step_id=None`, or absent
-retry/fallback predecessors.
-
-It can therefore be directly constructed, reconstructed, or copied as a valid
-Task 5C.3 result containing attempt 2 and an arbitrary operation.
-
-Independent reproduction:
-
-```text
-operation=other.operation
-attempt_number=2
-retry_of_invocation_id=invocation.0
-    -> ApplicationRunResult accepted
-```
-
-Required correction:
-
-- define the application operation constant in one neutral application module
-  and reuse it from contracts and service;
-- require exactly:
-  - the canonical application operation;
-  - `step_id is None`;
-  - `attempt_number == 1`;
-  - no retry predecessor;
-  - no fallback predecessor;
-- enforce these rules during direct construction, `from_dict()`, and
-  `model_copy(update=...)`;
-- add tests for each field independently and in combination.
-
-### F4 — Unexpected live definition/metadata failures are relabeled
-
-Priority: Blocking
-
-Location:
-
-- `pmqa/application/service.py`
-- live workflow-definition and runner-metadata checks
-
-The task requires unexpected programming exceptions to propagate. The current
-live-property checks catch every ordinary `Exception` and relabel it as
-`WORKFLOW_DEFINITION_CHANGED` or `RUNNER_METADATA_CHANGED`.
-
-Independent reproduction:
-
-```text
-live workflow definition raises RuntimeError
-    -> PMQAApplicationError(WORKFLOW_DEFINITION_CHANGED)
-
-live runner metadata raises RuntimeError
-    -> PMQAApplicationError(RUNNER_METADATA_CHANGED)
-```
-
-Required correction:
-
-- a successfully returned but unequal or malformed live value may map to the
-  existing fixed changed failure;
-- an exception raised while reading a previously registered adapter's live
-  definition or runner's live metadata is an unexpected runtime/programming
-  failure and must propagate unchanged;
-- `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit`
-  continue to propagate unchanged;
-- add identity-preserving tests for ordinary and resource/control-flow
-  exceptions;
-- keep registry-construction malformed-object containment unchanged.
+- Successfully returned malformed or changed live definition/metadata values
+  retain the existing fixed changed-state classification.
+- Exceptions raised while reading a live property propagate as the exact
+  original object.
+- Ordinary, resource, and control-flow exception cases are covered.
 
 ## Required Changes
 
-Address F1–F4 in one focused Task 5C.3 remediation. Do not redesign the
-registries or expand application functionality.
+None.
 
-The new tests must fail against
-`41a84d271df00980ffaf84d2df67a3515d9e961c` and pass after the correction.
+## Independent Validation Evidence
 
-Only the Coder may modify implementation, tests, or product documentation.
-The Architect has modified only Architect-owned handoff files.
+Architect verification at
+`307ff706acc445c63880a253df0621dac82afd4d`:
 
-## Validation Evidence
-
-Independent Architect verification:
-
-- Application, Run, Runner, boundary, packaging, and Task 4 focused suites:
-  `469 passed`
-- Full default suite with normal build metadata access:
-  `1527 passed, 5 skipped, 1 existing LangGraph warning`
-- Existing generated Playwright regressions:
-  `2 passed`
-- `git diff --check`: passed
-- Worktree and local/remote branch were clean and synchronized before this
+- combined Application, Run, Runner, security, packaging, and Task 4 focused
+  suites: `503 passed`;
+- full default suite under normal repository build permissions:
+  `1561 passed, 5 skipped, 1 existing LangGraph warning`;
+- existing generated Playwright regressions: `2 passed`;
+- isolated `compileall`: passed;
+- remediation `git diff --check`: passed;
+- worktree and local/upstream branch were clean and synchronized before this
   review update.
 
-The existing suite confirms compatibility but does not cover the four
-adversarial trust-boundary cases.
+The first sandboxed full-suite run produced one build-metadata permission
+failure while attempting to update a source-tree `egg-info` timestamp. The
+same full suite passed under normal repository permissions; this was an
+Architect execution-environment artifact, not a product or test defect.
+
+## Remaining Risks
+
+The remaining limitations are the intentionally deferred Task 5C scope:
+persistence, cross-record correlation, retry/fallback creation, approval
+execution, authorization, timeout enforcement, and real workflow/provider
+composition. None blocks Task 5C.3.
 
 ## Decision
 
-Needs Revision
+Approved
 
-Task 5C.3 is not approved at
-`41a84d271df00980ffaf84d2df67a3515d9e961c`.
+Task 5C.3 is approved through remediation commit
+`ad26cfd987526ba9efabc0130458d26df4ca8bcb`.
 
 ## Next Recommended Task
 
-Complete the focused Task 5C.3 Application Boundary Isolation remediation in
-`agent-handoff/current-task.md`.
+Implement the provider-neutral AI Team Workflow Foundation defined in
+`agent-handoff/current-task.md` using the existing
+Architect → Coder → Architect process.
 
-After Task 5C.3 passes, the next active task will implement the provider-neutral
-Independent Reviewer workflow. PMQA Task 5C.4 will then be used as its first
-real pilot.
+After that foundation is approved, PMQA Task 5C.4 will be the first
+Coder → Independent Reviewer → Architect pilot. A small stabilization task
+will follow the pilot.

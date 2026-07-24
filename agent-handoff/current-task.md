@@ -2,254 +2,363 @@
 
 Owner: Architect
 
-Task: PMQA Task 5C.3 Architecture Review Remediation — Application Boundary Isolation
+Task: AI Team Workflow Foundation — Provider-Neutral Independent Review
 
-Status: Changes Required
+Task ID: `AI-TEAM-1`
+
+Attempt: `1`
+
+Status: Ready for Coder
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
-Implementation baseline: `a839154619485b8b19e14bc1ad34cd9b3e97d70b`
+Reviewed baseline: `307ff706acc445c63880a253df0621dac82afd4d`
 
 Coder starting HEAD: use the latest pushed branch commit containing this
-handoff and record its exact SHA before modifying implementation files.
+handoff and record its exact SHA before making changes.
 
 This file is the authoritative task handoff. Chat summaries are informational
-only. Full finding evidence is recorded in
-`agent-handoff/architect-review.md`.
+only.
 
 ## Task Objective
 
-Close four blocking Task 5C.3 trust-boundary findings without expanding the
-public Application Service scope:
+Evolve the existing file-driven Architect → Coder → Architect workflow by
+adding a provider-neutral Independent Reviewer role, while preserving the
+current workflow, Human-in-the-Loop control, and strict authority boundaries.
 
-1. isolate service-owned request/result contracts from workflow validators;
-2. isolate the authoritative RunnerRequest from the runner dispatch copy;
-3. enforce the single-attempt invariant in `ApplicationRunResult`;
-4. preserve unexpected live definition/metadata exceptions.
+This task establishes only the lightweight Markdown protocol used by people
+and AI clients inside VS Code. It does not automate agent triggering or change
+PMQA runtime behavior.
 
 ## Background
 
-Task 5C.3 introduced the explicit Workflow Registry, Runner Registry, and
-single-attempt Application Service. Existing tests pass, but runtime adapters
-and runners currently receive the same Python objects later trusted by the
-service.
+The current `agent-handoff/` workflow has successfully reduced copy/paste
+between Architect and Coder. The next evolutionary step is:
 
-Pydantic `frozen` prevents ordinary assignment but is not a security boundary
-against `__dict__` mutation. The Application Service must use independent
-canonical snapshots whenever it crosses a runtime plugin boundary.
+```text
+Human
+  → Architect
+  → Coder
+  → Independent Reviewer
+  → Architect
+  → Human
+```
+
+The Reviewer independently evaluates the task, acceptance criteria, diff,
+Coder report, and test evidence. The Architect remains the final technical
+decision-maker within clear scope. Questions involving product direction,
+business priority, material risk acceptance, or unresolved ambiguity must be
+returned to the Human.
+
+Only the Coder may modify implementation surfaces. Architect and Reviewer are
+read-only with respect to code, tests, configuration, schemas, packaging,
+scripts, and product documentation.
 
 ## Scope
 
-- Harden workflow request-validator isolation.
-- Harden workflow result-validator isolation.
-- Harden RunnerRequest dispatch/expected-request isolation.
-- Enforce first-attempt application invariants in `ApplicationRunResult`.
-- Correct unexpected live definition/metadata exception classification.
-- Add focused adversarial regressions.
-- Update focused application documentation only if the corrected trust
-  boundary needs clarification.
-- Replace `agent-handoff/coder-report.md` with the remediation report.
+Create the minimum durable protocol needed to run the new workflow every day:
+
+1. a stable `agent-handoff/README.md` describing roles, authority, lifecycle,
+   file ownership, communication rules, Human escalation, and VS Code usage;
+2. a provider-neutral `agent-handoff/reviewer-report.md` template owned by the
+   Independent Reviewer;
+3. the Coder's updated completion report for this task.
+
+The foundation itself is implemented and reviewed through the existing
+Architect → Coder → Architect workflow. Do not invoke the new Reviewer for
+this bootstrap task. The first live Reviewer pilot will be PMQA Task 5C.4
+after this foundation is approved.
+
+## Authority and File Ownership Requirements
+
+The protocol must state these rules unambiguously.
+
+### Human
+
+- owns product direction, business priority, final approval, conflict
+  resolution, and material risk acceptance;
+- is not the routine messenger between agents;
+- receives a 5–10 line Human Summary after each stage;
+- may inspect the Markdown record when more detail is desired.
+
+### Architect
+
+- owns task definition, acceptance criteria, architecture decisions within
+  approved product direction, review synthesis, and final technical
+  disposition;
+- may write only:
+  - `agent-handoff/README.md`;
+  - `agent-handoff/current-task.md`;
+  - `agent-handoff/architect-review.md`;
+- must not modify implementation, tests, configuration, schemas, packaging,
+  scripts, or product documentation;
+- must escalate to the Human when product direction, business trade-offs,
+  material risk acceptance, or genuinely unresolved ambiguity is involved;
+- may decide `Approved`, `Needs Revision`, `Split Task`,
+  `Follow-up Task`, or `Human Decision Required`.
+
+### Coder
+
+- is the only role allowed to modify implementation surfaces, including code,
+  tests, configuration, schemas, packaging, scripts, and product
+  documentation;
+- owns `agent-handoff/coder-report.md`;
+- implements only the active `current-task.md`;
+- reports exact branch/baseline/commit evidence, validation, scope, risks,
+  recommended review depth, reason, and review focus;
+- does not approve its own work.
+
+### Independent Reviewer
+
+- is read-only for the entire repository except its single owned file:
+  `agent-handoff/reviewer-report.md`;
+- never modifies production code, tests, configuration, schemas, packaging,
+  scripts, product documentation, or another role's handoff file;
+- does not participate in implementation;
+- performs an independent evidence-based review;
+- returns `Pass`, `Changes Requested`, or `Inconclusive`;
+- recommends but does not issue the Architect's final approval;
+- does not send remediation instructions directly to the Coder; findings flow
+  to the Architect, who decides the disposition and writes any next task.
+
+The one bootstrap exception is this task: the Coder may create
+`agent-handoff/README.md` and the initial
+`agent-handoff/reviewer-report.md` template because the protocol does not yet
+exist. After this task is approved, their normal owners become exclusive.
+
+## Communication Protocol Requirements
+
+`agent-handoff/README.md` must define:
+
+- repository Markdown as the formal single source of truth;
+- Chat as a Human-facing status surface, not a formal handoff;
+- the active files and their owners;
+- required Task ID or name, attempt number, branch, starting HEAD, and relevant
+  implementation/report commit SHAs;
+- the sequential lifecycle:
+
+```text
+Architect publishes current-task
+Coder implements and publishes coder-report
+Reviewer independently publishes reviewer-report
+Architect publishes architect-review and next disposition
+Human receives concise stage summaries and resolves escalations
+```
+
+- no direct agent-to-agent copy/paste through the Human;
+- no automatic triggering in this phase;
+- no concurrent writes to the handoff files;
+- a later stage must verify that it is reviewing the exact commits named by
+  the previous stage;
+- stale reports must be clearly replaced for the active task/attempt.
+
+## Independent Review Requirements
+
+The Reviewer protocol and template must require:
+
+- Task and Attempt;
+- Branch;
+- Reviewed Starting HEAD, implementation commit(s), and Coder report commit;
+- Actual Review Depth: `Light`, `Standard`, or `Deep`;
+- Review Depth Reason;
+- Overall Assessment;
+- Findings with severity, evidence, and affected files/lines where practical;
+- Acceptance Criteria coverage;
+- Test Evidence reviewed and independently run;
+- Security/scope/compatibility observations;
+- Verdict: `Pass`, `Changes Requested`, or `Inconclusive`;
+- Suggested Architect Focus;
+- confirmation that the Reviewer changed no file except
+  `reviewer-report.md`.
+
+To reduce opinion anchoring, the Reviewer must inspect, in this order:
+
+1. `current-task.md` and its acceptance criteria;
+2. the named baseline-to-implementation diff and relevant tests;
+3. independently selected validation evidence;
+4. `coder-report.md`;
+
+The Reviewer must not read the active task's `architect-review.md` before
+publishing its own report. Prior architecture documentation and earlier
+closed reviews may be used only when needed to understand established
+contracts.
+
+The Coder's recommended review depth is advisory. The Reviewer selects its own
+actual depth, and the Architect independently selects the depth of final
+review.
+
+## Architect Decision and Human Escalation Requirements
+
+The protocol must distinguish:
+
+- technical findings resolvable within accepted task/product direction, which
+  the Architect may decide;
+- product direction, user experience, business priority, significant scope
+  expansion, material security/cost risk acceptance, or irreconcilable
+  reviewer disagreement, which must go to the Human.
+
+Define a compact Human Decision Required section containing:
+
+- decision needed;
+- why it cannot be decided safely by the Architect;
+- options and trade-offs;
+- Architect recommendation, if one is supportable;
+- default state: work pauses only on the affected decision while other
+  independent safe work may continue.
+
+If the Architect disagrees with a Reviewer finding, the Architect must record
+specific evidence and reasoning. High-severity disagreement or risk acceptance
+must be escalated to the Human.
+
+## Human Summary Requirements
+
+Define this 5–10 line Chat template:
+
+```text
+### Human Summary
+Status:
+What Changed:
+Risk: Low / Medium / High
+Review Result:
+Next Step:
+Action Needed From Human: None / concise decision request
+```
+
+The summary must not replace the formal Markdown record or copy its detailed
+contents.
+
+## VS Code Daily-Use Plan
+
+Document a provider-neutral, manual VS Code setup:
+
+- one shared checkout and branch;
+- separate persistent chat/terminal panels for Architect, Coder, and Reviewer;
+- each role starts by reading its owned protocol inputs from
+  `agent-handoff/`;
+- each role writes only its authorized file(s);
+- Human wakes/starts a role when the preceding report is ready, but does not
+  copy task details or reports between roles;
+- each role verifies branch and exact SHA before acting;
+- Git commits remain intentional and role-attributed;
+- the approach must work with any AI client capable of reading the repository,
+  inspecting diffs/tests, and editing its authorized Markdown file.
+
+Do not require provider-specific configuration. Provider-specific examples may
+be clearly labeled optional and non-normative.
+
+## First Pilot and Migration Plan
+
+Document the small rollout:
+
+1. Foundation: this task, using the old Architect → Coder → Architect flow.
+2. Pilot: PMQA Task 5C.4 uses the complete
+   Coder → Independent Reviewer → Architect flow once.
+3. Stabilization: one lightweight retrospective updates only proven pain
+   points, templates, and ownership wording.
+
+The current Coder workflow must otherwise remain unchanged. The Reviewer adds
+one independent evidence stage; it does not become a manager or second Coder.
 
 ## Allowed Changes
 
-- `pmqa/application/contracts.py`
-- `pmqa/application/service.py`
-- minimal neutral application constant placement when needed
-- `pmqa/application/__init__.py` only if export placement changes
-- `tests/test_application_contracts.py`
-- `tests/test_application_service.py`
-- focused application architecture documentation
-- `agent-handoff/coder-report.md`
+- create `agent-handoff/README.md`;
+- create `agent-handoff/reviewer-report.md`;
+- replace `agent-handoff/coder-report.md` with this task's completion report.
 
-Do not amend earlier commits. Add one focused implementation commit and one
-report-only handoff commit.
+No other file may change.
 
-## Required Corrections
-
-### 1. Workflow validator isolation
-
-- Keep one authoritative canonical `RunRequest` owned by the service.
-- Pass a separately reconstructed canonical request to
-  `validate_request()`.
-- Do not use the validator-owned object for later workflow/runner selection,
-  context construction, dispatch, records, or output.
-- Keep the authoritative canonical RunnerResponse/result owned by the service.
-- Pass a separately reconstructed canonical `StructuredResult` to
-  `validate_result()`.
-- Do not use the validator-owned result for RunRecord or output.
-- A validator retaining and later mutating its argument must not affect any
-  service-owned state.
-
-Add adversarial validators that mutate:
-
-- request ID, session ID, workflow identity/version, runner ID;
-- input schema identity/version;
-- safe inputs into prohibited/runtime-like fields;
-- result schema identity/version;
-- result data into prohibited fields;
-- retained request/result references after validation.
-
-The output must remain equal to the pre-validation authoritative snapshots.
-
-### 2. Runner dispatch isolation
-
-- Construct one authoritative canonical `RunnerRequest`.
-- Construct a separate canonical dispatch snapshot for
-  `PMQARunner.execute()`.
-- Validate the response against only the untouched authoritative request.
-- Do not reuse the runner-owned dispatch object after the call.
-
-Add an adversarial runner that mutates:
-
-- context run/request/session/workflow/runner correlation;
-- invocation ID, run ID, runner ID, operation, step, start time;
-- attempt number and retry/fallback predecessors;
-- embedded RunRequest;
-- expected result schema ID/version.
-
-A response correlated only to the mutated dispatch must fail with
-`RUNNER_BOUNDARY_FAILED`. The failure must expose no marker, cause, context,
-or mutated value. The caller-requested run and invocation identities must
-never be replaced.
-
-### 3. ApplicationRunResult single-attempt invariant
-
-The canonical contract must require:
-
-```text
-operation == APPLICATION_RUN_OPERATION
-step_id is None
-attempt_number == 1
-retry_of_invocation_id is None
-fallback_from_invocation_id is None
-```
-
-Keep `APPLICATION_RUN_OPERATION` defined once and reused by service and
-contract validation.
-
-Enforce the invariant during:
-
-- direct construction;
-- `from_dict()`;
-- `model_copy(update=...)`.
-
-Add independent tests for arbitrary operation, non-null step, attempt 2,
-retry predecessor, fallback predecessor, and combined changes.
-
-### 4. Unexpected live property exceptions
-
-- Preserve the existing safe changed failure when a live definition or
-  metadata value is returned but is malformed or differs from its registered
-  snapshot.
-- If accessing the live property raises an exception, propagate the exact
-  exception object unchanged.
-- Preserve `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and
-  `GeneratorExit` unchanged.
-- Do not change registry-construction handling for malformed objects.
-
-Add tests proving exact exception identity for:
-
-- `RuntimeError`;
-- `ValueError`;
-- `MemoryError`;
-- `KeyboardInterrupt`;
-- `SystemExit`;
-- `GeneratorExit`.
-
-## Security and Canonical Requirements
-
-- Do not duplicate prohibited-key policy.
-- Use existing `to_dict()` / `from_dict()` canonical reconstruction.
-- Do not retain mutable caller- or plugin-owned containers.
-- Fixed expected application errors must remain bounded and marker-safe.
-- Unexpected programming exceptions must not be silently relabeled.
-- Do not add prompt, provider, usage, cost, environment, path, browser,
-  subprocess, or runtime metadata to canonical contracts.
+Use one focused protocol implementation commit and one report-only Coder
+handoff commit. Do not amend prior Task 5C commits.
 
 ## Out of Scope
 
 Do not:
 
-- redesign WorkflowRegistry, RunnerRegistry, or PMQAApplicationService;
-- add persistence or repositories;
-- add retry, fallback, timeout enforcement, or approval execution;
-- add real workflow/provider/Product Pack adapters;
-- add subprocess, browser, Node.js, network, CLI, UI, or API behavior;
-- add Usage/Cost, pricing, logging, feedback, or eval records;
-- modify WorkflowState, reducer, Supervisor, ToolRegistry, LangGraph, Task 5,
-  or Product Pack behavior;
-- implement the Independent Reviewer workflow inside this remediation;
+- modify PMQA production code, tests, configuration, schemas, packaging,
+  scripts, README, Roadmap, or architecture/product documentation;
+- modify `agent-handoff/current-task.md` or
+  `agent-handoff/architect-review.md`;
+- build MCP, an event bus, a scheduler, a state machine, LangGraph workflow,
+  autonomous agent network, daemon, watcher, webhook, or automatic trigger;
+- add provider SDKs or depend on ChatGPT, Codex, Claude, Gemini, Copilot, or
+  another named provider;
+- add CLI commands, runtime models, persistence, telemetry, Usage/Cost, UI, or
+  APIs;
+- execute the Independent Reviewer stage for this bootstrap task;
 - start PMQA Task 5C.4, Task 5B, Task 6, or Task 7;
 - create a PR or merge.
 
-## Required Tests
+## Acceptance Criteria
 
-At minimum cover:
+The task is complete only if:
 
-- request-validator mutation cannot change execution or output;
-- result-validator mutation cannot change RunRecord or output;
-- retained validator references cannot mutate completed results;
-- runner dispatch mutation cannot change expected correlation;
-- all RunnerRequest correlation fields are protected;
-- single-attempt contract invariants at all construction paths;
-- live definition/metadata unexpected exception identity;
-- existing safe mismatch classifications;
-- exactly one runner call remains true;
-- caller-owned request/control remain unchanged;
-- import isolation and packaging remain unchanged.
-
-New tests must be offline and must not invoke a browser, network, Node.js,
-external CLI, or paid model.
+- role authority and exclusive file ownership are explicit and internally
+  consistent;
+- only Coder can change implementation surfaces;
+- Architect and Reviewer are explicitly prohibited from changing code/tests
+  and other implementation surfaces;
+- Architect must escalate unresolved or product-direction decisions to Human;
+- Reviewer independence, inputs, inspection order, verdict vocabulary, and
+  read-only boundary are operationally clear;
+- Architect remains the final technical decision-maker, while Human retains
+  product and risk authority;
+- formal handoff lifecycle no longer requires Human copy/paste;
+- Human Summary is concise and mandatory after each stage;
+- VS Code guidance is provider-neutral and usable without new automation;
+- bootstrap and first-pilot migration are unambiguous;
+- templates include exact commit correlation and review-depth evidence;
+- no implementation or product behavior changes;
+- no provider-specific dependency or automatic orchestration is introduced.
 
 ## Validation Commands
 
 Run and report:
 
 ```bash
-.venv/bin/python -m pytest tests/test_application_contracts.py tests/test_application_registry.py tests/test_application_service.py tests/test_application_imports.py
-.venv/bin/python -m pytest tests/test_run_contracts.py tests/test_runner_contracts.py tests/test_mock_runner.py tests/test_boundary_policy.py tests/test_packaging.py
-.venv/bin/python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py
-.venv/bin/python -m pytest
-.venv/bin/python -m pytest products/demo/generated_tests
-.venv/bin/python -m compileall -q pmqa products
 git diff --check
 git status --short
+git diff --name-only <starting-head>..HEAD
 ```
+
+Also perform a manual consistency audit:
+
+- every role has exactly one clear authority boundary;
+- no statement permits Architect or Reviewer to modify implementation;
+- no statement permits Reviewer to direct or implement remediation;
+- every product-direction or material-risk decision routes to Human;
+- file lifecycle and exact-SHA correlation are complete;
+- all relative Markdown links in `agent-handoff/` resolve;
+- provider names, if present, are only non-normative examples.
+
+No production test run is required because this task may change only handoff
+Markdown. If any non-handoff file changes, stop: that is a scope violation.
 
 ## Expected Deliverables
 
-- One focused remediation implementation commit.
-- One report-only Coder handoff commit.
-- Corrected isolation and canonical invariants.
-- New adversarial tests.
-- Updated `agent-handoff/coder-report.md`.
-- Clean worktree with local and remote branch HEADs synchronized.
-- No PR and no merge.
+- `agent-handoff/README.md`;
+- `agent-handoff/reviewer-report.md`;
+- updated `agent-handoff/coder-report.md`;
+- one focused protocol commit;
+- one report-only Coder handoff commit;
+- clean worktree with local and remote branch HEADs synchronized;
+- no PR and no merge.
 
 ## Required Coder Handoff
 
-Replace `agent-handoff/coder-report.md` with the complete remediation report.
-Include:
+Replace `agent-handoff/coder-report.md` with a complete report containing:
 
+- task and attempt;
 - branch and exact Coder starting HEAD;
-- remediation commit SHA;
+- implementation and report commit SHAs;
 - changed files;
-- correction for F1–F4;
-- adversarial test evidence;
-- full validation results;
-- remaining risks and scope confirmation;
+- protocol and template summary;
+- manual authority/consistency audit;
+- validation results;
+- remaining risks/open items;
+- scope confirmation;
 - exactly one recommended review depth: `Light`, `Standard`, or `Deep`;
-- one-sentence reason;
+- one-sentence review-depth reason;
 - 3–6 suggested review focus areas.
 
-The Coder recommendation is advisory. The Architect independently selects the
-actual review depth.
-
-## Planned Workflow Rollout After Approval
-
-After Task 5C.3 is approved:
-
-1. implement the provider-neutral Independent Reviewer file protocol using the
-   existing Architect → Coder → Architect workflow;
-2. use PMQA Task 5C.4 as the first Coder → Reviewer → Architect pilot;
-3. perform one lightweight workflow retrospective and stabilization task.
+The Coder recommendation is advisory. The Architect makes the final review
+decision.
