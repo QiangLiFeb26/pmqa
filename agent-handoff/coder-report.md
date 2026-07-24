@@ -2,18 +2,15 @@
 
 Owner: Coder
 
-Task: PMQA Task 5C.4 — Provider-Neutral AI Usage and Cost Contracts
+Task: PMQA Task 5C.5 — Provider-Neutral AI Invocation Collector
 
-Task ID: `PMQA-5C.4`
+Task ID: `PMQA-5C.5`
 
 Attempt: `1`
 
 Status: Ready for Independent Reviewer
 
-This file is the authoritative Coder handoff for the first live Independent
-Reviewer pilot.
-
-## Branch and Starting HEAD
+## Branch and Git Correlation
 
 Branch:
 
@@ -21,23 +18,27 @@ Branch:
 
 Exact Git-derived Coder starting HEAD:
 
-`150c265974eac9f73ffc76b5eb7cd70f94f9cb5c`
+`119330ec2355b2ab8d8f4afa66d23d0af8a06654`
 
-The starting commit contained the Architect-owned Task 5C.4 publication. The
-worktree and tracking branch were clean before implementation. No prior commit
-was amended.
+That commit is the latest path-specific publication of
+`agent-handoff/current-task.md`, identifies Task `PMQA-5C.5` Attempt `1`, and
+was the clean local and tracking-branch HEAD before implementation. It is
+reachable from the implementation commit below. The Architect-reviewed Task
+5C.4 baseline named by the task,
+`f5a960d359b671c485d70871eecb2e150b9e23d6`, is an ancestor of the starting
+HEAD. No prior commit was amended.
 
 ## Implementation Commit
 
-`2252c14736a050e87be6b769f488754a64b144bc`
+`346cc7ccb667ff3be7f58a8282e7fad67a2bcae9`
 
 Commit message:
 
-`add Task 5C.4 usage and cost contracts`
+`add Task 5C.5 invocation collector`
 
-This report is committed separately after the implementation commit. Per the
-pilot protocol, the Independent Reviewer derives the report commit from Git;
-this report does not include its own SHA.
+This report is committed separately after the implementation commit. The
+Independent Reviewer derives the report commit from Git; this report does not
+claim its own future commit SHA.
 
 ## Changed Files
 
@@ -48,12 +49,11 @@ Implementation commit:
 - `docs/architecture.md`
 - `docs/architecture/usage-cost-contracts.md`
 - `pmqa/usage/__init__.py`
+- `pmqa/usage/collector.py`
 - `pmqa/usage/contracts.py`
-- `pmqa/usage/pricing.py`
 - `tests/test_packaging.py`
-- `tests/test_usage_contracts.py`
+- `tests/test_usage_collector.py`
 - `tests/test_usage_imports.py`
-- `tests/test_usage_pricing.py`
 
 Report-only handoff commit:
 
@@ -61,261 +61,169 @@ Report-only handoff commit:
 
 No Architect- or Reviewer-owned handoff file changed.
 
-## Public Contracts
+## Public API
 
-`pmqa.usage` exports only its explicit neutral surface:
+`pmqa.usage` now exports:
 
-- schema/bound constants:
-  - `USAGE_CONTRACT_SCHEMA_VERSION`;
-  - `MAX_USAGE_INTEGER`;
-- fixed vocabularies:
-  - `UsageSource`;
-  - `CostType`;
-  - `EvidenceUnavailableReason`;
-  - `TokenField`;
-  - `AIInvocationStatus`;
-  - `PricingUnit`;
-  - `PricingComponentKind`;
-- canonical evidence and correlation records:
-  - `TokenFieldAbsence`;
-  - `TokenUsageEvidence`;
-  - `CostEvidence`;
-  - `AIInvocationRecord`;
-  - `PricingComponent`;
-  - `ModelPricing`;
-- boundary/error types:
-  - `PricingCatalog`;
-  - `UsageContractValidationError`.
+- `AIInvocationCollector`, a runtime-checkable provider-neutral synchronous
+  protocol;
+- `DefaultAIInvocationCollector`, the deterministic default implementation;
+- `AIInvocationHandle`, an opaque runtime-only ownership value;
+- `AIInvocationCollectionErrorCode`, the fixed eight-code failure vocabulary;
+  and
+- `AIInvocationCollectionError`, the bounded safe boundary exception.
 
-Nothing is exported from top-level `pmqa`.
+Start accepts only Task 5C.4 correlation fields. Completion, failure, and
+cancellation accept exact `TokenUsageEvidence` and `CostEvidence` instances
+and return only canonical `AIInvocationRecord` values. No raw dictionary,
+arbitrary metadata, provider object, callback, sink, or persistence surface
+was introduced.
 
-## Usage Evidence Decisions
+## Canonical Validation Reuse
 
-`TokenUsageEvidence` distinguishes exactly:
+The collector calls the existing `AIInvocationRecord` identifier, optional
+identifier, and model-unavailable-reason validators before sampling a clock.
+The existing cross-field model/predecessor policy was extracted without
+semantic change into one private helper used by both `AIInvocationRecord` and
+the collector. This avoids a second correlation or predecessor policy while
+preserving the Task 5C.4 wire fields, JSON shape, and lifecycle semantics.
 
-- `provider_reported`;
-- `parsed_from_cli`;
-- `estimated`; and
-- `unavailable`.
+All Task 5C.4 contract tests remain green. No persisted wire field was added,
+removed, renamed, or reinterpreted.
 
-Input, output, cached-input, and total tokens are independent optional bounded
-non-negative integers. Present zero remains integer zero. Every missing field
-has one `TokenFieldAbsence` carrying that exact field plus a fixed
-`EvidenceUnavailableReason`; mixed missing-field reasons are therefore
-representable. Duplicate, omitted, or contradictory absence declarations are
-rejected.
+## Handle Ownership and Terminalization Policy
 
-An unavailable source contains no counts and declares every field absent. A
-non-unavailable source supplies at least one count. The contract never
-calculates, repairs, or validates arithmetic equality for `total_tokens` and
-makes no cached-token inclusion assumption.
+Each collector owns a private active-handle table and instance identity; there
+is no global registry. A handle is exact-type checked, immutable through its
+public API, constructor-protected, opaque in `repr`, and non-pickleable. Its
+private owner and integrity bindings are checked against collector-owned
+state. Foreign, forged, subclassed, finalized, and internally mutated handles
+fail with the same bounded error; detected mutation consumes the corrupted
+owned state.
 
-## Cost Evidence Decisions
+Usage and cost are exact-type checked and independently round-tripped before
+terminal state changes. Invalid caller evidence or an invalid failure category
+therefore leaves the handle active for a corrected attempt. Immediately before
+terminal clock sampling, the collector atomically removes the handle. Any
+expected clock, duration, or final-record validation failure after that point
+is terminal, so a second record cannot be produced. Concurrent contenders are
+serialized by the private lock and at most one can consume ownership.
 
-`CostEvidence` keeps provider-reported, estimated, subscription-included, and
-unavailable evidence structurally distinct.
+Success has no error category, failure requires a non-cancellation
+`RunErrorCategory`, and cancellation always uses
+`RunErrorCategory.CANCELLED`. Unavailable evidence remains explicitly
+unavailable, and present numeric zero remains zero.
 
-Reported and estimated monetary costs require a bounded canonical
-non-negative `Decimal` amount and uppercase three-letter currency. JSON uses a
-unique plain decimal string; floats, coercion, exponents, negative values,
-non-finite values, and oversized decimals are rejected. A real monetary zero
-serializes as `"0"`.
+## Clock and Duration Decisions
 
-Estimated cost additionally requires a complete pricing source ID, version,
-and effective timestamp. When nested in an AI invocation, pricing evidence
-cannot take effect after invocation start. Subscription-included and
-unavailable evidence carry no amount, currency, or pricing fields;
-subscription inclusion does not claim zero marginal cost. Unavailable cost
-requires one fixed reason.
+The constructor validates that both injected clocks are callable without
+sampling either. Start validates all metadata, then samples wall clock once
+and monotonic clock once. A terminal path validates handle and evidence, then
+samples each terminal clock once after consuming ownership.
 
-## Pricing Boundary Decisions
+Wall samples must be exact timezone-aware `datetime` values and are normalized
+to UTC. Monotonic samples must be exact finite `int` or `float` values,
+excluding `bool`. Terminal wall and monotonic values may not precede their
+start values. Duration uses only monotonic evidence, converts through
+`Decimal`, and rounds to the nearest millisecond with deterministic
+`ROUND_HALF_UP`; zero is preserved and values above `MAX_USAGE_INTEGER` are
+rejected. No sample or duration is guessed, clamped, or derived from wall-clock
+difference.
 
-`PricingComponent` records a canonical decimal amount with an explicit
-`per_token`, `per_1k_tokens`, or `per_1m_tokens` unit.
+Ordinary clock, normalization, evidence, and construction failures become
+fixed errors raised without cause or context and without values.
+`MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit`
+propagate unchanged at every tested clock stage.
 
-`ModelPricing` correlates one pricing identity, provider/model, currency,
-source/version, effective interval, and independently optional input, output,
-and cached-input components. Every absent component is declared, at least one
-real component is required, and missing-component evidence cannot contradict
-present components. Nested components are canonically reconstructed so the
-record retains no caller-owned model instance.
+## Security, Import, and Packaging Evidence
 
-`PricingCatalog` is a runtime-checkable read-only protocol with:
+The handle and collector accept or retain no prompt, response, credential,
+environment, provider client, raw process output, executable/path data,
+browser state, arbitrary metadata, or exception text. Errors and handle
+representations do not include marker values, clock outputs, object identity,
+or underlying exception details. Caller-owned evidence is reconstructed twice
+across the terminal record boundary; later caller mutation cannot alter the
+returned record.
 
-```text
-get_price(provider, model, effective_at) -> ModelPricing | None
-```
-
-`None` means no applicable pricing and never means zero. The boundary performs
-no calculation or mutation. Only test-local fake catalogs exist; no production
-catalog or price table was added.
-
-## Invocation Correlation and Lifecycle
-
-`AIInvocationRecord` is separate from `RunnerInvocationRecord`. It carries:
-
-- its own invocation ID;
-- session and run IDs;
-- optional runner-invocation correlation;
-- provider and model or fixed model-unavailable reason;
-- operation;
-- terminal success/failure/cancellation status;
-- canonical UTC start/completion timestamps and monotonic duration evidence;
-- attempt number plus retry/fallback predecessor correlation;
-- exact usage and cost evidence; and
-- optional bounded `RunErrorCategory` classification only.
-
-First attempts have no predecessor. Later attempts have exactly one retry or
-fallback predecessor and cannot reference themselves. Success has no error
-classification; failure requires a non-cancellation classification;
-cancellation requires the cancellation classification.
-
-Cross-record existence and cycle validation remain future
-repository/application responsibilities. `RunRecord`,
-`RunnerInvocationRecord`, `OutcomeMetrics`, `TraceRecord`, and WorkflowState
-were not modified.
-
-## Canonical, Immutability, and Security Decisions
-
-All public records inherit the established strict frozen Pydantic v2 contract
-style: forbidden extras, hidden invalid inputs, canonical plain-JSON output,
-UTC `Z` timestamps, complete-tree bounds, revalidated copying, and exact
-`from_dict()` reconstruction. Usage reconstruction failures use the fixed
-`invalid PMQA usage contract` message without input values, cause, or context.
-
-Caller-owned tuples/lists and nested usage, cost, absence, error-classification
-and pricing-component values are not retained as mutable caller state.
-Adversarial tests cover retained-model mutation through `__dict__` at
-construction boundaries.
-
-The package defines no arbitrary metadata or dynamic payload field. Unknown or
-prohibited fields, runtime objects, cycles, excessive depth, excessive string
-size, non-finite data, coercion, and invalid identifiers fail without exposing
-injected markers. The neutral Run validation helpers and shared security
-boundary are reused; no sensitive-key list was duplicated.
-
-The contracts contain no prompt/response content, credential/authentication
-state, raw CLI output, command/path/environment data, browser evidence,
-provider client, callable, subprocess, runtime control, exception message, or
-stack trace.
-
-## Import and Packaging Isolation
-
-`import pmqa.usage` performs no I/O, environment/configuration/distribution
-inspection, process launch, discovery, registration, provider/product import,
-pricing lookup, or runtime integration. Isolation tests prove it does not load
-products, external packs, Playwright, LangGraph/orchestration, reasoning
-providers, Application Service, runner implementations, storage, SQLite,
-subprocess, or UI packages.
-
-The real offline-built PMQA wheel contains only:
-
-- `pmqa/usage/__init__.py`;
-- `pmqa/usage/contracts.py`; and
-- `pmqa/usage/pricing.py`
-
-for the new package. External-directory wheel import succeeds. No pricing
-data, provider fixture, usage artifact, secret, cache, or runtime output was
-added.
-
-## Documentation Status
-
-- Task 5C.1–5C.3 are recorded as architecture-review passed.
-- Task 5C.4 is recorded as ready for architecture review.
-- Usage/cost remains beside, not inside, Run Contract, reasoning traces, or
-  LangGraph state.
-- The focused architecture document states this is a contracts and
-  pricing-boundary checkpoint, not the Usage Tracking MVP.
-- Collection, parsing, calculation, persistence, aggregation, summaries,
-  budgets, and optimization remain future work.
-- Task 5C remains in progress and unmerged; Task 5B, Task 6, and Task 7 remain
-  not started.
+Import-isolation tests prove `import pmqa.usage` performs no clock sampling,
+collector construction, I/O, environment/distribution inspection, process or
+browser launch, product loading, provider loading, Application Service,
+runner, workflow, LangGraph, storage, CLI, or UI import. Top-level `pmqa`
+remains usage-lazy. The real-wheel regression asserts
+`pmqa/usage/collector.py` is packaged and the external-directory import check
+exercises the exported collector protocol and implementation. No dependency
+was added.
 
 ## Validation Results
 
-- Focused Task 5C.4 usage/cost/pricing/import tests:
-  - `.venv/bin/python -m pytest tests/test_usage_contracts.py tests/test_usage_pricing.py tests/test_usage_imports.py`
-  - `68 passed`
-- Existing Run, Runner, Application, boundary, and real-wheel packaging
-  regressions:
-  - `.venv/bin/python -m pytest tests/test_run_contracts.py tests/test_runner_contracts.py tests/test_application_contracts.py tests/test_application_service.py tests/test_boundary_policy.py tests/test_packaging.py`
-  - `332 passed`
-- Task 4 orchestration regressions:
-  - `.venv/bin/python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py`
-  - `98 passed, 1 existing LangGraph deprecation warning`
-- Full default suite:
-  - `.venv/bin/python -m pytest`
-  - `1629 passed, 5 skipped, 1 existing LangGraph deprecation warning`
-- Existing generated Playwright regressions:
-  - `.venv/bin/python -m pytest products/demo/generated_tests`
-  - `2 passed`
-- Isolated compile check:
-  - `PYTHONPYCACHEPREFIX=<temporary-directory> .venv/bin/python -m compileall -q pmqa products`
-  - passed
-- Markdown relative-link validation:
-  - `12 Markdown files validated`
-- `git diff --check`:
-  - passed before the implementation commit and is rechecked after the
-    report-only commit.
-- Final worktree and synchronization:
-  - rechecked after the report commit and push before the Human Summary.
+- Focused collector plus Task 5C.4 usage/pricing/import tests:
+  `138 passed`.
+- Run, Runner contract, Application contract/service, boundary-policy, and
+  real-wheel packaging regressions: `332 passed`.
+- Task 4 runtime, reducer, Supervisor, and LangGraph regressions:
+  `98 passed` with one existing LangGraph pending-deprecation warning.
+- Full default suite: `1699 passed, 5 skipped` with the same existing warning.
+  The skips are existing opt-in live/external environment gates.
+- Generated SauceDemo Playwright regressions: `2 passed`. The first
+  sandboxed launch was blocked by macOS Chromium Mach-port permissions; the
+  required rerun with local browser permission passed.
+- Isolated `compileall` for `pmqa` and `products`: passed with bytecode directed
+  to `/private/tmp`.
+- `git diff --check`: passed.
+- Pre-report implementation worktree: clean.
 
-All new and default tests were offline and provider-free. The only browser
-execution was the required existing generated Playwright regression using
-locally installed Chromium.
-
-## Remaining Risks and Open Items
-
-- `PricingCatalog` is only a lookup protocol; future implementations must
-  independently validate lookup inputs and returned effective intervals.
-- Different unavailable reasons are represented per token field; pricing
-  components currently share one bounded reason within a `ModelPricing`
-  record.
-- Cross-record session/run/runner/predecessor existence and cycle checks remain
-  future repository/application work.
-- Collection, provider/CLI parsing, calculation, persistence, aggregation,
-  summaries, budgets, and optimization remain intentionally absent.
-- No real pricing source or provider integration has validated the neutral
-  contracts yet.
+All default, packaging, and collector tests remained offline. No model,
+provider CLI, network, Node.js, or external Product Pack was invoked by the
+new tests.
 
 ## Scope Confirmation
 
-- Changes are limited to the allowed new usage package, focused tests,
-  packaging assertions, four documentation surfaces, and this Coder report.
-- Architect- and Reviewer-owned handoff files were not modified.
-- No collector, invocation handle, provider adapter/parser, raw provider
-  metadata, calculator, estimator service, concrete catalog, pricing table,
-  storage, aggregation, CLI, UI, routing, budget, optimization,
-  recommendation, feedback, eval, or logging feature was added.
-- No Application Service, runner, reasoning provider, Run Contract,
-  WorkflowState, LangGraph, Task 5, Product Pack, Supervisor, or existing
-  provider behavior changed.
-- Task 5B, Task 6, and Task 7 were not started.
-- No PR was created and nothing was merged.
-- No earlier commit was amended.
-- No known blocking finding remains in the Coder implementation.
+No provider/CLI parser, pricing selection, calculator, catalog implementation,
+storage, sink, callback, aggregation, summary, CLI/UI, workflow, runner,
+reasoning-provider, or Application Service integration was added. `RunRecord`,
+`RunnerInvocationRecord`, `WorkflowState`, LangGraph, Supervisor, Task 5,
+Product Pack, and existing provider behavior were not modified. Task 5B,
+Task 6, and Task 7 were not started. No PR was created and nothing was merged.
+
+## Remaining Risks and Open Items
+
+- The collector is intentionally process-local and in-memory; persistence and
+  recovery across process loss are deferred.
+- It records only caller-supplied canonical evidence; provider parsing,
+  pricing, and completeness policy remain deferred.
+- The runtime API is synchronous; asynchronous adapter composition remains a
+  later design decision.
+
+These are explicit task boundaries, not known acceptance blockers.
 
 ## Recommended Review Depth
 
-Recommendation: Deep
+**Deep**
 
-Reason: Task 5C.4 introduces a new persisted evidence vocabulary whose
-missing-data, decimal, correlation, and security invariants will govern future
-provider integrations and cost decisions.
+Reason: the new opaque ownership and clock-containment boundary is small but
+security- and exactly-once-sensitive, so adversarial lifecycle review is
+warranted despite broad regression coverage.
 
 ## Suggested Reviewer Focus
 
-- Challenge complete, partial, mixed-reason, zero, and unavailable token
-  evidence for ambiguity or accidental inference.
-- Verify monetary zero, subscription inclusion, unavailable cost, and
-  estimated pricing evidence cannot be confused.
-- Inspect canonical decimal bounds, effective-time correlation, and
-  independent missing pricing components.
-- Exercise retry/fallback, model-unavailable, terminal-error, and optional
-  runner correlations across all construction paths.
-- Recheck deep snapshot isolation, safe errors, import isolation, and actual
-  wheel contents.
-- Confirm no collection, calculation, persistence, provider, CLI, UI, or
-  existing runtime integration entered this checkpoint.
+- Verify the extracted shared correlation helper is semantically identical to
+  the reviewed Task 5C.4 policy and leaves its wire schema unchanged.
+- Challenge handle forgery, mutation, collector ownership, duplicate, and
+  concurrent terminalization behavior.
+- Verify evidence-validation failures stay retryable while all post-consumption
+  expected failures remain at-most-once.
+- Inspect clock exception containment, exact sampling order, half-up monotonic
+  duration, and overflow/backwards-time behavior.
+- Confirm import/wheel isolation and absence of provider, persistence, hidden
+  sink, global registry, or sensitive runtime data.
 
-The Coder recommendation is advisory and does not approve the task.
+## Human Summary
+
+Task 5C.5 Attempt 1 已在指定分支完成，起点为 `119330ec2355b2ab8d8f4afa66d23d0af8a06654`。
+实现提交为 `346cc7ccb667ff3be7f58a8282e7fad67a2bcae9`。
+新增 provider-neutral collector、opaque runtime handle 与 exactly-once 三种终止路径。
+时钟、duration、证据快照、handle 所有权和安全错误边界均有 focused adversarial coverage。
+验证结果：focused 138、边界/packaging 332、Task 4 回归 98、全量 1699 passed / 5 skipped、Playwright 2 passed。
+未加入 provider、parser、calculator、storage、CLI/workflow integration，也未开始 Task 5B、Task 6 或 Task 7。
+Action Needed From Human: 请将下方 Handoff Note 传递给 Independent Reviewer。
+Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 review。
