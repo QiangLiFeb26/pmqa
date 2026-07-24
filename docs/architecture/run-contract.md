@@ -83,6 +83,11 @@ the shared neutral prohibited-key policy, reject runtime-only fields,
 non-finite numbers, cycles, excessive nesting, and mutable container
 subclasses, then freeze nested mappings and collections.
 
+The complete canonical tree uses the same bounded depth, item, and string
+policy during direct construction, revalidated copying, and reconstruction.
+Consequently, every successfully constructed public contract can be serialized
+and reconstructed within the supported persistence boundary.
+
 Run identifiers use bounded lowercase ASCII segments separated by `.`, `_`,
 `-`, or `:`. This supports UUID-style IDs, lowercase names, numeric external
 IDs, and safe composed correlation while excluding whitespace, paths, URLs,
@@ -92,6 +97,12 @@ Canonical typed fields such as `session_id` and `run_id` are allowed. The
 dynamic payload policy is not recursively applied to the contract's own typed
 fields. Artifact records contain only logical storage keys and lowercase
 SHA-256 digests, never artifact contents or storage implementations.
+
+For the Task 5C.1 lifecycle, only a running run may identify a current step;
+pending, pre-run approval, and terminal records have no current step. Runner
+invocation attempt one has no predecessor. Every later attempt declares
+exactly one retry or fallback predecessor classification; cross-record
+existence and cycle checks remain future service/repository responsibilities.
 
 ## Compatibility
 

@@ -197,7 +197,7 @@ def _record(**updates) -> RunRecord:
         "started_at": _time(),
         "completed_at": _time(3),
         "duration_ms": 1200,
-        "current_step_id": "generate",
+        "current_step_id": None,
         "result": _result(),
         "artifacts": (_artifact(),),
         "errors": (),
@@ -439,6 +439,60 @@ def test_dynamic_payloads_reject_cycles_depth_and_item_overflow() -> None:
         _request(inputs=oversized)
 
 
+def _artifacts(count: int, *, marker: str = "") -> tuple[RunArtifact, ...]:
+    return tuple(
+        _artifact(
+            artifact_id=f"artifact.item-{index}",
+            storage_key=f"runs/run.1/artifacts/item-{index}",
+            artifact_type=(
+                f"playwright-tests{marker}"
+                if index == count - 1
+                else "playwright-tests"
+            ),
+        )
+        for index in range(count)
+    )
+
+
+def test_supported_large_complete_contract_round_trips() -> None:
+    record = _record(artifacts=_artifacts(500))
+    wire = record.to_dict()
+
+    assert RunRecord.from_dict(wire) == record
+
+
+def test_complete_canonical_tree_overflow_is_rejected_during_construction() -> None:
+    with pytest.raises(ValidationError, match="persistence boundary"):
+        _record(artifacts=_artifacts(600))
+
+
+def test_complete_canonical_tree_overflow_is_rejected_by_model_copy() -> None:
+    with pytest.raises(ValidationError, match="persistence boundary"):
+        _record().model_copy(update={"artifacts": _artifacts(600)})
+
+
+def test_complete_tree_bound_applies_to_workflow_preview_collections() -> None:
+    steps = tuple(
+        _step(
+            step_id=f"step.{index}",
+            display_name=f"Step {index}",
+        )
+        for index in range(1024)
+    )
+
+    with pytest.raises(ValidationError, match="persistence boundary"):
+        _definition(preview_steps=steps)
+
+
+def test_complete_tree_overflow_error_does_not_expose_rejected_content() -> None:
+    marker = "runtime-secret-marker"
+
+    with pytest.raises(ValidationError) as captured:
+        _record(artifacts=_artifacts(600, marker=marker))
+
+    assert marker not in str(captured.value)
+
+
 def test_references_are_immutable_and_duplicate_free() -> None:
     with pytest.raises(ValidationError, match="duplicate"):
         _request(references=(_reference(), _reference()))
@@ -555,22 +609,59 @@ def test_nonterminal_runner_invocations_forbid_completion_metadata(
         _invocation(status=status)
 
 
-def test_runner_invocation_time_and_retry_fallback_correlation() -> None:
+def test_runner_invocation_time_validation() -> None:
     with pytest.raises(ValidationError, match="precede"):
         _invocation(completed_at=_time(-1))
     with pytest.raises(ValidationError):
         _invocation(duration_ms=-1)
-    with pytest.raises(ValidationError, match="greater than 1"):
+
+
+def test_runner_invocation_attempt_and_predecessor_correlation() -> None:
+    assert _invocation().attempt_number == 1
+    with pytest.raises(ValidationError, match="first attempt"):
         _invocation(retry_of_invocation_id="invocation.0")
-    assert _invocation(
+    with pytest.raises(ValidationError, match="first attempt"):
+        _invocation(fallback_from_invocation_id="invocation.0")
+    with pytest.raises(ValidationError, match="exactly one predecessor"):
+        _invocation(attempt_number=2)
+
+    retry = _invocation(
         invocation_id="invocation.2",
         attempt_number=2,
         retry_of_invocation_id="invocation.1",
-    ).retry_of_invocation_id == "invocation.1"
+    )
+    fallback = _invocation(
+        invocation_id="invocation.2",
+        attempt_number=2,
+        fallback_from_invocation_id="invocation.1",
+    )
+    assert retry.retry_of_invocation_id == "invocation.1"
+    assert fallback.fallback_from_invocation_id == "invocation.1"
+
+    with pytest.raises(ValidationError, match="exactly one predecessor"):
+        _invocation(
+            invocation_id="invocation.3",
+            attempt_number=2,
+            retry_of_invocation_id="invocation.1",
+            fallback_from_invocation_id="invocation.2",
+        )
     with pytest.raises(ValidationError, match="itself"):
         _invocation(retry_of_invocation_id="invocation.1", attempt_number=2)
     with pytest.raises(ValidationError, match="itself"):
-        _invocation(fallback_from_invocation_id="invocation.1")
+        _invocation(
+            fallback_from_invocation_id="invocation.1",
+            attempt_number=2,
+        )
+
+    with pytest.raises(ValidationError, match="exactly one predecessor"):
+        _invocation().model_copy(update={"attempt_number": 2})
+    with pytest.raises(ValidationError, match="exactly one predecessor"):
+        retry.model_copy(
+            update={"fallback_from_invocation_id": "invocation.0"}
+        )
+
+    assert RunnerInvocationRecord.from_dict(retry.to_dict()) == retry
+    assert RunnerInvocationRecord.from_dict(fallback.to_dict()) == fallback
 
 
 @pytest.mark.parametrize(
@@ -619,6 +710,52 @@ def test_nonterminal_runs_forbid_completion_and_results(status: RunStatus) -> No
         )
 
 
+@pytest.mark.parametrize(
+    "status",
+    (
+        RunStatus.PENDING,
+        RunStatus.AWAITING_APPROVAL,
+        RunStatus.SUCCEEDED,
+        RunStatus.PARTIALLY_SUCCEEDED,
+        RunStatus.FAILED,
+        RunStatus.CANCELLED,
+    ),
+)
+def test_current_step_is_rejected_outside_running_status(
+    status: RunStatus,
+) -> None:
+    updates = {"status": status, "current_step_id": "generate"}
+    if status in {RunStatus.PENDING, RunStatus.AWAITING_APPROVAL}:
+        updates.update(completed_at=None, duration_ms=None, result=None)
+    if status in {RunStatus.FAILED, RunStatus.CANCELLED}:
+        updates["result"] = None
+
+    with pytest.raises(ValidationError, match="only while a run is running"):
+        _record(**updates)
+
+
+def test_running_run_may_identify_its_current_step() -> None:
+    record = _record(
+        status=RunStatus.RUNNING,
+        completed_at=None,
+        duration_ms=None,
+        current_step_id="generate",
+        result=None,
+    )
+
+    assert record.current_step_id == "generate"
+    assert RunRecord.from_dict(record.to_dict()) == record
+    assert _record().model_copy(
+        update={
+            "status": RunStatus.RUNNING,
+            "completed_at": None,
+            "duration_ms": None,
+            "current_step_id": "generate",
+            "result": None,
+        }
+    ) == record
+
+
 def test_partially_succeeded_run_represents_partial_result_and_errors() -> None:
     record = _record(
         status=RunStatus.PARTIALLY_SUCCEEDED,
@@ -642,6 +779,107 @@ def test_run_record_rejects_invalid_time_and_duplicate_correlations() -> None:
         _record(runner_invocation_ids=("invocation.1", "invocation.1"))
     with pytest.raises(ValidationError, match="structured result"):
         _record(status=RunStatus.FAILED, result=_result())
+
+
+def test_run_record_enforces_complete_timestamp_ordering() -> None:
+    marker = "runtime-secret-marker"
+    with pytest.raises(ValidationError) as created_after_started:
+        _record(created_at=_time(1), started_at=_time())
+    with pytest.raises(ValidationError) as updated_before_started:
+        _record(updated_at=_time(-1))
+    with pytest.raises(ValidationError) as completed_after_updated:
+        _record(completed_at=_time(4), updated_at=_time(3))
+
+    for captured in (
+        created_after_started,
+        updated_before_started,
+        completed_after_updated,
+    ):
+        assert marker not in str(captured.value)
+
+
+def test_run_record_timestamp_rules_apply_to_wire_and_model_copy() -> None:
+    wire = _record().to_dict()
+    wire["created_at"] = _time(1).isoformat().replace("+00:00", "Z")
+    with pytest.raises(RunContractValidationError):
+        RunRecord.from_dict(wire)
+
+    with pytest.raises(ValidationError, match="follow updated_at"):
+        _record().model_copy(update={"completed_at": _time(4)})
+
+
+def test_run_record_accepts_equal_lifecycle_timestamps() -> None:
+    record = _record(
+        created_at=_time(),
+        started_at=_time(),
+        completed_at=_time(),
+        updated_at=_time(),
+        duration_ms=0,
+    )
+
+    assert RunRecord.from_dict(record.to_dict()) == record
+    assert _record().model_copy(
+        update={
+            "created_at": _time(),
+            "started_at": _time(),
+            "completed_at": _time(),
+            "updated_at": _time(),
+            "duration_ms": 0,
+        }
+    ) == record
+
+
+def _wire_update(updates: dict) -> dict:
+    return {
+        key: (
+            value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+            if type(value) is datetime
+            else value.value
+            if isinstance(value, Enum)
+            else value
+        )
+        for key, value in updates.items()
+    }
+
+
+@pytest.mark.parametrize(
+    "updates",
+    (
+        {"created_at": _time(1)},
+        {"updated_at": _time(-1)},
+        {"completed_at": _time(4)},
+        {"current_step_id": "runtime-secret-marker"},
+        {
+            "status": RunStatus.PENDING,
+            "completed_at": None,
+            "duration_ms": None,
+            "current_step_id": "runtime-secret-marker",
+            "result": None,
+        },
+        {
+            "status": RunStatus.AWAITING_APPROVAL,
+            "completed_at": None,
+            "duration_ms": None,
+            "current_step_id": "runtime-secret-marker",
+            "result": None,
+        },
+    ),
+)
+def test_run_lifecycle_rules_apply_at_every_public_boundary(updates: dict) -> None:
+    marker = "runtime-secret-marker"
+    with pytest.raises(ValidationError) as constructed:
+        _record(**updates)
+
+    wire = _record().to_dict()
+    wire.update(_wire_update(updates))
+    with pytest.raises(RunContractValidationError) as reconstructed:
+        RunRecord.from_dict(wire)
+
+    with pytest.raises(ValidationError) as copied:
+        _record().model_copy(update=updates)
+
+    for captured in (constructed, reconstructed, copied):
+        assert marker not in str(captured.value)
 
 
 def test_model_copy_revalidates_and_refreezes_updates() -> None:

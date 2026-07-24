@@ -178,6 +178,16 @@ class _RunContract(BaseModel):
         values.update(update or {})
         return type(self).model_validate(values)
 
+    @model_validator(mode="after")
+    def validate_canonical_tree(self: _ContractT) -> _ContractT:
+        """Keep every constructible contract inside its persistence boundary."""
+
+        if not _is_plain_json(self.model_dump(mode="json")):
+            raise ValueError(
+                "canonical run contract exceeds the persistence boundary"
+            )
+        return self
+
 
 class RunReference(_RunContract):
     """Safe external correlation without provider or Azure DevOps coupling."""
@@ -597,8 +607,19 @@ class RunnerInvocationRecord(_RunContract):
             raise ValueError(
                 "fallback correlation cannot reference the invocation itself"
             )
-        if self.retry_of_invocation_id is not None and self.attempt_number <= 1:
-            raise ValueError("retry correlation requires attempt_number greater than 1")
+        predecessor_count = sum(
+            predecessor is not None
+            for predecessor in (
+                self.retry_of_invocation_id,
+                self.fallback_from_invocation_id,
+            )
+        )
+        if self.attempt_number == 1 and predecessor_count != 0:
+            raise ValueError("first attempt must not declare a predecessor")
+        if self.attempt_number > 1 and predecessor_count != 1:
+            raise ValueError(
+                "later attempt must declare exactly one predecessor"
+            )
         return self
 
 
@@ -699,8 +720,19 @@ class RunRecord(_RunContract):
             )
         if self.completed_at is not None and self.completed_at < self.started_at:
             raise ValueError("completed_at must not precede started_at")
-        if self.updated_at < self.created_at:
-            raise ValueError("updated_at must not precede created_at")
+        if self.started_at < self.created_at:
+            raise ValueError("started_at must not precede created_at")
+        if self.updated_at < self.started_at:
+            raise ValueError("updated_at must not precede started_at")
+        if self.completed_at is not None and self.completed_at > self.updated_at:
+            raise ValueError("completed_at must not follow updated_at")
+        if (
+            self.status is not RunStatus.RUNNING
+            and self.current_step_id is not None
+        ):
+            raise ValueError(
+                "current_step_id is allowed only while a run is running"
+            )
         if self.result is not None and self.status not in {
             RunStatus.SUCCEEDED,
             RunStatus.PARTIALLY_SUCCEEDED,
