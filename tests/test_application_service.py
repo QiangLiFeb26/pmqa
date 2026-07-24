@@ -28,6 +28,7 @@ from pmqa.runners import (
     RunnerBoundaryValidationError,
     RunnerControl,
     RunnerMetadata,
+    RunnerResponse,
 )
 
 
@@ -80,6 +81,56 @@ class TestWorkflowAdapter:
             raise self.result_failure
 
 
+class MutatingWorkflowAdapter(TestWorkflowAdapter):
+    def __init__(self, definition: WorkflowDefinition) -> None:
+        super().__init__(definition)
+        self.retained_request = None
+        self.retained_result = None
+
+    def validate_request(self, request: RunRequest) -> None:
+        super().validate_request(request)
+        self.retained_request = request
+        request.__dict__.update(
+            {
+                "request_id": "request.redirected",
+                "session_id": "session.redirected",
+                "workflow_id": "workflow.redirected",
+                "workflow_version": "2",
+                "runner_id": "runner.redirected",
+                "input_schema_id": "schema.redirected",
+                "input_schema_version": "2",
+                "inputs": {
+                    "provider_client": "runtime-secret-marker",
+                },
+            }
+        )
+
+    def validate_result(self, result: StructuredResult) -> None:
+        super().validate_result(result)
+        self.retained_result = result
+        result.__dict__.update(
+            {
+                "schema_id": "schema.redirected",
+                "result_schema_version": "2",
+                "data": {
+                    "provider_client": "runtime-secret-marker",
+                },
+            }
+        )
+
+
+class LiveDefinitionFailureAdapter(TestWorkflowAdapter):
+    def __init__(self, definition: WorkflowDefinition) -> None:
+        super().__init__(definition)
+        self.live_failure = None
+
+    @property
+    def definition(self) -> WorkflowDefinition:
+        if self.live_failure is not None:
+            raise self.live_failure
+        return self.current_definition
+
+
 class CountingRunner:
     def __init__(self, delegate: MockRunner) -> None:
         self.delegate = delegate
@@ -104,6 +155,107 @@ class CountingRunner:
         if self.mutate_response is not None:
             self.mutate_response(response)
         return response
+
+
+class LiveMetadataFailureRunner(CountingRunner):
+    def __init__(self, delegate: MockRunner) -> None:
+        super().__init__(delegate)
+        self.live_failure = None
+
+    @property
+    def metadata(self) -> RunnerMetadata:
+        if self.live_failure is not None:
+            raise self.live_failure
+        return self.current_metadata
+
+
+class MutatingDispatchRunner:
+    def __init__(self, predecessor_kind: str) -> None:
+        self._metadata = RunnerMetadata(
+            schema_version="1",
+            runner_id="runner.mock",
+            runner_version="1",
+            display_name="Adversarial dispatch runner",
+            capabilities=("deterministic-execution",),
+        )
+        self.predecessor_kind = predecessor_kind
+        self.calls = 0
+        self.last_request = None
+
+    @property
+    def metadata(self) -> RunnerMetadata:
+        return self._metadata
+
+    def execute(self, request, control) -> RunnerResponse:
+        self.calls += 1
+        self.last_request = request
+        request.__dict__["run_request"] = request.run_request.model_copy(
+            update={
+                "request_id": "request.redirected",
+                "session_id": "session.redirected",
+                "workflow_id": "workflow.redirected",
+                "workflow_version": "2",
+                "runner_id": "runner.redirected",
+                "input_schema_id": "schema.redirected",
+                "input_schema_version": "2",
+            }
+        )
+        request.__dict__["context"] = request.context.model_copy(
+            update={
+                "run_id": "run.redirected",
+                "request_id": "request.redirected",
+                "session_id": "session.redirected",
+                "workflow_id": "workflow.redirected",
+                "workflow_version": "2",
+                "runner_id": "runner.redirected",
+                "started_at": STARTED_AT + timedelta(seconds=1),
+            }
+        )
+        predecessor_update = {
+            "retry_of_invocation_id": (
+                "invocation.previous"
+                if self.predecessor_kind == "retry"
+                else None
+            ),
+            "fallback_from_invocation_id": (
+                "invocation.previous"
+                if self.predecessor_kind == "fallback"
+                else None
+            ),
+        }
+        terminal = request.invocation.model_copy(
+            update={
+                "invocation_id": "invocation.redirected",
+                "run_id": "run.redirected",
+                "runner_id": "runner.redirected",
+                "operation": "application.redirected",
+                "step_id": "step.redirected",
+                "status": RunnerInvocationStatus.SUCCEEDED,
+                "started_at": STARTED_AT + timedelta(seconds=1),
+                "completed_at": COMPLETED_AT,
+                "duration_ms": 125,
+                "attempt_number": 2,
+                **predecessor_update,
+            }
+        )
+        request.__dict__.update(
+            {
+                "invocation": terminal,
+                "expected_result_schema_id": "schema.redirected",
+                "expected_result_schema_version": "2",
+            }
+        )
+        return RunnerResponse(
+            schema_version="1",
+            invocation=terminal,
+            result=StructuredResult(
+                schema_version="1",
+                schema_id="schema.redirected",
+                result_schema_version="2",
+                data={"marker": "runtime-secret-marker"},
+            ),
+            artifacts=(),
+        )
 
 
 def _definition(**updates) -> WorkflowDefinition:
@@ -247,6 +399,55 @@ def test_application_service_executes_one_attempt_and_maps_terminal_outcome(
     assert record.outcome_metrics is None
 
 
+def test_workflow_validators_receive_discarded_canonical_snapshots() -> None:
+    request = _request()
+    request_wire = request.to_dict()
+    adapter = MutatingWorkflowAdapter(_definition())
+    service, _, runner, _ = _composition(adapter=adapter)
+
+    result = service.execute(
+        request,
+        run_id="run.1",
+        invocation_id="invocation.1",
+    )
+
+    expected_result = StructuredResult(
+        schema_version="1",
+        schema_id="schema.result",
+        result_schema_version="1",
+        data={"outcome": "succeeded"},
+    )
+    assert adapter.request_calls == 1
+    assert adapter.result_calls == 1
+    assert runner.calls == 1
+    assert result.run_request.to_dict() == request_wire
+    assert result.runner_response.result == expected_result
+    assert result.run_record.result == expected_result
+    assert runner.last_request.run_request.to_dict() == request_wire
+    assert adapter.retained_request is not result.run_request
+    assert adapter.retained_request is not runner.last_request.run_request
+    assert adapter.retained_result is not result.runner_response.result
+    assert "runtime-secret-marker" not in repr(result.to_dict())
+    assert "provider_client" not in repr(result.to_dict())
+
+    completed_wire = deepcopy(result.to_dict())
+    adapter.retained_request.__dict__.update(
+        {
+            "request_id": "request.retained-mutation",
+            "inputs": {"browser_context": "runtime-secret-marker"},
+        }
+    )
+    adapter.retained_result.__dict__.update(
+        {
+            "schema_id": "schema.retained-mutation",
+            "data": {"provider_instance": "runtime-secret-marker"},
+        }
+    )
+
+    assert result.to_dict() == completed_wire
+    assert request.to_dict() == request_wire
+
+
 def _assert_pre_execution_failure(
     expected_code: ApplicationFailureCode,
     *,
@@ -381,6 +582,76 @@ def test_definition_and_metadata_drift_fail_before_validation_or_runner() -> Non
     assert adapter.request_calls == 1
 
 
+def test_malformed_live_definition_and_metadata_fail_safely() -> None:
+    service, adapter, runner, _ = _composition()
+    adapter.current_definition = object()
+    _assert_pre_execution_failure(
+        ApplicationFailureCode.WORKFLOW_DEFINITION_CHANGED,
+        service=service,
+        runner=runner,
+    )
+
+    service, adapter, runner, _ = _composition()
+    runner.current_metadata = object()
+    _assert_pre_execution_failure(
+        ApplicationFailureCode.RUNNER_METADATA_CHANGED,
+        service=service,
+        runner=runner,
+    )
+    assert adapter.request_calls == 1
+
+
+@pytest.mark.parametrize(
+    "failure_type",
+    (
+        RuntimeError,
+        ValueError,
+        MemoryError,
+        KeyboardInterrupt,
+        SystemExit,
+        GeneratorExit,
+    ),
+)
+@pytest.mark.parametrize(
+    "live_property",
+    ("workflow-definition", "runner-metadata"),
+)
+def test_live_property_exceptions_propagate_with_exact_identity(
+    failure_type,
+    live_property: str,
+) -> None:
+    failure = failure_type("runtime-secret-marker")
+    adapter = LiveDefinitionFailureAdapter(_definition())
+    runner = LiveMetadataFailureRunner(
+        MockRunner(
+            wall_clock=SequenceClock(COMPLETED_AT),
+            monotonic_clock=SequenceClock(10.0, 10.25),
+        )
+    )
+    service = PMQAApplicationService(
+        workflow_registry=WorkflowRegistry((adapter,)),
+        runner_registry=RunnerRegistry((runner,)),
+        clock=SequenceClock(STARTED_AT),
+    )
+    if live_property == "workflow-definition":
+        adapter.live_failure = failure
+    else:
+        runner.live_failure = failure
+
+    with pytest.raises(failure_type) as captured:
+        service.execute(
+            _request(),
+            run_id="run.1",
+            invocation_id="invocation.1",
+        )
+
+    assert captured.value is failure
+    assert runner.calls == 0
+    assert adapter.request_calls == (
+        0 if live_property == "workflow-definition" else 1
+    )
+
+
 @pytest.mark.parametrize(
     "run_id,invocation_id",
     (
@@ -490,6 +761,103 @@ def test_runner_boundary_failure_is_safely_classified() -> None:
     assert captured.value.__cause__ is None
     assert captured.value.__context__ is None
     assert runner.calls == 1
+
+
+@pytest.mark.parametrize("predecessor_kind", ("retry", "fallback"))
+def test_runner_dispatch_mutation_cannot_rewrite_expected_correlation(
+    predecessor_kind: str,
+) -> None:
+    request = _request()
+    request_wire = request.to_dict()
+    adapter = TestWorkflowAdapter(_definition())
+    runner = MutatingDispatchRunner(predecessor_kind)
+    service = PMQAApplicationService(
+        workflow_registry=WorkflowRegistry((adapter,)),
+        runner_registry=RunnerRegistry((runner,)),
+        clock=SequenceClock(STARTED_AT),
+    )
+
+    with pytest.raises(PMQAApplicationError) as captured:
+        service.execute(
+            request,
+            run_id="run.1",
+            invocation_id="invocation.1",
+        )
+
+    assert (
+        captured.value.code
+        is ApplicationFailureCode.RUNNER_BOUNDARY_FAILED
+    )
+    assert str(captured.value) == "PMQA runner boundary failed"
+    assert "runtime-secret-marker" not in str(captured.value)
+    assert "redirected" not in str(captured.value)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+    assert runner.calls == 1
+    assert request.to_dict() == request_wire
+    assert runner.last_request is not request
+    assert (
+        runner.last_request.run_request.request_id
+        == "request.redirected"
+    )
+    assert (
+        runner.last_request.run_request.session_id
+        == "session.redirected"
+    )
+    assert (
+        runner.last_request.run_request.workflow_id
+        == "workflow.redirected"
+    )
+    assert runner.last_request.run_request.workflow_version == "2"
+    assert runner.last_request.run_request.runner_id == "runner.redirected"
+    assert (
+        runner.last_request.run_request.input_schema_id
+        == "schema.redirected"
+    )
+    assert runner.last_request.run_request.input_schema_version == "2"
+    assert runner.last_request.context.run_id == "run.redirected"
+    assert runner.last_request.context.request_id == "request.redirected"
+    assert runner.last_request.context.session_id == "session.redirected"
+    assert runner.last_request.context.workflow_id == "workflow.redirected"
+    assert runner.last_request.context.workflow_version == "2"
+    assert runner.last_request.context.runner_id == "runner.redirected"
+    assert (
+        runner.last_request.invocation.invocation_id
+        == "invocation.redirected"
+    )
+    assert runner.last_request.invocation.run_id == "run.redirected"
+    assert runner.last_request.invocation.runner_id == "runner.redirected"
+    assert (
+        runner.last_request.invocation.operation
+        == "application.redirected"
+    )
+    assert runner.last_request.invocation.step_id == "step.redirected"
+    assert (
+        runner.last_request.invocation.started_at
+        == STARTED_AT + timedelta(seconds=1)
+    )
+    assert runner.last_request.invocation.attempt_number == 2
+    assert (
+        runner.last_request.invocation.retry_of_invocation_id
+        == (
+            "invocation.previous"
+            if predecessor_kind == "retry"
+            else None
+        )
+    )
+    assert (
+        runner.last_request.invocation.fallback_from_invocation_id
+        == (
+            "invocation.previous"
+            if predecessor_kind == "fallback"
+            else None
+        )
+    )
+    assert (
+        runner.last_request.expected_result_schema_id
+        == "schema.redirected"
+    )
+    assert runner.last_request.expected_result_schema_version == "2"
 
 
 def test_canonical_runner_response_is_revalidated() -> None:

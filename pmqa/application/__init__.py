@@ -2,6 +2,7 @@
 
 from pmqa.application.contracts import (
     APPLICATION_CONTRACT_SCHEMA_VERSION,
+    APPLICATION_RUN_OPERATION,
     ApplicationFailureCode,
     ApplicationRunResult,
     PMQAApplicationError,
@@ -14,7 +15,6 @@ from pmqa.application.registry import (
     WorkflowRegistry,
 )
 from pmqa.application.service import (
-    APPLICATION_RUN_OPERATION,
     PMQAApplicationService,
 )
 

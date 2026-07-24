@@ -69,6 +69,14 @@ and authoritatively validates the `RunnerResponse`. When a structured result is
 present, the workflow result validator runs exactly once; failed or cancelled
 responses have no result validator call.
 
+Runtime adapters and runners never receive the objects that the service later
+trusts. Each workflow validator receives a separately reconstructed request or
+result snapshot that is discarded after validation. Runner execution receives
+a separately reconstructed dispatch request, while response correlation uses
+the untouched service-owned `RunnerRequest`. Retaining or mutating validator
+arguments or the runner dispatch object therefore cannot change selection,
+correlation, records, or output.
+
 ## Canonical result
 
 `ApplicationRunResult` is a frozen, versioned canonical envelope containing
@@ -77,6 +85,11 @@ single terminal invocation is available through `runner_invocation`. The
 contract enforces request, run, session, workflow, version, runner, invocation,
 status, timestamp, duration, result, artifact, and error correlations during
 construction, reconstruction, and revalidated copying.
+
+The terminal invocation also always uses the application-owned operation, no
+step, attempt number 1, and no retry or fallback predecessor. These
+single-attempt invariants apply during direct construction, canonical
+reconstruction, and revalidated copying.
 
 The run start, completion, and duration use the runner invocation's validated
 evidence. The run creation time remains the request time; update time equals

@@ -19,6 +19,7 @@ from pmqa.runners.contracts import RunnerResponse
 
 
 APPLICATION_CONTRACT_SCHEMA_VERSION = "1"
+APPLICATION_RUN_OPERATION = "application.execute-workflow"
 
 
 class ApplicationFailureCode(str, Enum):
@@ -126,7 +127,12 @@ class ApplicationRunResult(_RunContract):
         if expected_status is None or run.status is not expected_status:
             raise ValueError("application result status correlation is invalid")
         if (
-            run.run_id != invocation.run_id
+            invocation.operation != APPLICATION_RUN_OPERATION
+            or invocation.step_id is not None
+            or invocation.attempt_number != 1
+            or invocation.retry_of_invocation_id is not None
+            or invocation.fallback_from_invocation_id is not None
+            or run.run_id != invocation.run_id
             or run.request_id != request.request_id
             or run.session_id != request.session_id
             or run.workflow_id != request.workflow_id
@@ -152,6 +158,7 @@ class ApplicationRunResult(_RunContract):
 
 __all__ = [
     "APPLICATION_CONTRACT_SCHEMA_VERSION",
+    "APPLICATION_RUN_OPERATION",
     "ApplicationFailureCode",
     "ApplicationRunResult",
     "PMQAApplicationError",

@@ -7,6 +7,7 @@ from typing import Callable, Optional
 
 from pmqa.application.contracts import (
     APPLICATION_CONTRACT_SCHEMA_VERSION,
+    APPLICATION_RUN_OPERATION,
     ApplicationFailureCode,
     ApplicationRunResult,
     PMQAApplicationError,
@@ -21,6 +22,7 @@ from pmqa.run import (
     RunStatus,
     RunnerInvocationRecord,
     RunnerInvocationStatus,
+    StructuredResult,
     validate_run_identifier,
 )
 from pmqa.runners.base import RunnerControl
@@ -33,8 +35,6 @@ from pmqa.runners.contracts import (
     validate_runner_response,
 )
 
-
-APPLICATION_RUN_OPERATION = "application.execute-workflow"
 _DEFAULT_RUNNER_TIMEOUT_MS = 30_000
 _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS = (
     MemoryError,
@@ -210,17 +210,9 @@ class PMQAApplicationService:
 
     @staticmethod
     def _validate_live_workflow_definition(workflow) -> None:
-        failed = False
-        live_definition = None
-        try:
-            live_definition = workflow.adapter.definition
-        except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
-            raise
-        except Exception:
-            failed = True
+        live_definition = workflow.adapter.definition
         if (
-            failed
-            or type(live_definition) is not type(workflow.definition)
+            type(live_definition) is not type(workflow.definition)
             or live_definition != workflow.definition
         ):
             raise PMQAApplicationError(
@@ -229,9 +221,10 @@ class PMQAApplicationService:
 
     @staticmethod
     def _validate_workflow_request(adapter, request: RunRequest) -> None:
+        validator_request = RunRequest.from_dict(request.to_dict())
         failed = False
         try:
-            adapter.validate_request(request)
+            adapter.validate_request(validator_request)
         except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
             raise
         except WorkflowAdapterValidationError:
@@ -243,17 +236,9 @@ class PMQAApplicationService:
 
     @staticmethod
     def _validate_live_runner_metadata(registration) -> None:
-        failed = False
-        live_metadata = None
-        try:
-            live_metadata = registration.runner.metadata
-        except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
-            raise
-        except Exception:
-            failed = True
+        live_metadata = registration.runner.metadata
         if (
-            failed
-            or type(live_metadata) is not type(registration.metadata)
+            type(live_metadata) is not type(registration.metadata)
             or live_metadata != registration.metadata
         ):
             raise PMQAApplicationError(
@@ -315,8 +300,9 @@ class PMQAApplicationService:
         request: RunnerRequest,
         control: RunnerControl,
     ) -> RunnerResponse:
+        dispatch_request = RunnerRequest.from_dict(request.to_dict())
         try:
-            response = runner.execute(request, control)
+            response = runner.execute(dispatch_request, control)
         except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
             raise
         except RunnerBoundaryValidationError:
@@ -356,10 +342,14 @@ class PMQAApplicationService:
         return canonical_response
 
     @staticmethod
-    def _validate_workflow_result(adapter, result) -> None:
+    def _validate_workflow_result(
+        adapter,
+        result: StructuredResult,
+    ) -> None:
+        validator_result = StructuredResult.from_dict(result.to_dict())
         failed = False
         try:
-            adapter.validate_result(result)
+            adapter.validate_result(validator_result)
         except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
             raise
         except WorkflowAdapterValidationError:
@@ -406,6 +396,5 @@ class PMQAApplicationService:
 
 
 __all__ = [
-    "APPLICATION_RUN_OPERATION",
     "PMQAApplicationService",
 ]

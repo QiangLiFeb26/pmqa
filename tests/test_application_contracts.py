@@ -22,6 +22,7 @@ from pmqa.run import (
     RunStatus,
     RunnerInvocationRecord,
     RunnerInvocationStatus,
+    RunContractValidationError,
 )
 from pmqa.runners import RunnerResponse
 
@@ -333,6 +334,75 @@ def test_application_result_model_copy_fully_revalidates() -> None:
                 )
             }
         )
+
+
+@pytest.mark.parametrize(
+    "invocation_update,bypass_nested_validation",
+    (
+        ({"operation": "application.other"}, False),
+        ({"step_id": "step.other"}, False),
+        ({"attempt_number": 2}, True),
+        ({"retry_of_invocation_id": "invocation.previous"}, True),
+        ({"fallback_from_invocation_id": "invocation.previous"}, True),
+        (
+            {
+                "operation": "application.other",
+                "step_id": "step.other",
+                "attempt_number": 2,
+                "fallback_from_invocation_id": "invocation.previous",
+            },
+            False,
+        ),
+    ),
+    ids=(
+        "operation",
+        "step",
+        "attempt-two",
+        "retry-predecessor",
+        "fallback-predecessor",
+        "combined",
+    ),
+)
+@pytest.mark.parametrize(
+    "construction_path",
+    ("direct", "from-dict", "model-copy"),
+)
+def test_application_result_enforces_single_attempt_in_every_path(
+    invocation_update,
+    bypass_nested_validation: bool,
+    construction_path: str,
+) -> None:
+    result = _application_result()
+    if construction_path == "from-dict":
+        wire = result.to_dict()
+        wire["runner_response"]["invocation"].update(invocation_update)
+        with pytest.raises(RunContractValidationError):
+            ApplicationRunResult.from_dict(wire)
+        return
+
+    with pytest.raises(ValidationError):
+        changed_invocation = _invocation()
+        if bypass_nested_validation:
+            changed_invocation.__dict__.update(invocation_update)
+        else:
+            changed_invocation = changed_invocation.model_copy(
+                update=invocation_update
+            )
+        changed_response = RunnerResponse(
+            schema_version="1",
+            invocation=changed_invocation,
+            result=result.runner_response.result,
+            artifacts=result.runner_response.artifacts,
+        )
+        if construction_path == "direct":
+            ApplicationRunResult(
+                schema_version="1",
+                run_request=result.run_request,
+                run_record=result.run_record,
+                runner_response=changed_response,
+            )
+        else:
+            result.model_copy(update={"runner_response": changed_response})
 
 
 def test_application_result_enforces_complete_tree_bound() -> None:
