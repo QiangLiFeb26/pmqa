@@ -279,23 +279,27 @@ results, logical artifacts, safe errors, runner-invocation correlation, and
 optional outcome metrics. Task 5C.2 passed architecture review and adds the
 synchronous `PMQARunner`
 boundary, canonical runner request/response contracts, runtime-only
-cancellation, and a deterministic in-process `MockRunner`. Task 5C.3 adds
+cancellation, and a deterministic in-process `MockRunner`. Task 5C.3 passed
+architecture review and adds
 explicit immutable Workflow and Runner Registries plus a synchronous
 single-attempt `PMQAApplicationService`. It validates exact workflow, schema,
 capability, approval, runner, identifier, and clock boundaries before
 execution, invokes one selected runner at most once, and assembles one
-canonical `ApplicationRunResult`. These remain separate from LangGraph
-`WorkflowState`,
-reasoning traces, usage/cost, logs, feedback, and eval records. The existing
+canonical `ApplicationRunResult`. Task 5C.4 defines provider-neutral,
+versioned AI invocation, token-usage, cost-evidence, and model-pricing
+contracts plus a read-only pricing lookup boundary. Usage/cost remains beside,
+not inside, Run Contract, LangGraph `WorkflowState`, and reasoning traces. The
+existing
 `pmqa.core.RunContext` remains a legacy compatibility contract. Task 5C.3 is
-ready for architecture review; no automatic discovery, persistence, retry,
-approval execution, real provider adapter, subprocess runner, UI, Copilot
-integration, Azure DevOps access, or cost tracking has been implemented. See
-the
+approved and Task 5C.4 is ready for architecture review. This checkpoint adds
+no collector, calculator, persistence, aggregation, CLI summary, optimizer,
+real provider integration, or pricing table. See the
 [Run Contract architecture](docs/architecture/run-contract.md) and
 [Runner boundary architecture](docs/architecture/runner-boundary.md), plus
 the
-[Application Service architecture](docs/architecture/application-service.md).
+[Application Service architecture](docs/architecture/application-service.md)
+and
+[Usage and cost contracts](docs/architecture/usage-cost-contracts.md).
 See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)

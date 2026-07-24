@@ -201,7 +201,8 @@ a deterministic in-process `MockRunner`. The runner owns one supplied attempt,
 not retry/fallback policy; the mock is boundary-validation infrastructure, not
 a production provider.
 
-Task 5C.3 adds bounded explicit Workflow and Runner Registries plus a
+Task 5C.3 passed architecture review and adds bounded explicit Workflow and
+Runner Registries plus a
 synchronous single-attempt Application Service. Registry construction retains
 canonical identity snapshots without discovery; live definition or metadata
 drift fails before execution. The service validates the request, selected
@@ -211,14 +212,30 @@ It invokes the runner at most once, authoritatively revalidates its response,
 validates a present workflow result, and returns a canonical
 `ApplicationRunResult`.
 
+Task 5C.4 adds `pmqa.usage` as a separate provider-neutral contract layer.
+`AIInvocationRecord` represents one terminal model call correlated with a
+session, run, and optional runner invocation. Its token and cost evidence
+preserves reported, CLI-parsed, estimated, subscription-included, and
+unavailable states without treating absence as zero. Immutable model-pricing
+records and the read-only `PricingCatalog` protocol provide versioned
+effective-date evidence without a built-in price table or cost calculation.
+
+Usage/cost records are not fields on `RunRecord`,
+`RunnerInvocationRecord`, reasoning `TraceRecord`, or LangGraph
+`WorkflowState`. A future runner may correlate zero or more model calls to one
+runner attempt, while collection, calculation, persistence, aggregation, and
+optimization remain separate future services.
+
 No automatic discovery, retry/fallback creation, approval execution, provider
 adapter, subprocess runner, persistence service, UI, Copilot integration,
-Azure DevOps access, or usage/cost tracking exists yet.
+Azure DevOps access, usage collector, cost calculator, or pricing table exists
+yet.
 See the [Run Contract architecture](architecture/run-contract.md) and
 [Runner boundary architecture](architecture/runner-boundary.md), plus the
-[Application Service architecture](architecture/application-service.md).
-Task 5C.3 is ready for architecture review; Task 5C remains in progress and
-unmerged. Task 5B, Task 6, and Task 7 remain not started.
+[Application Service architecture](architecture/application-service.md) and
+[Usage and cost contracts](architecture/usage-cost-contracts.md). Task 5C.4
+is ready for architecture review; Task 5C remains in progress and unmerged.
+Task 5B, Task 6, and Task 7 remain not started.
 
 ### Memory
 
