@@ -272,17 +272,21 @@ follows only after SauceDemo and MDE evidence. Task 5B implementation, Task 6,
 and Task 7 have not started.
 
 Task 5C establishes the local application/run layer before that company-side
-pilot. Task 5C.1 adds the provider-neutral, versioned contracts in `pmqa.run`
+pilot. Task 5C.1 passed architecture review and adds the provider-neutral,
+versioned contracts in `pmqa.run`
 for workflow requests and definitions, safe run correlation, structured
 results, logical artifacts, safe errors, runner-invocation correlation, and
-optional outcome metrics. These contracts do not execute a workflow and are
-separate from LangGraph `WorkflowState`, the future runner abstraction,
+optional outcome metrics. Task 5C.2 adds the synchronous `PMQARunner`
+boundary, canonical runner request/response contracts, runtime-only
+cancellation, and a deterministic in-process `MockRunner`. These remain
+separate from LangGraph `WorkflowState`,
 reasoning traces, usage/cost, logs, feedback, and eval records. The existing
-`pmqa.core.RunContext` remains a legacy compatibility contract. Task 5C.1 is
-ready for architecture review; no runner, Application Service, Workflow
-Registry, UI, Copilot integration, Azure DevOps access, or cost tracking has
-been implemented. See the
-[Run Contract architecture](docs/architecture/run-contract.md).
+`pmqa.core.RunContext` remains a legacy compatibility contract. Task 5C.2 is
+ready for architecture review; no Application Service, Workflow Registry,
+real provider adapter, subprocess runner, UI, Copilot integration, Azure
+DevOps access, or cost tracking has been implemented. See the
+[Run Contract architecture](docs/architecture/run-contract.md) and
+[Runner boundary architecture](docs/architecture/runner-boundary.md).
 See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)

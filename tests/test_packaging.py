@@ -127,6 +127,10 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         assert "pmqa/product_pack/exploration_tool.py" in names
         assert "pmqa/run/__init__.py" in names
         assert "pmqa/run/models.py" in names
+        assert "pmqa/runners/__init__.py" in names
+        assert "pmqa/runners/base.py" in names
+        assert "pmqa/runners/contracts.py" in names
+        assert "pmqa/runners/mock.py" in names
         assert (
             "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json" in names
         )
@@ -223,6 +227,7 @@ sys.meta_path[:] = [
 import pmqa
 import pmqa.product_pack
 import pmqa.run
+import pmqa.runners
 import products.demo
 import products.demo.application
 from products.demo.config import load_config, validate_config
@@ -233,10 +238,14 @@ assert pmqa.product_pack.ProductPackManifestValidationError
 assert pmqa.run.RunRequest
 assert pmqa.run.RunRecord
 assert pmqa.run.WorkflowDefinition
+assert pmqa.runners.PMQARunner
+assert pmqa.runners.RunnerRequest
+assert pmqa.runners.MockRunner
 modules = (
     pmqa,
     pmqa.product_pack,
     pmqa.run,
+    pmqa.runners,
     products.demo,
     products.demo.application,
 )

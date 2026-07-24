@@ -169,7 +169,8 @@ pilot. Task 5B, Task 6, and Task 7 have not started.
 
 ### Canonical Run Contract
 
-Task 5C.1 defines the application-level Run Contract in `pmqa.run`. It
+Task 5C.1 passed architecture review and defines the application-level Run
+Contract in `pmqa.run`. It
 correlates a validated request, workflow metadata, one run lifecycle,
 structured results, logical artifact references, safe errors, and future
 runner-invocation attempts. It is above the existing LangGraph workflow:
@@ -191,11 +192,19 @@ continues to capture reasoning-boundary audit evidence.
 Usage, cost, structured logs, feedback, and eval results stay outside
 `RunRecord` so they can evolve, aggregate, and retain data under separate
 policies. The existing `pmqa.core.RunContext` remains unchanged as a legacy
-compatibility contract. Task 5C.1 implements contracts only: no runner,
-Application Service, Workflow Registry, persistence service, UI, Copilot
-integration, Azure DevOps access, or cost tracking exists yet. See the
-[Run Contract architecture](architecture/run-contract.md). Task 5C.1 is ready
-for architecture review. Task 5B, Task 6, and Task 7 remain not started.
+compatibility contract.
+
+Task 5C.2 adds the provider-neutral synchronous `PMQARunner` boundary,
+canonical `RunnerRequest` and `RunnerResponse`, runtime-only cancellation, and
+a deterministic in-process `MockRunner`. The runner owns one supplied attempt,
+not retry/fallback policy; the mock is boundary-validation infrastructure, not
+a production provider. No Application Service, Workflow Registry, runner
+registry, provider adapter, subprocess runner, persistence service, UI,
+Copilot integration, Azure DevOps access, or usage/cost tracking exists yet.
+See the [Run Contract architecture](architecture/run-contract.md) and
+[Runner boundary architecture](architecture/runner-boundary.md). Task 5C.2 is
+ready for architecture review; Task 5C remains in progress and unmerged. Task
+5B, Task 6, and Task 7 remain not started.
 
 ### Memory
 
