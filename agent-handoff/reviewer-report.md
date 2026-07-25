@@ -2,43 +2,42 @@
 
 Owner: Independent Reviewer
 
-Status: Executed for PMQA Task 5C.7, Attempt 1
+Status: Executed for PMQA Task 5C.7, Attempt 2
 
 ## Task Correlation
 
-Task: PMQA Task 5C.7 — Deterministic Usage Summary Contracts and Pure
-Aggregation
+Task: PMQA Task 5C.7 — Cross-Level Summary Consistency
 
 Task ID: `PMQA-5C.7`
 
-Attempt: `1`
+Attempt: `2`
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
-Reviewed Starting HEAD: `4128ef969e1a3dc90297a74c513a6cd2eabf0376`
+Reviewed Starting HEAD: `370434c4c42c31b3bde573f10bf63e2b503b0c00`
 
-Reviewed Implementation Commit(s): `eeba9a9dd1d2fac6a007580d4511fbb51722bd15`
-("add deterministic usage summaries")
+Reviewed Implementation Commit(s): `3419a9e5d4460186c2608dbd7f1e26762241c070`
+("enforce Task 5C.7 summary consistency")
 
-Derived Coder Report Commit: `7b5b577ee369cc9b717d97c723a4ae8a479cec37`
-("report Task 5C.7 implementation")
+Derived Coder Report Commit: `71aa76384a628915e170950758f256add9d5eaee`
+("report Task 5C.7 consistency remediation")
 
 Correlation Verification:
 
 - derived with `git log -1 --format=%H -- agent-handoff/coder-report.md` ->
-  `7b5b577ee369cc9b717d97c723a4ae8a479cec37`;
-- `git merge-base --is-ancestor 4128ef969e1a3dc90297a74c513a6cd2eabf0376 HEAD`
-  succeeds; `4128ef9...` is an ancestor of `eeba9a9...`, and `eeba9a9...` is
-  an ancestor of `7b5b577...` (linear sequence
-  `4128ef9 -> eeba9a9 -> 7b5b577` on this branch);
-- the Task 5C.6 Reviewer baseline named by `current-task.md`,
-  `a258ba59b7fdd1edb6e01ab738ea9203610e954b` (this Reviewer's own prior
-  Task 5C.6 report commit), is an ancestor of the recorded starting HEAD;
+  `71aa76384a628915e170950758f256add9d5eaee`;
+- `git merge-base --is-ancestor 370434c4c42c31b3bde573f10bf63e2b503b0c00 HEAD`
+  succeeds; `370434c...` is an ancestor of `3419a9e...`, and `3419a9e...` is
+  an ancestor of `71aa763...` (linear sequence
+  `370434c -> 3419a9e -> 71aa763` on this branch);
+- the reviewed Attempt 1 Reviewer HEAD named by `current-task.md`,
+  `569c519c043b3ce97a17dca5d1370ed60a6bc5d9` (this Reviewer's own prior
+  Attempt 1 report commit), is an ancestor of the recorded starting HEAD;
 - the correlation header of `coder-report.md` at the derived commit names
-  Task ID `PMQA-5C.7`, Attempt `1`, branch
+  Task ID `PMQA-5C.7`, Attempt `2`, branch
   `agent/task-5c-1-canonical-run-contract`, and starting HEAD
-  `4128ef969e1a3dc90297a74c513a6cd2eabf0376`, matching `current-task.md`;
-- `git diff --stat eeba9a9..7b5b577` touches only
+  `370434c4c42c31b3bde573f10bf63e2b503b0c00`, matching `current-task.md`;
+- `git diff --stat 3419a9e..71aa763` touches only
   `agent-handoff/coder-report.md`, so the derived commit is the report's
   latest authorized change with no later unauthorized replacement.
 
@@ -50,118 +49,132 @@ Architect derives the Reviewer report commit from Git and records it in
 
 Inspection order completed:
 
-1. `current-task.md` and acceptance criteria;
-2. named baseline-to-implementation diff (`4128ef9..eeba9a9`) — full read of
-   `pmqa/usage/summary.py` (all 936 lines) and `tests/test_usage_summary.py`
-   (all 800 lines);
-3. independently selected validation (see Test Evidence);
+1. `current-task.md` and acceptance criteria (the Architect's reproduced
+   contradictory-summary scenario and the F1/F2-style remediation
+   requirements);
+2. named baseline-to-implementation diff (`370434c..3419a9e`) — full read of
+   the `pmqa/usage/summary.py` diff (`_validate_group_rollup` and the
+   monetary-branch replacement) and the added sections of
+   `tests/test_usage_summary.py`;
+3. independently selected validation (see Test Evidence), including
+   reproducing the Architect's exact reported contradictory-summary scenario
+   by hand against the remediated code, and independently reproducing the
+   monetary-assertion fix under `python -O`, both independent of the
+   Coder's own tests;
 4. full `coder-report.md` (read only after steps 1-3).
 
 Active-task `architect-review.md` read before publication: No
 
-Prior closed review or architecture material consulted, with reason:
-re-verified, via `git diff --stat`, that `pmqa/usage/contracts.py`,
-`pricing.py`, `collector.py`, and `repository.py` are byte-identical to the
-Task 5C.6 baseline (empty diff), confirming this checkpoint is a pure
-additive domain/service layer with no coupling to storage; no closed handoff
-report for this task was read.
+Prior closed review or architecture material consulted, with reason: this
+Reviewer authored the Attempt 1 review of this same task
+(`agent-handoff/reviewer-report.md` at commit `569c519`, superseded by this
+report), which flagged the monetary `assert` as a non-blocking code-quality
+note but did not catch the cross-level reconciliation gap the Architect
+found; that prior review context is necessarily part of independently
+judging whether this attempt actually closes both gaps, so I compared the
+Attempt 1 code (via `git diff 370434c..3419a9e`) directly against my own
+recollection of what Attempt 1 validated, rather than re-deriving the gap
+from `architect-review.md` (unread, per protocol).
 
 ## Review Depth
 
 Actual Review Depth: Deep
 
-Review Depth Reason: this checkpoint introduces a canonical aggregate
-contract whose correctness rests on many interacting, easily-confused
-invariants (missing-vs-zero, reported-vs-estimated cost, currency/pricing
-provenance, deterministic ordering independent of input order, bounded
-overflow arithmetic) that cannot be assessed from test pass/fail counts
-alone. I read the entire implementation and test files, traced every
-aggregation code path (empty input, token coverage, cost-bucket identity,
-provider/model grouping, overflow bounds) against the task's detailed
-semantics, and independently executed all listed validation commands. This
-matches the Coder's advisory recommendation but was independently selected.
+Review Depth Reason: this remediation touches the mathematical self-
+consistency of a persisted multi-level aggregate contract across six count
+fields, duration, every `TokenField`, and Decimal-precise cost-bucket
+merging — an area where a superficial pass (trusting the Coder's own tests)
+would not have caught the original gap either, since Attempt 1 passed all
+of its own tests while still admitting the reported contradiction. I traced
+`_validate_group_rollup` line-by-line against the required invariants,
+independently reproduced the Architect's exact reported scenario and the
+`-O` monetary-assertion concern in ad hoc scripts, and independently executed
+all listed validation commands. This matches the Coder's advisory
+recommendation but was independently selected.
 
 ## Overall Assessment
 
-The implementation is a correct, carefully-bounded pure domain/service layer
-that satisfies the task's summary-semantics, correlation, and security
-requirements. `pmqa/usage/summary.py` adds `UsageSummaryScope`,
-`UsageAggregationErrorCode` (5 fixed codes), `UsageAggregationError`,
-`UsageSummaryValidationError`, three new strict frozen contracts
-(`UsageTokenFieldSummary`, `UsageCostBucket`, `UsageProviderModelSummary`),
-the top-level `UsageSummary`, a `runtime_checkable` `UsageAggregator`
-protocol, and `DefaultUsageAggregator`. No existing `pmqa/usage/contracts.py`,
-`pricing.py`, `collector.py`, or `repository.py` file was touched (confirmed
-via an empty `git diff --stat` against those four paths) — this checkpoint
-does not read storage, launch providers, or calculate prices, matching the
-stated scope exactly.
+Both remediation targets are correctly and thoroughly closed, with no
+regressions to Attempt 1 behavior and no scope creep — the diff touches only
+`pmqa/usage/summary.py` and `tests/test_usage_summary.py`, and no public
+field, enum, schema version, bound, ordering rule, or aggregation policy
+changed (confirmed by re-running every Attempt 1 test unmodified alongside
+the new ones).
 
-I independently traced the empty-input case by hand against the required
-semantics: with zero records, `_aggregate_metrics(())` produces
-`duration=0`; for each `TokenField`, `observed=0` so `total=None` (via
-`None if observed == 0 else total`), `unavailable_invocation_count =
-len(()) - 0 = 0`; `cost_groups` stays empty so `cost_buckets = ()`; and the
-per-provider grouping dict stays empty so `provider_model_groups = ()` —
-this matches the required "every token field exactly once with total=None,
-observed count 0, and unavailable count 0; no cost buckets; no provider/
-model groups" precisely, and is confirmed by
-`test_empty_summary_has_zero_counts_and_no_fabricated_unavailability`,
-which I independently reran.
+**Cross-level reconciliation.** `UsageSummary.validate_group_coverage` now
+calls a new `_validate_group_rollup(self)` after the existing `_validate_
+metrics` check, which independently re-derives every top-level metric
+exclusively from `provider_model_groups` and compares it to the public
+top-level value:
 
-The cost-bucket grouping key
-(`cost_type, currency, pricing_source_id, pricing_version,
-pricing_effective_at, unavailable_reason`) is applied identically in both
-the aggregator (`_cost_evidence_identity`) and the contract's own
-duplicate-rejection validator (`_cost_bucket_identity` inside
-`_snapshot_cost_buckets`), so provider-reported and estimated amounts,
-different currencies, and distinct pricing provenance can never merge
-either through the aggregator or through direct contract construction — I
-confirmed this by reading both functions side-by-side and by independently
-rerunning `test_cost_buckets_preserve_type_currency_provenance_and_non_money`
-and `test_estimated_effective_timestamps_form_distinct_buckets`. The
-`unavailable_reason` field is included in the identity even though the
-task's cost-bucket grouping-key list only names `cost_type`/`currency`/
-`pricing_source_id`/`pricing_version`/`pricing_effective_at`; this is
-required separately by the task's own later sentence ("Group non-monetary
-evidence separately: ... unavailable evidence, including its exact bounded
-unavailable reason"), so this is not scope creep, it is a second explicit
-requirement correctly implemented.
+- the six count fields (`invocation_count`, `succeeded_`/`failed_`/
+  `cancelled_invocation_count`, `retry_`/`fallback_invocation_count`) are
+  each summed across groups with a bounded-integer add and compared for
+  exact equality — I traced this and confirmed it directly closes the
+  reported gap, since Attempt 1 only checked `invocation_count`'s total, not
+  the other five;
+- `total_duration_ms` is summed across groups with the aggregate-integer
+  bound and compared for exact equality;
+- for every `TokenField`, group `observed_invocation_count` and
+  `unavailable_invocation_count` are summed and compared, and an explicit
+  `observed_total` flag distinguishes "no group observed this field" (must
+  match a top-level `total is None`) from "groups observed it and their sum
+  must equal the top-level total" — I confirmed this correctly rejects both
+  directions of contradiction: a top `total=None` with some group reporting
+  a numeric total, and a top numeric total with either a wrong sum or zero
+  groups actually having observed it (the `not observed_total` half of the
+  `or` guards against a top-level total that no group actually backs, even
+  if it numerically happens to equal the summed value, e.g. both being 0);
+- cost buckets are re-aggregated by the exact same six-field identity used
+  elsewhere in this module (`_cost_bucket_identity`, not a second
+  reimplementation), correctly merging multiple groups that share one
+  identity via bounded Decimal addition inside a `localcontext(prec=512)`
+  block before revalidating through the existing `_canonical_decimal` bound,
+  then compared via a single dict-equality check against the top-level
+  bucket set — this catches missing, extra, count-mismatched, and
+  amount-mismatched buckets in one comparison, and I confirmed non-monetary
+  (subscription-included/unavailable) buckets correctly stay `amount=None`
+  through the merge.
 
-Decimal summation correctness is the single most safety-critical piece of
-this checkpoint, since a silently-rounded sum would be a real financial
-correctness bug. `_bounded_decimal_add` performs the addition inside a
-`localcontext(prec=256)` block (well above the default 28-digit precision),
-then validates the result through the existing `_canonical_decimal` bound
-check (reused from `contracts.py`, not reimplemented) outside that block —
-I independently confirmed, by reading `test_decimal_summation_ignores_
-ambient_precision_and_never_uses_float` (which wraps the aggregation call in
-an ambient `localcontext(prec=5)` set by the *caller* and asserts the full
-28-digit exact sum survives) and by rerunning it, that this correctly
-isolates the aggregate from both Python's default precision and any
-caller-ambient precision setting. The overflow bound is exercised for real
-by `test_decimal_aggregate_bound_is_enforced` (summing two 128-nine-digit
-amounts, which produces a 129-digit result exceeding the existing 128-char
-canonical bound), which I also reran independently.
+I independently reproduced the Architect's exact reported scenario (a
+`UsageSummary.from_dict()` wire payload claiming top-level
+`succeeded=1, duration=100ms, input_tokens=10, cost=USD 0.1` while the sole
+provider/model group claims
+`failed=1, duration=999ms, input_tokens=999, cost=USD 999`) directly against
+the remediated code in an ad hoc script, independent of the Coder's own
+tests, and confirmed it now raises `UsageSummaryValidationError` rather than
+being silently accepted.
 
-One minor internal-safety observation, not a defect: in `_aggregate_metrics`,
-the monetary summation loop uses a bare `assert cost.amount is not None`
-before calling `_bounded_decimal_add`. I traced whether this could ever be
-violated by an adversarial or corrupted input and confirmed it cannot: every
-record reaching this code has already passed through `_snapshot_record`
-(`AIInvocationRecord.from_dict(record.to_dict())`), which recursively
-re-validates the nested `cost` field via `CostEvidence`'s own
-`model_validator` — and that validator unconditionally rejects a
-`PROVIDER_REPORTED`/`ESTIMATED` cost with `amount=None` at reconstruction
-time, so a monetary-typed `CostEvidence` with a `None` amount cannot survive
-the snapshot step even if the caller mutated a live object via
-`object.__setattr__` before calling `summarize()` (I confirmed the general
-pattern of this exact attack is caught by the snapshot step via
-`test_record_subclass_mutation_and_excess_input_fail_safely`, which mutates
-`record.__dict__["provider"]` and gets `INVALID_RECORD`). Because
-`assert` statements are stripped under Python's `-O` optimization flag, this
-is technically fragile as *written* even though it is currently
-unreachable-as-false given the surrounding guarantees — see Suggested
-Architect Focus.
+I also independently confirmed the required exception-type discipline: every
+raise inside `_validate_group_rollup` and its two bounded-arithmetic helpers
+(`_bounded_summary_integer_add`, `_bounded_summary_decimal_add`) is a plain
+`ValueError`, never the service-owned `UsageAggregationError` — this matters
+because Pydantic v2 only wraps `ValueError`/`TypeError`/`AssertionError`
+raised inside a `model_validator` into its own `ValidationError`; had the
+Coder reused `UsageAggregationError` (a `RuntimeError` subclass) here, it
+would have leaked unwrapped out of `UsageSummary(...)` construction. I traced
+the full chain: a `ValueError` here becomes a Pydantic `ValidationError`
+during `model_validate`, which `_RunContract.from_dict()` catches and
+converts to `RunContractValidationError`, which `_SummaryContract.from_dict()`
+converts to the fixed `UsageSummaryValidationError` — confirmed empirically
+by `test_cross_level_from_dict_failure_is_fixed_safe_and_marker_free`
+(independently rerun), which explicitly asserts
+`not isinstance(captured.value, UsageAggregationError)`.
+
+**Monetary assertion correction.** The bare `assert cost.amount is not None`
+in `DefaultUsageAggregator._aggregate_metrics` is replaced with an explicit
+`if cost.amount is None: raise UsageAggregationError(INVALID_RECORD) from
+None`. I independently reproduced the exact concern I raised in the Attempt
+1 review — running under `python -O` (which strips `assert` statements) with
+a monkeypatched `_snapshot_record` that returns a record whose `cost.amount`
+was corrupted to `None` via `object.__setattr__` — and confirmed the fixed
+code now raises `UsageAggregationError(INVALID_RECORD)` correctly, rather
+than the raw `TypeError` that a stripped assert would have allowed through
+to the unguarded `Decimal + None` addition. The Coder's own test
+(`test_monetary_invariant_is_explicit_under_optimized_python`) independently
+verifies the identical scenario via a real `python -O` subprocess; I
+verified this by reading the test and separately reproducing it myself
+rather than only re-running the Coder's version.
 
 All validation commands listed in `current-task.md`, run independently
 rather than accepted from the Coder report, pass with no failures, errors,
@@ -169,41 +182,35 @@ or unexplained skips.
 
 ## Findings
 
-None. The one internal-safety observation above (a defensively-placed but
-currently-unreachable `assert`) is recorded under Suggested Architect Focus
-as a code-quality note; it does not represent an exploitable defect given
-the current call graph, and does not affect the verdict.
+None. Both remediation targets are independently confirmed closed by direct
+reproduction outside the Coder's own test suite, and no new gap was found
+during this Deep inspection.
 
 ## Acceptance Criteria Coverage
 
 | Acceptance criterion | Evidence | Result |
 | --- | --- | --- |
-| Summary contracts are strict, immutable, canonical, provider-neutral | All four new contracts extend `_SummaryContract`/`_RunContract` (strict, frozen, `extra=forbid`); `test_public_contract_fields_and_vocabularies_are_exact` independently rerun | Met |
-| Empty, zero, partial, and unavailable evidence remain semantically distinct | Traced `_aggregate_metrics` empty-input path and `UsageTokenFieldSummary.validate_coverage`'s `(total is None) != (observed == 0)` invariant by hand; `test_zero_and_unavailable_token_evidence_remain_distinct`, `test_partial_token_totals_status_predecessors_and_duration_are_exact` independently rerun | Met |
-| Reported, estimated, subscription-included, unavailable, currency, and pricing provenance never conflated | `_cost_evidence_identity`/`_cost_bucket_identity` traced side-by-side; `UsageCostBucket.validate_identity` enforces the same distinctions at the contract level independent of the aggregator | Met |
-| Status, retry/fallback, duration, token, and cost aggregation is exact and bounded | `_bounded_integer_add`/`_bounded_decimal_add` traced by hand; `test_duration_and_token_overflow_fail_safely`, `test_decimal_aggregate_bound_is_enforced` independently rerun | Met |
-| Provider/model groups are deterministic and non-recursive | `UsageProviderModelSummary` field list has no nested groups field (confirmed via `test_public_contract_fields_and_vocabularies_are_exact`); `_provider_model_sort_key` enforced in the contract's own `snapshot_provider_model_groups` validator, not just the aggregator | Met |
-| Input order cannot change canonical output | Canonical ordering enforced at the *contract* level (`_snapshot_token_fields`, `_snapshot_cost_buckets`, `snapshot_provider_model_groups` all sort deterministically regardless of construction order); `test_input_order_cannot_change_canonical_output` independently rerun, comparing byte-equal canonical JSON | Met |
-| Duplicate or mismatched records fail safely rather than being filtered | Duplicate invocation-ID check and correlation-field check both precede aggregation and raise rather than silently drop; `test_duplicate_and_session_mismatch_fail_without_filtering`, `test_run_scope_requires_every_record_to_match` independently rerun | Met |
-| No storage, pricing, provider, workflow, or CLI side effect added | Independent grep of `summary.py` for storage/provider/workflow keywords found none; diff confirms zero changes to `repository.py`/`pricing.py`/`collector.py` | Met |
-| Import and packaging isolation remain intact | `tests/test_usage_imports.py`/`test_packaging.py` extended and independently rerun as part of the regression sets below | Met |
-| Existing usage, application, Task 4, Task 5, and Product Pack behavior unchanged | 245 focused + 332 regression + 98 Task 4 + 1806/5-skip full suite + 2 Playwright, all independently run, all pass | Met |
-| Only allowed files changed | `git diff --stat` from starting HEAD to the derived report commit touches only the nine allowed implementation/test/doc paths plus `agent-handoff/coder-report.md`; no Architect/Reviewer file changed | Met |
+| No public `UsageSummary` can contain contradictory top-level and grouped lifecycle, predecessor, duration, token, or cost evidence | `_validate_group_rollup` traced line-by-line; the Architect's exact reported scenario independently reproduced and now rejected | Met |
+| Every contract entry point enforces the invariant | Traced that `validate_group_coverage` is a `model_validator(mode="after")`, which Pydantic runs for direct construction, `from_dict`'s `model_validate`, and `model_copy`'s `model_validate`; `test_cross_level_duration_mismatch_rejected_by_all_entry_points` independently rerun, exercising all three entry points in one test | Met |
+| Exact bounded integer and Decimal semantics remain deterministic | `_bounded_summary_integer_add`/`_bounded_summary_decimal_add` traced by hand (localcontext prec=512 isolates the merge from ambient precision, then revalidates via the existing canonical-decimal bound); `test_cross_level_decimal_is_independent_of_ambient_precision`, `test_cross_level_integer_and_decimal_overflow_are_contract_failures` independently rerun | Met |
+| Monetary aggregation contains no domain `assert` | Read `_aggregate_metrics`: the `assert` line is gone, replaced by an explicit `if`/`raise`; independently reproduced the `-O`-stripped-assert scenario myself and confirmed the fix, separate from the Coder's own subprocess test | Met |
+| Fixed safe errors and exact resource/control-flow propagation remain intact | `_validate_group_rollup` and helpers only ever raise `ValueError`, never `UsageAggregationError`; `test_cross_level_from_dict_failure_is_fixed_safe_and_marker_free` and `test_cross_level_decimal_resource_exceptions_propagate_exactly` independently rerun | Met |
+| Generated aggregator output and canonical wire format remain unchanged | All Attempt 1 aggregator/ordering/canonical-round-trip tests (e.g. `test_input_order_cannot_change_canonical_output`, `test_maximum_cardinality_supports_distinct_groups_and_cost_buckets`) are untouched in the diff and independently rerun unchanged | Met |
+| Existing Task 5C.4-5C.7, application, Task 4, Task 5, Product Pack, import, and packaging regressions remain green | 267 focused + 332 regression + 98 Task 4 + 1828/5-skip full suite + 2 Playwright, all independently run, all pass | Met |
+| Only allowed files changed | `git diff --stat 370434c..3419a9e` shows exactly `pmqa/usage/summary.py` and `tests/test_usage_summary.py`; no other usage/run/runner/application/security file touched | Met |
 
 ## Test Evidence
 
 ### Coder Evidence Reviewed
 
-The Coder report claims: 245 passed for focused summary + repository +
-collector + Task 5C.4 usage/pricing + import tests; 332 passed for the Run/
-Runner/Application/boundary/packaging regression set; 98 passed for the
-Task 4 orchestration set (one pre-existing LangGraph deprecation warning);
-1806 passed, 5 skipped for the full default suite; 2 passed for
-`products/demo/generated_tests`; `compileall` and `git diff --check` clean;
-clean worktree. This claimed evidence was read only after independent
-execution below and matches it exactly, except the Reviewer did not
-independently run a Markdown-link validator (not part of the task's listed
-Validation Commands).
+The Coder report claims: 52 summary-only focused tests; 267 passed for
+summary + repository + collector + Task 5C.4 usage/pricing + import tests;
+332 passed for the Run/Runner/Application/boundary/packaging regression set;
+98 passed for the Task 4 orchestration set (one pre-existing LangGraph
+deprecation warning); 1828 passed, 5 skipped for the full default suite; 2
+passed for `products/demo/generated_tests`; `compileall` and
+`git diff --check` clean; clean worktree. This claimed evidence was read
+only after independent execution below and matches it exactly.
 
 ### Independently Run
 
@@ -212,18 +219,36 @@ the Coder's claimed results, from the repository root on the reviewed
 branch:
 
 - `.venv/bin/python -m pytest tests/test_usage_summary.py tests/test_usage_repository.py tests/test_usage_collector.py tests/test_usage_contracts.py tests/test_usage_pricing.py tests/test_usage_imports.py -q`
-  -> `245 passed`
+  -> `267 passed`
 - `.venv/bin/python -m pytest tests/test_run_contracts.py tests/test_runner_contracts.py tests/test_application_contracts.py tests/test_application_service.py tests/test_boundary_policy.py tests/test_packaging.py -q`
   -> `332 passed`
 - `.venv/bin/python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py -q`
   -> `98 passed, 1 warning` (pre-existing `LangChainPendingDeprecationWarning`,
   unrelated to this change)
-- `.venv/bin/python -m pytest -q` (full default suite) -> `1806 passed, 5 skipped, 1 warning`
+- `.venv/bin/python -m pytest -q` (full default suite) -> `1828 passed, 5 skipped, 1 warning`
 - `.venv/bin/python -m pytest products/demo/generated_tests -q` -> `2 passed`
 - `PYTHONPYCACHEPREFIX=<isolated scratch directory> .venv/bin/python -m compileall -q pmqa products`
   -> exit code `0`, no output
 - `git diff --check` -> exit code `0`, no output
 - `git status --short` -> empty (clean worktree)
+
+In addition, and independent of the Coder's own tests, I directly
+reproduced both remediation targets against the remediated code in ad hoc
+scripts:
+
+- constructed a summary via the real aggregator, then mutated its wire form
+  to the Architect's exact reported contradiction (top-level
+  `succeeded=1, duration=100, input_tokens total=10, cost=0.1 USD` vs. the
+  sole group claiming
+  `failed=1, duration=999, input_tokens total=999, cost=999 USD`) and
+  confirmed `UsageSummary.from_dict(wire)` now raises
+  `UsageSummaryValidationError` rather than succeeding;
+- ran a standalone `python -O` script that corrupts a `CostEvidence.amount`
+  to `None` via `object.__setattr__`, bypasses `_snapshot_record` via
+  monkeypatching, and confirmed `DefaultUsageAggregator.summarize(...)`
+  raises `UsageAggregationError(INVALID_RECORD)` rather than leaking a raw
+  `TypeError` from an unguarded `Decimal + None` addition (the exact failure
+  mode a stripped `assert` would have permitted).
 
 No listed validation command was left unrun. No test was skipped by
 Reviewer choice. Environment: local `.venv` (Python 3.9), macOS/Darwin, no
@@ -231,35 +256,30 @@ network access used or required.
 
 ## Security, Scope, and Compatibility
 
-Security observations: the aggregator accepts and returns only exact
-`AIInvocationRecord`/`UsageSummary` contract instances (never raw dicts),
-independently reconstructs every input record before use, and retains no
-caller-owned container — confirmed by
-`test_summary_round_trip_copy_freezing_and_independent_snapshot`, which
-mutates the caller's original record/usage objects after summarization and
-confirms the returned summary is unaffected. All five expected-error paths
-use bounded static messages, suppress cause/context, and were independently
-confirmed (via a `"runtime-secret-marker"` canary threaded through
-identifiers, payloads, and a runtime object's `__repr__`) to never leak
-provider/model names, amounts, identifiers, or object representations. No
-new prohibited-key list was introduced; the summary contracts reuse
-`validate_run_identifier`, `_canonical_currency`, `_canonical_decimal`, and
-the inherited `_RunContract` bounded-tree/security boundary from
-`pmqa.run`/`pmqa.usage.contracts` rather than duplicating policy.
+Security observations: the new reconciliation logic and the monetary-branch
+fix both preserve the existing fixed-error/marker-safety discipline — I
+independently confirmed (via the ad hoc reproductions above and by reading
+`test_cross_level_from_dict_failure_is_fixed_safe_and_marker_free`) that
+reconciliation failures expose only `UsageSummaryValidationError`'s fixed
+`"invalid PMQA usage summary"` message with no identifier, provider/model
+name, amount, cause, or context, and that the monetary fix exposes only the
+existing fixed `UsageAggregationErrorCode.INVALID_RECORD`. No new
+prohibited-key list, public field, or error code was introduced.
 
-Scope observations: the diff touches only `pmqa/usage/summary.py` (new),
-`pmqa/usage/__init__.py` exports, one new focused test file, small additive
-blocks in `tests/test_packaging.py` and `tests/test_usage_imports.py`, and
-the four allowed documentation files, plus the Coder-owned report in a
-separate commit. `pmqa/usage/contracts.py`, `pricing.py`, `collector.py`,
-and `repository.py` are byte-identical to the Task 5C.6 baseline, and no
-file under `pmqa/run`, `pmqa/runners`, `pmqa/application`, `pmqa/security`,
-or `products/` was modified.
+Scope observations: the diff touches only `pmqa/usage/summary.py` and
+`tests/test_usage_summary.py`, plus the Coder-owned report in a separate
+commit. No file under `pmqa/run`, `pmqa/runners`, `pmqa/application`,
+`pmqa/security`, `pmqa/usage/contracts.py`, `pricing.py`, `collector.py`, or
+`repository.py` was modified, and no documentation file changed (consistent
+with the task's "do not change README, Roadmap, or architecture
+documentation" instruction for this remediation).
 
-Compatibility observations: `pmqa.usage` still imports only from `pmqa.run`/
-`pmqa.run.models` and `pmqa.usage.contracts` plus the standard library; no
-new runtime dependency was added. All pre-existing suites listed in
-`current-task.md`, plus the full default suite, pass unchanged.
+Compatibility observations: every Attempt 1 test not directly touching
+cross-level consistency continues to pass unmodified, confirming the
+legitimate `DefaultUsageAggregator` output (which already partitions every
+input record into exactly one group and derives both levels from the same
+underlying per-record aggregation) continues to satisfy the new, stricter
+validator without any behavioral change to normal aggregation.
 
 ## Verdict
 
@@ -270,21 +290,22 @@ disposition.
 
 ## Suggested Architect Focus
 
-- `_aggregate_metrics` in `pmqa/usage/summary.py` (around the monetary
-  summation loop) uses a bare `assert cost.amount is not None` rather than
-  an explicit checked branch that raises `UsageAggregationError`. I traced
-  this and confirmed it is currently unreachable-as-false given that
-  `_snapshot_record` fully re-validates every record (including its nested
-  `cost`) before this code runs, so no defect exists today. However,
-  `assert` statements are removed entirely when Python runs with `-O`, so if
-  this invariant were ever violated by a future refactor that changes call
-  order, the failure mode would become an unhandled `TypeError` rather than
-  a fixed safe `UsageAggregationError`. Consider replacing the `assert` with
-  an explicit check, purely for defense-in-depth against future changes, not
-  because of any currently-exploitable gap.
-- No other findings surfaced from this Reviewer's independent inspection.
-  This checkpoint is a clean, well-isolated addition on top of an unchanged
-  Task 5C.4-5C.6 foundation.
+- Both findings from the Attempt 1 Architect review (the cross-level
+  reconciliation gap and the fragile monetary `assert`) are independently
+  confirmed closed by direct reproduction, not just by re-running the
+  Coder's own tests. Nothing further is blocking from this Reviewer's
+  independent inspection.
+- This is the second consecutive attempt on Task 5C.7 where a real gap
+  (first the `assert`, now the missing cross-level reconciliation) was
+  caught only by the Architect's own adversarial construction of a
+  contradictory wire payload rather than by either the Coder's or this
+  Reviewer's Attempt 1 test-driven inspection. Worth noting for the
+  Architect's own process calibration: for future Usage/summary-style
+  checkpoints where multiple views of the same data must agree, an
+  explicit "construct an internally-valid-but-cross-level-contradictory
+  wire payload" adversarial step may be worth adding to the Reviewer's
+  standing checklist rather than relying on it surfacing only at Architect
+  review.
 
 ## Reviewer Write-Boundary Confirmation
 
