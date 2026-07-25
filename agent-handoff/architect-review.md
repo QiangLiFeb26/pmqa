@@ -2,27 +2,27 @@
 
 Owner: Architect
 
-Task: PMQA Task 5C.6 — Repository Root and Platform Boundary Hardening
+Task: PMQA Task 5C.7 — Deterministic Usage Summary Contracts and Pure Aggregation
 
-Task ID: `PMQA-5C.6`
+Task ID: `PMQA-5C.7`
 
-Attempt: `2`
+Attempt: `1`
 
-Status: Approved
+Status: Needs Revision
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
 Reviewed Starting HEAD:
-`a99f06cd95d583320257b4d5c5f8504d3281b0e1`
+`4128ef969e1a3dc90297a74c513a6cd2eabf0376`
 
 Reviewed Implementation Commit:
-`fdb075dcad311ee6848dab5e6454871e2d8ce56b`
+`eeba9a9dd1d2fac6a007580d4511fbb51722bd15`
 
 Derived Coder Report Commit:
-`9987f94a20bfc4a68d144f7cd9b4e1696a9eb52e`
+`7b5b577ee369cc9b717d97c723a4ae8a479cec37`
 
 Derived Reviewer Report Commit:
-`a258ba59b7fdd1edb6e01ab738ea9203610e954b`
+`569c519c043b3ce97a17dca5d1370ed60a6bc5d9`
 
 The Reviewer report commit was derived with:
 
@@ -30,63 +30,67 @@ The Reviewer report commit was derived with:
 git log -1 --format=%H -- agent-handoff/reviewer-report.md
 ```
 
-This review does not claim the SHA of its own containing commit. The next
-Coder derives and records the publication commit containing this disposition
-and the next task.
+This review does not claim the SHA of its own containing commit. The Coder
+records the publication commit containing this disposition and remediation
+task as the next starting HEAD.
 
 ## Correlation and Ownership Verification
 
 - the active branch and upstream are
   `agent/task-5c-1-canonical-run-contract`;
 - starting HEAD
-  `a99f06cd95d583320257b4d5c5f8504d3281b0e1` is an ancestor of implementation
-  commit `fdb075dcad311ee6848dab5e6454871e2d8ce56b`;
+  `4128ef969e1a3dc90297a74c513a6cd2eabf0376` is an ancestor of implementation
+  commit `eeba9a9dd1d2fac6a007580d4511fbb51722bd15`;
 - the implementation commit is an ancestor of Coder report commit
-  `9987f94a20bfc4a68d144f7cd9b4e1696a9eb52e`;
+  `7b5b577ee369cc9b717d97c723a4ae8a479cec37`;
 - the Coder report commit is an ancestor of Reviewer report commit
-  `a258ba59b7fdd1edb6e01ab738ea9203610e954b`;
+  `569c519c043b3ce97a17dca5d1370ed60a6bc5d9`;
 - Coder and Reviewer reports identify the same Task, Attempt, branch,
   starting HEAD, and implementation commit;
-- the remediation implementation changed only
-  `pmqa/usage/repository.py`, `tests/test_usage_repository.py`, and
-  `docs/architecture/usage-cost-contracts.md`;
+- the implementation changed only the nine allowed production, test,
+  packaging, and documentation files;
 - the Coder report commit changed only `agent-handoff/coder-report.md`;
 - the Reviewer report commit changed only
   `agent-handoff/reviewer-report.md`;
-- all role ownership and non-circular Git-correlation rules were followed.
+- all role ownership and non-circular correlation rules were followed.
 
 ## Review Depth Selected
 
 Deep
 
-The Architect independently selected Deep review because this attempt closes
-three adversarial findings at a local persistence boundary: path selection,
-platform capability enforcement, and hostile persisted-data parsing. The
-Coder and Reviewer recommendations agreed with this depth.
+The Architect independently selected Deep review because Task 5C.7 creates a
+public canonical aggregate tree whose top-level and grouped views must remain
+mathematically consistent across status, predecessor, duration, token, and
+cost evidence.
+
+The Coder and Reviewer both recommended Deep review.
 
 ## Overall Assessment
 
-Task 5C.6 Attempt 2 closes every blocking finding from Attempt 1 without
-weakening the append-only repository design.
+The pure aggregation implementation is well isolated and its generated output
+is correct for the tested inputs. It successfully preserves:
 
-The approved repository now provides:
+- empty versus unavailable evidence;
+- observed zero versus missing values;
+- exact bounded duration and token arithmetic;
+- provider-reported versus estimated cost;
+- currency and pricing provenance;
+- subscription-included and unavailable non-monetary evidence;
+- deterministic provider/model grouping;
+- input-order-independent canonical output;
+- safe aggregation failures and import isolation.
 
-- one explicit absolute, non-anchor, traversal-free root snapshot;
-- construction-time rejection of invalid OS paths, existing files, and
-  symlink roots through a fixed safe error;
-- fail-closed POSIX capability capture before repository creation;
-- pre-publication directory-sync verification before temporary or target
-  record creation;
-- restrictive temporary mode enforcement with post-operation verification;
-- atomic hard-link no-replace publication with no weaker fallback;
-- identity-verified cleanup and exactly controlled descriptor release;
-- preservation of a complete target after post-publication failure;
-- bounded parser-overflow containment as corrupt persisted data;
-- exact propagation of resource and control-flow exceptions;
-- unchanged canonical file layout, query behavior, record contracts, and
-  collector separation.
+However, the public `UsageSummary` contract does not enforce consistency
+between its top-level aggregate and its `provider_model_groups`. A canonical
+wire payload can therefore claim mutually contradictory status, duration,
+token, and cost facts at the same time and still pass `from_dict()`.
 
-No blocking or follow-up implementation change is required for Task 5C.6.
+Because `UsageSummary` is a public persisted/transmitted contract, correctness
+cannot depend solely on callers using `DefaultUsageAggregator`. Direct
+construction, `from_dict()`, and revalidated copies must enforce the same
+aggregate invariant.
+
+Task 5C.7 is therefore not approved in Attempt 1.
 
 ## Independent Reviewer Result
 
@@ -94,123 +98,161 @@ Reviewer verdict: `Pass`
 
 Reviewer blocking findings: None
 
-The Reviewer performed a legitimate Deep review, independently reproduced all
-three original findings against the remediated code, ran every required
-validation command, and confirmed the allowed change boundary.
+The Reviewer performed a legitimate Deep review, read the full implementation
+and tests, and independently executed all required validation. The passing
+test evidence is valid.
 
-The Architect accepts the advisory verdict.
+The Architect's finding extends the adversarial matrix to cross-level
+contract reconstruction. It does not indicate a process or ownership failure
+by the Reviewer.
 
-## Architect Findings
+The Architect overrides the advisory verdict with `Needs Revision`.
 
-None.
+## Review Finding
 
-### F1 disposition — repository root validation
+### F1 — Provider/model groups can contradict the top-level summary
 
-Closed.
+Severity: Blocking
 
-`_canonical_root` snapshots one plain filesystem string, rejects embedded NUL
-and encoding failures, requires an absolute non-anchor path, rejects every
-literal `..` component, rejects normalized anchor selection, and uses
-`lstat()` without following symlinks. Expected failures expose only
-`INVALID_CONFIGURATION`.
+Location:
 
-### F2 disposition — platform capability boundary
+- `pmqa/usage/summary.py`
+- `UsageSummary.validate_group_coverage`
 
-Closed.
+The current validator checks only:
 
-Publication captures every mandatory callable before filesystem effects and
-fails with `UNSUPPORTED_PUBLICATION` on non-POSIX or incomplete platforms.
-The implementation verifies restrictive mode after `fchmod`, preflights
-directory synchronization before creating a temporary record, retains atomic
-hard-link publication, and never introduces overwrite or rename fallback.
+```text
+sum(group.invocation_count) == summary.invocation_count
+```
 
-### F3 disposition — parser overflow
+It does not reconcile:
 
-Closed.
+- succeeded, failed, and cancelled counts;
+- retry and fallback counts;
+- total duration;
+- token totals and observed/unavailable coverage;
+- cost-bucket invocation counts and monetary amounts.
 
-`OverflowError` is contained only in persisted-record reconstruction and maps
-to `CORRUPT_DATA`. Resource and control-flow exceptions remain authoritative.
+Each `UsageProviderModelSummary` is internally valid, but it can describe
+different evidence from the valid top-level aggregate.
 
-## Reviewer Non-Blocking Observations
+Independent reproduction:
 
-### Empty directory creation before sync preflight
+```text
+UsageSummary.from_dict(...) accepted:
 
-Accepted.
+top-level:
+  succeeded=1, failed=0
+  duration_ms=100
+  input_tokens=10
+  provider_reported USD amount=0.1
 
-`_prepare_write_directory` may create the private `invocations/` directory
-before `_preflight_directory_sync` executes. The task requires unsupported
-mandatory synchronization to fail before temporary or target publication,
-which it does. An empty identifier-free directory is neither a published
-record nor partial domain evidence, and its existence is required for a later
-valid save. No remediation is needed.
+only provider/model group:
+  succeeded=0, failed=1
+  duration_ms=999
+  input_tokens=999
+  provider_reported USD amount=999
+```
 
-### Redundant structural equality check
+The group retained `invocation_count=1`, so the existing coverage check
+passed.
 
-Accepted as harmless. Removing it is unnecessary churn and is not carried
-into the next task.
+Impact:
 
-### Windows behavior
+- one canonical summary can present contradictory answers to a CLI or future
+  Web UI;
+- provider/model comparisons may not reconcile to the session/run total;
+- cost and token reporting can be internally false even though every nested
+  contract is individually valid;
+- `from_dict()` can accept an impossible persisted summary.
 
-Accepted as an explicit limitation. Full Windows publication support was
-out of scope; deterministic `UNSUPPORTED_PUBLICATION` is the approved
-fail-closed behavior for platforms that cannot enforce the required
-guarantees.
+Required correction:
+
+- reconcile every provider/model group back to the top-level aggregate;
+- reject any mismatch during direct construction, `from_dict()`, or
+  `model_copy(update=...)`;
+- retain deterministic exact Decimal and bounded integer behavior;
+- keep `DefaultUsageAggregator` output and public field sets unchanged.
+
+## Reviewer Observation Disposition
+
+### Bare monetary `assert`
+
+The Reviewer correctly observed:
+
+```python
+assert cost.amount is not None
+```
+
+The assertion is currently unreachable-as-false because `_snapshot_record`
+reconstructs `CostEvidence` before aggregation. It is not the Attempt 1
+blocker.
+
+Nevertheless, the focused remediation should replace it with an explicit
+fixed safe branch. Python optimization can remove assertions, and a public
+aggregation boundary should not rely on one for domain correctness.
+
+No new error code is required. An impossible monetary record after the
+authoritative snapshot may use the existing fixed `INVALID_RECORD` boundary.
 
 ## Acceptance Criteria Coverage
 
 | Acceptance criterion | Result |
 | --- | --- |
-| Traversal/root-equivalent paths cannot select an anchor-level repository | Met |
-| Invalid OS paths fail at construction with fixed safe errors | Met |
-| Raw path/platform/parser details do not escape expected boundaries | Met |
-| Missing mandatory publication capabilities fail before record publication | Met |
-| Atomic no-replace publication remains unchanged on supported platforms | Met |
-| Post-publication failures preserve the complete target | Met |
-| Descriptor and temporary ownership remain exactly controlled | Met |
-| Parser overflow becomes fixed corrupt-data evidence | Met |
-| Repository, collector, contracts, imports, packaging, and orchestration remain green | Met |
+| Strict immutable provider-neutral summary contracts | Partially met |
+| Empty, zero, partial, and unavailable distinction | Met |
+| Cost type, currency, and pricing provenance separation | Met within each level |
+| Exact bounded aggregation | Met for aggregator output |
+| Deterministic non-recursive provider/model grouping | Met |
+| Top-level and provider/model grouped views are mutually consistent | Not met |
+| Input-order-independent canonical output | Met |
+| Duplicate/correlation rejection | Met |
+| No storage/provider/workflow/CLI side effects | Met |
+| Import and packaging isolation | Met |
 | Only authorized files changed | Met |
 
 ## Validation Evidence
 
 Independent Reviewer evidence:
 
-- repository/collector/contracts/pricing/import suite: `215 passed`;
+- focused usage suite: `245 passed`;
 - Run/Runner/Application/boundary/packaging regressions: `332 passed`;
 - Task 4 regressions: `98 passed`;
-- full default suite: `1776 passed, 5 skipped`;
+- full default suite: `1806 passed, 5 skipped`;
 - generated Playwright regressions: `2 passed`;
-- isolated compileall and `git diff --check`: passed;
-- direct reproductions of traversal, embedded NUL, and missing `os.fchmod`:
-  fixed safe failures with no target or unverified cleanup.
+- isolated compileall and `git diff --check`: passed.
 
 Architect evidence:
 
-- complete Reviewer report and Coder report read;
-- full remediation diff and repository implementation inspected;
-- ancestry, role ownership, and report correlation verified;
-- focused usage suite independently run: `215 passed`;
-- full default suite independently run:
-  `1776 passed, 5 skipped, 1` existing LangGraph warning;
+- complete Reviewer and Coder reports read;
+- full `pmqa/usage/summary.py` implementation inspected;
+- ancestry, role ownership, and path correlation verified;
+- focused usage suite independently run: `245 passed`;
+- direct adversarial `UsageSummary.from_dict()` reconstruction accepted
+  contradictory top-level/group status, duration, token, and cost evidence;
 - `git diff --check` through the Reviewer commit: passed;
-- no uncommitted work existed before Architect disposition.
+- the worktree was clean before Architect disposition.
 
-The five skipped tests remain existing environment-gated live tests. The
-warning is the pre-existing LangGraph pending-deprecation warning and is
-unrelated to Task 5C.6.
+The passing suite demonstrates correct aggregator output but does not test
+cross-level contradiction at the public summary reconstruction boundary.
 
 ## Required Changes
 
-None.
+Complete one focused PMQA-5C.7 Attempt 2 remediation for F1 and replace the
+bare monetary assertion. Do not redesign summary fields, change aggregation
+meaning, add repository integration, or begin UI work.
 
 ## Decision
 
-Approved
+Needs Revision
 
-PMQA Task 5C.6 is approved at implementation commit
-`fdb075dcad311ee6848dab5e6454871e2d8ce56b`.
+PMQA Task 5C.7 is not approved at implementation commit
+`eeba9a9dd1d2fac6a007580d4511fbb51722bd15`.
 
 ## Next Recommended Task
 
-Proceed to PMQA Task 5C.7 — Deterministic Usage Summary Contracts and Pure
-Aggregation, defined in `agent-handoff/current-task.md`.
+Complete PMQA Task 5C.7 Attempt 2 — Cross-Level Summary Consistency,
+defined in `agent-handoff/current-task.md`.
+
+PMQA Task 5D.0 — Conversational Workflow Platform Architecture begins only
+after this focused remediation passes final review.

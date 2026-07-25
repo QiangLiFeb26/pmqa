@@ -2,404 +2,247 @@
 
 Owner: Architect
 
-Task: PMQA Task 5C.7 — Deterministic Usage Summary Contracts and Pure Aggregation
+Task: PMQA Task 5C.7 — Cross-Level Summary Consistency
 
 Task ID: `PMQA-5C.7`
 
-Attempt: `1`
+Attempt: `2`
 
-Status: Ready for Coder
+Status: Changes Required
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
-Architect-reviewed baseline Reviewer HEAD:
-`a258ba59b7fdd1edb6e01ab738ea9203610e954b`
+Reviewed Attempt 1 Reviewer HEAD:
+`569c519c043b3ce97a17dca5d1370ed60a6bc5d9`
 
 Coder starting HEAD: derive and record the latest pushed branch commit that
-contains this task publication before changing implementation files.
+contains this remediation publication before changing implementation files.
 
 Repository Markdown and Git history are authoritative. Chat summaries are
 informational only.
 
 ## Task Objective
 
-Add a provider-neutral, deterministic, immutable summary contract and pure
-aggregation service for canonical `AIInvocationRecord` values.
+Make every successfully constructed `UsageSummary` prove that its top-level
+metrics are the exact deterministic roll-up of its
+`provider_model_groups`.
 
-This checkpoint must make zero distinct from unavailable, keep reported and
-estimated cost separate, preserve currency and pricing provenance, expose
-retry/fallback/status counts, and provide stable provider/model grouping
-without reading storage, launching providers, calculating prices, or changing
-existing records.
+Also replace the internal monetary `assert` with an explicit fixed safe
+invariant check.
 
-The result is the domain/service layer needed before a later repository-backed
-CLI summary. It is not itself a CLI or workflow integration.
+Do not change public fields, aggregation meaning, limits, ordering, or
+Task 5C.7 scope.
 
 ## Background
 
-Task 5C.4 defined provider-neutral usage, cost, and pricing evidence. Task
-5C.5 added exactly-once invocation collection. Task 5C.6 added append-only
-local persistence and deterministic retrieval.
+Attempt 1 correctly generates internally consistent summaries through
+`DefaultUsageAggregator`, but the public contract accepts a contradictory
+wire payload as long as group invocation counts add to the top-level count.
 
-The current architecture can record and retrieve exact invocation evidence,
-but it does not yet derive a bounded, canonical view suitable for:
+The Architect reproduced a `UsageSummary.from_dict()` result where the
+top-level claimed:
 
-- one PMQA session;
-- one PMQA run;
-- provider/model comparison;
-- status, retry, fallback, duration, token, and cost reporting;
-- future cost-per-success and cache-benefit analysis.
+```text
+succeeded=1, duration=100ms, input_tokens=10, cost=USD 0.1
+```
 
-Aggregation must not manufacture missing evidence. A numeric zero is an
-observed value. An absent token field remains absent even when other records
-provide that field. Provider-reported cost must never be combined with
-estimated cost, subscription inclusion must never become a zero-dollar amount,
-and different currencies must never be summed together.
+while the only provider/model group claimed:
+
+```text
+failed=1, duration=999ms, input_tokens=999, cost=USD 999
+```
+
+Both nested views were individually valid and `invocation_count` remained
+one, so the current validator accepted the impossible aggregate.
+
+The full evidence and disposition are in
+`agent-handoff/architect-review.md`.
 
 ## Scope
 
-- Add immutable summary contracts under `pmqa.usage`.
-- Add one provider-neutral pure aggregation boundary and deterministic default
-  implementation.
-- Aggregate only caller-supplied canonical `AIInvocationRecord` snapshots.
-- Support session and run scope.
-- Add deterministic provider/model groups.
-- Add stable status, retry/fallback, duration, token-field, and cost buckets.
-- Add strict correlation, duplicate, overflow, canonical-round-trip, and
-  safe-error behavior.
-- Update focused documentation and Task 5C status text.
-- Replace `agent-handoff/coder-report.md` with the Task 5C.7 report.
+- Add complete top-level/provider-group reconciliation to `UsageSummary`.
+- Add focused adversarial contract tests.
+- Replace the monetary `assert` with an explicit fixed safe branch.
+- Replace `agent-handoff/coder-report.md` with the Attempt 2 report.
 
-Do not connect the aggregator to the repository or any workflow in this task.
+No public field, enum, schema version, limit, or aggregation policy changes.
 
-## Required Public Design
+## Required Cross-Level Invariants
 
-Place the implementation in a focused module such as:
+For every valid `UsageSummary`, provider/model groups must collectively
+reconstruct the exact top-level:
 
-```text
-pmqa/usage/summary.py
-```
+### Invocation and lifecycle counts
 
-Export the approved public API from `pmqa.usage`, but do not export it from
-top-level `pmqa`.
+The sum across all groups must equal the corresponding top-level value for:
 
-Use names equivalent in meaning to:
-
-```python
-class UsageSummaryScope(str, Enum):
-    SESSION = "session"
-    RUN = "run"
-
-
-class UsageAggregator(Protocol):
-    def summarize(
-        self,
-        records: tuple[AIInvocationRecord, ...],
-        *,
-        scope: UsageSummaryScope,
-        scope_id: str,
-    ) -> UsageSummary:
-        ...
-
-
-class DefaultUsageAggregator:
-    ...
-```
-
-Exact class names may vary only if the Coder documents a materially clearer
-fit with the existing repository style. Do not add asynchronous APIs,
-callbacks, dependency injection containers, or provider-specific concepts.
-
-## Required Summary Semantics
-
-The canonical top-level summary must contain:
-
-- schema version;
-- scope type and canonical scope ID;
-- total invocation count;
-- succeeded, failed, and cancelled counts;
+- invocation count;
+- succeeded invocation count;
+- failed invocation count;
+- cancelled invocation count;
 - retry invocation count;
-- fallback invocation count;
-- exact total duration in milliseconds;
-- one deterministic token-field summary for every `TokenField`;
-- deterministic cost buckets;
-- deterministic provider/model groups.
-
-Do not add a generated timestamp. The summary must be a pure deterministic
-function of its records and explicit scope.
-
-### Status and predecessor counts
-
-- Status counts must add exactly to invocation count.
-- `retry_invocation_count` counts records with
-  `retry_of_invocation_id is not None`.
-- `fallback_invocation_count` counts records with
-  `fallback_from_invocation_id is not None`.
-- Do not infer retries from `attempt_number` alone.
-- Do not require predecessor records to be present in the selected input;
-  cross-record lineage validation remains outside this checkpoint.
+- fallback invocation count.
 
 ### Duration
 
-- Sum the exact canonical `duration_ms` values.
-- Do not derive duration from wall timestamps.
-- Enforce an explicit bounded aggregate maximum.
-- Overflow must fail through a fixed safe aggregation error; it must not wrap,
-  clamp, convert to float, or silently truncate.
+The exact bounded sum of group `total_duration_ms` must equal the top-level
+`total_duration_ms`.
 
-### Token-field summaries
+Use bounded integer arithmetic. Do not allow wrap, clamp, float conversion,
+or unchecked sum behavior.
 
-For each `TokenField`, preserve at least:
+Contract reconciliation failures, including reconciliation overflow, must
+surface through normal contract validation (`ValueError` /
+`UsageSummaryValidationError` at the applicable public entry point). Do not
+let the service-owned `UsageAggregationError` escape from
+`UsageSummary.from_dict()`.
 
-- the field identity;
-- total value, which is optional;
-- number of invocations with an observed value;
-- number of invocations where the field is unavailable.
+### Token fields
 
-Required invariant:
+For every exact `TokenField`:
 
-```text
-observed_invocation_count + unavailable_invocation_count
-    == total invocation count
-```
+- sum of group observed counts equals top-level observed count;
+- sum of group unavailable counts equals top-level unavailable count;
+- if top-level `total is None`, every group must have `total is None`;
+- otherwise, the exact bounded sum of every observed group total equals the
+  top-level total;
+- observed numeric zero remains zero;
+- mixed observed/unavailable group coverage remains valid when it reconciles.
 
-Required meaning:
-
-- total is `None` exactly when no invocation observed that field;
-- total is numeric zero when one or more invocations observed only zero;
-- a partial total may exist while `unavailable_invocation_count > 0`;
-- the summary must not claim that a partial total covers unavailable records;
-- unavailable reasons remain in invocation evidence and are not guessed or
-  collapsed into a fake numeric value.
-
-Token totals must use bounded integer arithmetic and fail safely on overflow.
+Do not infer values for unavailable groups.
 
 ### Cost buckets
 
-Never combine incompatible cost evidence.
+Re-aggregate all group cost buckets by the existing complete cost identity:
 
-Group monetary evidence by the complete compatible identity needed to avoid
-mixing meanings:
-
-- `cost_type`;
+- cost type;
 - currency;
 - pricing source ID;
 - pricing version;
-- pricing effective timestamp.
+- pricing effective timestamp;
+- unavailable reason.
 
-Provider-reported and estimated amounts therefore remain separate. Estimated
-amounts with different pricing provenance remain separate. Different
-currencies remain separate.
+The normalized group-derived buckets must match the top-level buckets exactly:
 
-Group non-monetary evidence separately:
+- identical identity set;
+- exact invocation counts;
+- exact monetary amount for monetary buckets;
+- no amount for subscription-included or unavailable buckets.
 
-- subscription-included evidence;
-- unavailable evidence, including its exact bounded unavailable reason.
+Multiple provider/model groups may legitimately contribute to the same
+top-level cost-bucket identity. Merge those contributions using exact bounded
+Decimal arithmetic before comparison.
 
-Each cost bucket must contain:
+Do not compare Decimal through float conversion or caller ambient precision.
+The contract validator must contain Decimal bound failures as contract
+validation, not leak `InvalidOperation`, `UsageAggregationError`, or an
+underlying arithmetic exception.
 
-- exact evidence identity/provenance fields;
-- invocation count;
-- amount only for monetary buckets.
+### Empty summary
 
-Required behavior:
+The existing empty summary remains valid:
 
-- monetary zero remains an observed amount of zero;
-- subscription-included does not carry amount or currency and is not treated
-  as monetary zero;
-- unavailable does not carry amount or currency;
-- Decimal arithmetic remains exact;
-- canonical decimal bounds remain enforced;
-- no conversion to float;
-- bucket ordering is deterministic and independent of input order.
+- no provider/model groups;
+- zero lifecycle/duration/predecessor counts;
+- every token field has `total=None` and zero coverage;
+- no cost buckets.
 
-### Provider/model groups
+## Contract Entry Points
 
-Create one deterministic group for each exact provider/model identity:
+The invariant must hold through:
 
-- canonical provider;
-- model when known;
-- exact model-unavailable reason when model is unavailable.
+- direct `UsageSummary(...)` construction;
+- `UsageSummary.from_dict(...)`;
+- `UsageSummary.model_copy(update=...)`;
+- `DefaultUsageAggregator.summarize(...)`.
 
-Each group must expose the same status, retry/fallback, duration, token-field,
-and cost-bucket semantics as the top-level aggregate, without recursively
-nesting further provider/model groups.
+Expected direct construction/copy failures may remain Pydantic
+`ValidationError` consistent with existing contract style.
 
-Ordering must be deterministic and independent of input order. A known model
-and unavailable-model evidence must never be merged.
+Persisted reconstruction must expose only the fixed
+`UsageSummaryValidationError`, with no contradictory identifier, provider,
+model, amount, marker, underlying message, cause, or context.
 
-### Empty input
+## Monetary Assertion Remediation
 
-An empty tuple is valid when the explicit scope is valid.
+Replace:
 
-The empty summary must contain:
-
-- invocation count and all status/retry/fallback/duration counts equal to
-  numeric zero;
-- every token field exactly once with `total=None`, observed count `0`, and
-  unavailable count `0`;
-- no cost buckets;
-- no provider/model groups.
-
-This is an empty selected set, not fabricated unavailable invocation evidence.
-
-## Correlation and Input Boundary
-
-The aggregator must:
-
-- require a built-in tuple of exact `AIInvocationRecord` instances;
-- independently reconstruct every record before aggregation;
-- never retain caller-owned records or containers;
-- reject duplicate invocation IDs;
-- validate the explicit scope and `scope_id` through canonical existing
-  identifier policy;
-- for session scope, require every record's `session_id == scope_id`;
-- for run scope, require every record's `run_id == scope_id`;
-- reject mixed or mismatched correlation rather than silently filtering;
-- accept records in any input order and produce byte-equivalent canonical
-  output;
-- propagate `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and
-  `GeneratorExit` with exact identity.
-
-Do not verify repository completeness, predecessor existence, run existence,
-session existence, or runner-invocation existence. The input tuple is an
-explicit bounded selection supplied by the caller.
-
-Define and enforce a conservative maximum number of records per aggregation.
-Reject excess input before performing aggregation. Do not silently truncate.
-
-## Error Boundary
-
-Add one fixed provider-neutral aggregation exception and a small bounded enum,
-for example:
-
-```text
-invalid_request
-invalid_record
-correlation_mismatch
-duplicate_invocation
-aggregate_overflow
+```python
+assert cost.amount is not None
 ```
 
-Exact vocabulary may be consolidated if the distinctions remain deterministic
-and tests demonstrate them.
+with an explicit checked branch.
 
-Expected failures must:
+Requirements:
 
-- expose only fixed bounded messages;
-- suppress cause and context;
-- never expose identifiers, provider/model names, amounts, paths, caller
-  payloads, runtime object representations, or injected markers.
+- do not add a public error code;
+- impossible monetary evidence at the aggregation boundary fails with the
+  existing fixed `UsageAggregationErrorCode.INVALID_RECORD`;
+- do not leak the record, amount, provider/model identity, or underlying
+  exception;
+- retain exact resource/control-flow propagation;
+- valid monetary aggregation remains unchanged under normal and `python -O`
+  execution.
 
-Do not reuse repository errors for a pure aggregation failure.
+## Preserve Existing Behavior
 
-## Canonical Contract Requirements
+Do not change:
 
-All public summary records must follow existing usage/run contract style:
-
-- Pydantic v2;
-- strict and frozen;
-- `extra="forbid"`;
-- explicit schema version;
-- deeply immutable tuples and independently reconstructed nested records;
-- canonical plain-JSON `to_dict()` / `from_dict()` round trips;
-- `model_copy(update=...)` full revalidation;
-- unknown fields and coercion rejected;
-- caller-owned containers not retained;
-- complete tree depth/item/string bounds;
-- stable field order and deterministic collection ordering;
-- fixed safe reconstruction errors.
-
-Do not add a new prohibited/sensitive-key list. Reuse the existing canonical
-contract/security boundary.
-
-## Import and Dependency Isolation
-
-Importing `pmqa.usage` or the new summary module must not:
-
-- read usage repository files;
-- create directories or artifacts;
-- inspect environment variables;
-- load products, external Product Packs, Playwright, LangGraph, Supervisor,
-  orchestration, provider SDKs, or reasoning providers;
-- inspect installed distributions;
-- launch subprocesses;
-- perform pricing lookup;
-- register global state.
-
-Add no runtime dependency.
+- any public Task 5C.7 field set or enum;
+- `USAGE_SUMMARY_SCHEMA_VERSION`;
+- `MAX_USAGE_SUMMARY_RECORDS`;
+- aggregate integer bounds;
+- empty/zero/partial/unavailable semantics;
+- cost-bucket identity or ordering;
+- provider/model identity or ordering;
+- canonical JSON serialization;
+- input tuple, exact record, duplicate, and correlation boundaries;
+- repository, collector, pricing, Run, Runner, Application Service,
+  WorkflowState, LangGraph, or Product Pack behavior;
+- import or packaging isolation.
 
 ## Required Tests
 
-At minimum cover:
+Add focused tests that independently mutate otherwise canonical summaries and
+prove rejection for:
 
-- exact public field sets and enum values;
-- empty summary semantics;
-- one complete zero-valued invocation;
-- one fully unavailable invocation;
-- mixed observed/unavailable token fields with partial totals;
-- success, failure, and cancellation counts;
-- retry and fallback counts;
-- exact duration aggregation;
-- duration and token overflow rejection;
-- provider-reported and estimated costs remain separate;
-- different currencies remain separate;
-- estimated pricing versions/effective timestamps remain separate;
-- monetary zero versus subscription-included versus unavailable;
-- exact Decimal summation without float conversion;
-- provider/model group separation and deterministic ordering;
-- unavailable model grouping by reason;
-- input-order-independent canonical output;
-- duplicate invocation IDs;
-- session and run correlation mismatch;
-- non-tuple, subclass, malformed, mutated, or excessive record input;
-- independent snapshots and caller mutation after summary construction;
-- canonical JSON round trips;
-- revalidated copies;
-- unknown/runtime/prohibited data rejection;
-- marker-safe fixed errors with no cause/context;
-- exact propagation of resource/control-flow exceptions;
-- import isolation;
-- real PMQA wheel packaging if the new module is not already covered by the
-  package allowlist;
-- existing collector/repository/contracts/pricing regressions.
+- top-level versus group succeeded/failed/cancelled mismatch;
+- retry and fallback mismatch;
+- duration mismatch;
+- token observed-count mismatch;
+- token unavailable-count mismatch;
+- token `None` versus observed total mismatch;
+- token numeric total mismatch, including zero;
+- missing, extra, or different top-level cost-bucket identity;
+- monetary cost amount mismatch;
+- cost-bucket invocation-count mismatch;
+- multiple groups contributing to one compatible top-level monetary bucket;
+- multiple groups contributing to subscription/unavailable buckets;
+- different currency and pricing-provenance buckets remaining separate;
+- empty summary remaining valid;
+- `from_dict()` fixed safe failure with marker/cause/context checks;
+- `model_copy(update=...)` revalidation;
+- input-order-independent canonical aggregator output remaining unchanged;
+- exact Decimal behavior under reduced caller ambient precision;
+- bounded integer and Decimal reconciliation overflow;
+- explicit monetary-invariant failure without relying on `assert`;
+- resource/control-flow exception propagation.
 
-New tests remain offline and invoke no provider, model, CLI, network, browser,
-Node.js, or external Product Pack.
+Use canonical summaries from the real aggregator as the starting point for
+adversarial wire mutations where practical.
 
-## Documentation
-
-Update only the focused status and architecture surfaces needed to record:
-
-- Task 5C.6 passed architecture review;
-- Task 5C.7 adds summary contracts and pure aggregation;
-- summaries operate on an explicit caller-supplied bounded selection;
-- zero, partial, unavailable, reported, estimated, subscription-included, and
-  currency/provenance meanings remain distinct;
-- repository access, completeness, CLI display, outcome metrics, price
-  calculation, and provider integration remain deferred;
-- Task 5C remains in progress and unmerged.
-
-Expected documentation surfaces:
-
-- `README.md`;
-- `docs/Roadmap.md`;
-- `docs/architecture.md`;
-- `docs/architecture/usage-cost-contracts.md`.
-
-Do not change Task 5A/5B/6/7 status except where an existing sentence needs
-to preserve their unchanged state.
+Do not weaken a test by creating an object that fails an unrelated nested
+contract before reaching cross-level validation.
 
 ## Allowed Changes
 
 - `pmqa/usage/summary.py`;
-- `pmqa/usage/__init__.py`;
-- focused summary tests, preferably `tests/test_usage_summary.py`;
-- minimal additive `tests/test_usage_imports.py`;
-- minimal additive `tests/test_packaging.py` only if required by the real
-  wheel allowlist;
-- the four focused documentation surfaces listed above;
+- `tests/test_usage_summary.py`;
 - `agent-handoff/coder-report.md`.
+
+Minimal additive changes to `tests/test_usage_imports.py` or
+`tests/test_packaging.py` are allowed only if genuinely required by the
+remediation; none are expected.
 
 Do not modify:
 
@@ -407,37 +250,28 @@ Do not modify:
 - `agent-handoff/current-task.md`;
 - `agent-handoff/reviewer-report.md`;
 - `agent-handoff/architect-review.md`;
-- `pmqa/usage/contracts.py`;
-- `pmqa/usage/pricing.py`;
-- `pmqa/usage/collector.py`;
-- `pmqa/usage/repository.py`;
+- public usage contracts, pricing, collector, or repository;
+- README, Roadmap, or architecture documentation;
 - RunRecord, Runner, Application Service, WorkflowState, LangGraph,
   Supervisor, Task 5, or Product Pack behavior.
 
-Use one focused implementation commit and one report-only Coder handoff
-commit. Do not amend Task 5C.6.
+Use one focused remediation implementation commit and one report-only Coder
+handoff commit. Do not amend Attempt 1.
 
 ## Out of Scope
 
 Do not add:
 
-- repository reads or writes in the aggregator;
-- pagination or repository completeness claims;
-- CLI commands or terminal rendering;
-- outcome-metric joining;
+- new summary fields, enum values, schema versions, or public error codes;
+- repository-backed selection, pagination, or completeness claims;
+- CLI or Web UI;
+- conversation, workflow, capability, artifact, or approval contracts;
 - pricing lookup or cost calculation;
-- a built-in pricing table;
-- provider/CLI parsing or adapters;
-- Copilot, Codex, OpenAI, Azure OpenAI, or other SDK integration;
-- automatic collector persistence;
-- workflow/Application Service/Runner integration;
-- prompts, responses, raw terminal output, or provider metadata;
-- retry/fallback execution policy;
-- retention, deletion, compaction, migration, database, background work, or
-  remote storage;
-- budgets, optimization, model routing, or quality scoring;
-- new runtime dependencies;
-- Task 5B, Task 6, or Task 7;
+- provider/Copilot/ADO integration;
+- outcome metrics;
+- automatic persistence;
+- retention, deletion, migration, database, or remote storage;
+- Task 5D, Task 5B, Task 6, or Task 7;
 - PR creation or merge.
 
 ## Validation Commands
@@ -455,50 +289,45 @@ git diff --check
 git status --short
 ```
 
-Use an isolated bytecode cache for compileall. New tests must remain offline.
+Use an isolated bytecode cache for compileall. New tests remain offline.
 
 ## Acceptance Criteria
 
-- summary contracts are strict, immutable, canonical, and provider-neutral;
-- empty, zero, partial, and unavailable evidence remain semantically distinct;
-- reported, estimated, subscription-included, unavailable, currency, and
-  pricing provenance are never conflated;
-- status, retry/fallback, duration, token, and cost aggregation is exact and
-  bounded;
-- provider/model groups are deterministic and non-recursive;
-- input order cannot change canonical output;
-- duplicate or mismatched records fail safely rather than being filtered;
-- no storage, pricing, provider, workflow, or CLI side effect is added;
-- import and packaging isolation remain intact;
-- existing usage, application, Task 4, Task 5, and Product Pack behavior
-  remains unchanged;
+- no public `UsageSummary` can contain contradictory top-level and grouped
+  lifecycle, predecessor, duration, token, or cost evidence;
+- every contract entry point enforces the invariant;
+- exact bounded integer and Decimal semantics remain deterministic;
+- monetary aggregation contains no domain `assert`;
+- fixed safe errors and exact resource/control-flow propagation remain intact;
+- generated aggregator output and canonical wire format remain unchanged;
+- existing Task 5C.4–5C.7, application, Task 4, Task 5, Product Pack,
+  import, and packaging regressions remain green;
 - only allowed files change.
 
 ## Expected Deliverables
 
-- immutable usage summary contracts;
-- pure provider-neutral aggregation protocol and default implementation;
-- focused adversarial and deterministic tests;
-- focused documentation updates;
-- one implementation commit;
+- complete cross-level summary reconciliation;
+- explicit monetary invariant handling;
+- focused adversarial tests;
+- one remediation implementation commit;
 - one report-only Coder handoff commit;
 - clean synchronized branch;
 - no PR or merge.
 
 ## Required Coder Handoff
 
-Replace `agent-handoff/coder-report.md` with the complete Task 5C.7 Attempt 1
+Replace `agent-handoff/coder-report.md` with the complete Task 5C.7 Attempt 2
 report. Include:
 
 - Task/Attempt, branch, and exact Git-derived starting HEAD;
-- implementation commit;
+- remediation implementation commit;
 - changed files;
-- exact public contracts and aggregation API;
-- empty/zero/unavailable, token, cost, grouping, and correlation semantics;
-- validation results;
+- exact cross-level reconciliation semantics;
+- monetary assertion correction;
+- focused and full validation results;
 - remaining risks and scope confirmation;
 - one recommended review depth (`Light`, `Standard`, or `Deep`);
-- one-sentence reason for that recommendation;
+- one-sentence reason;
 - 3–6 suggested Reviewer focus areas;
 - Human Summary using the mandatory routing and one-sentence Handoff Note.
 
