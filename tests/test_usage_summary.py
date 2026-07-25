@@ -1240,3 +1240,168 @@ def test_cross_level_decimal_resource_exceptions_propagate_exactly(
         UsageSummary.from_dict(wire)
 
     assert captured.value is failure
+
+
+@pytest.mark.parametrize(
+    ("records", "expected"),
+    (
+        ((), (0, 0, 0)),
+        ((_record(1),), (1, 0, 0)),
+        (
+            (
+                _record(
+                    1,
+                    attempt_number=2,
+                    retry_of_invocation_id="ai-invocation.previous",
+                ),
+            ),
+            (1, 1, 0),
+        ),
+        (
+            (
+                _record(
+                    1,
+                    attempt_number=2,
+                    fallback_from_invocation_id="ai-invocation.previous",
+                ),
+            ),
+            (1, 0, 1),
+        ),
+        (
+            (
+                _record(
+                    1,
+                    attempt_number=2,
+                    retry_of_invocation_id="ai-invocation.previous",
+                ),
+                _record(
+                    2,
+                    attempt_number=2,
+                    fallback_from_invocation_id="ai-invocation.previous",
+                ),
+            ),
+            (2, 1, 1),
+        ),
+        (
+            (
+                _record(1),
+                _record(
+                    2,
+                    attempt_number=2,
+                    retry_of_invocation_id="ai-invocation.previous",
+                ),
+                _record(
+                    3,
+                    attempt_number=2,
+                    fallback_from_invocation_id="ai-invocation.previous",
+                ),
+            ),
+            (3, 1, 1),
+        ),
+        (
+            (
+                _record(1, provider="provider.a"),
+                _record(
+                    2,
+                    provider="provider.b",
+                    attempt_number=2,
+                    retry_of_invocation_id="ai-invocation.previous",
+                ),
+                _record(
+                    3,
+                    provider="provider.c",
+                    attempt_number=2,
+                    fallback_from_invocation_id="ai-invocation.previous",
+                ),
+            ),
+            (3, 1, 1),
+        ),
+    ),
+    ids=(
+        "empty",
+        "first-attempt",
+        "one-retry",
+        "one-fallback",
+        "retry-and-fallback",
+        "mixed-first-and-later",
+        "multiple-provider-groups",
+    ),
+)
+def test_valid_predecessor_aggregate_combinations_remain_canonical(
+    records: tuple[AIInvocationRecord, ...],
+    expected: tuple[int, int, int],
+) -> None:
+    summary = _summarize(records)
+
+    assert (
+        summary.invocation_count,
+        summary.retry_invocation_count,
+        summary.fallback_invocation_count,
+    ) == expected
+    assert UsageSummary.from_dict(summary.to_dict()).to_dict() == (
+        summary.to_dict()
+    )
+
+
+def test_top_level_retry_fallback_overlap_is_rejected() -> None:
+    summary = _summarize((_record(),))
+    updates = {
+        "retry_invocation_count": 1,
+        "fallback_invocation_count": 1,
+    }
+    wire = summary.to_dict()
+    wire.update(updates)
+
+    with pytest.raises(ValidationError):
+        UsageSummary(**wire)
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(wire)
+    with pytest.raises(ValidationError):
+        summary.model_copy(update=updates)
+
+
+def test_provider_group_retry_fallback_overlap_is_rejected() -> None:
+    summary = _summarize((_record(),))
+    group = summary.provider_model_groups[0]
+    updates = {
+        "retry_invocation_count": 1,
+        "fallback_invocation_count": 1,
+    }
+    wire = group.to_dict()
+    wire.update(updates)
+
+    with pytest.raises(ValidationError):
+        UsageProviderModelSummary(**wire)
+    with pytest.raises(UsageSummaryValidationError):
+        UsageProviderModelSummary.from_dict(wire)
+    with pytest.raises(ValidationError):
+        group.model_copy(update=updates)
+
+
+@pytest.mark.parametrize(
+    ("invocation_count", "retry_count", "fallback_count"),
+    (
+        (1, 1, 1),
+        (2, 2, 1),
+        (3, 2, 2),
+    ),
+)
+def test_reconciled_top_and_group_predecessor_overlap_is_rejected_safely(
+    invocation_count: int,
+    retry_count: int,
+    fallback_count: int,
+) -> None:
+    records = tuple(_record(index + 1) for index in range(invocation_count))
+    wire = _summarize(records).to_dict()
+    wire["scope_id"] = "session.runtime-secret-marker"
+    for metrics in (wire, wire["provider_model_groups"][0]):
+        metrics["retry_invocation_count"] = retry_count
+        metrics["fallback_invocation_count"] = fallback_count
+
+    with pytest.raises(UsageSummaryValidationError) as captured:
+        UsageSummary.from_dict(wire)
+
+    assert str(captured.value) == "invalid PMQA usage summary"
+    assert "runtime-secret-marker" not in str(captured.value)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None

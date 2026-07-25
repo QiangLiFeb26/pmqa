@@ -815,6 +815,8 @@ def _validate_metrics(
     if (
         retry_invocation_count > invocation_count
         or fallback_invocation_count > invocation_count
+        or retry_invocation_count
+        > invocation_count - fallback_invocation_count
     ):
         raise ValueError("predecessor counts cannot exceed invocation count")
     if tuple(item.field for item in token_fields) != tuple(TokenField):
