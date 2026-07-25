@@ -522,16 +522,7 @@ class UsageSummary(_SummaryContract):
             token_fields=self.token_fields,
             cost_buckets=self.cost_buckets,
         )
-        if (
-            sum(
-                item.invocation_count
-                for item in self.provider_model_groups
-            )
-            != self.invocation_count
-        ):
-            raise ValueError(
-                "provider/model groups must cover every invocation"
-            )
+        _validate_group_rollup(self)
         return self
 
 
@@ -699,7 +690,10 @@ class DefaultUsageAggregator:
             if first.cost_type in _MONETARY_COST_TYPES:
                 amount = Decimal(0)
                 for cost in costs:
-                    assert cost.amount is not None
+                    if cost.amount is None:
+                        raise UsageAggregationError(
+                            UsageAggregationErrorCode.INVALID_RECORD
+                        ) from None
                     amount = self._bounded_decimal_add(amount, cost.amount)
             cost_buckets.append(
                 UsageCostBucket(
@@ -837,6 +831,143 @@ def _validate_metrics(
         != invocation_count
     ):
         raise ValueError("cost buckets must cover every invocation")
+
+
+def _validate_group_rollup(summary: UsageSummary) -> None:
+    count_fields = (
+        "invocation_count",
+        "succeeded_invocation_count",
+        "failed_invocation_count",
+        "cancelled_invocation_count",
+        "retry_invocation_count",
+        "fallback_invocation_count",
+    )
+    for field_name in count_fields:
+        derived = 0
+        for group in summary.provider_model_groups:
+            derived = _bounded_summary_integer_add(
+                derived,
+                getattr(group, field_name),
+                MAX_USAGE_SUMMARY_RECORDS,
+            )
+        if derived != getattr(summary, field_name):
+            raise ValueError("provider/model count roll-up is inconsistent")
+
+    duration = 0
+    for group in summary.provider_model_groups:
+        duration = _bounded_summary_integer_add(
+            duration,
+            group.total_duration_ms,
+            MAX_USAGE_AGGREGATE_INTEGER,
+        )
+    if duration != summary.total_duration_ms:
+        raise ValueError("provider/model duration roll-up is inconsistent")
+
+    top_tokens = {item.field: item for item in summary.token_fields}
+    for field in TokenField:
+        observed = 0
+        unavailable = 0
+        total = 0
+        observed_total = False
+        for group in summary.provider_model_groups:
+            item = next(
+                token
+                for token in group.token_fields
+                if token.field is field
+            )
+            observed = _bounded_summary_integer_add(
+                observed,
+                item.observed_invocation_count,
+                MAX_USAGE_SUMMARY_RECORDS,
+            )
+            unavailable = _bounded_summary_integer_add(
+                unavailable,
+                item.unavailable_invocation_count,
+                MAX_USAGE_SUMMARY_RECORDS,
+            )
+            if item.total is not None:
+                observed_total = True
+                total = _bounded_summary_integer_add(
+                    total,
+                    item.total,
+                    MAX_USAGE_AGGREGATE_INTEGER,
+                )
+        top = top_tokens[field]
+        if (
+            observed != top.observed_invocation_count
+            or unavailable != top.unavailable_invocation_count
+        ):
+            raise ValueError("provider/model token coverage is inconsistent")
+        if top.total is None:
+            if observed_total:
+                raise ValueError("provider/model token total is inconsistent")
+        elif not observed_total or total != top.total:
+            raise ValueError("provider/model token total is inconsistent")
+
+    derived_costs: Dict[
+        tuple[Any, ...],
+        tuple[int, Optional[Decimal]],
+    ] = {}
+    for group in summary.provider_model_groups:
+        for bucket in group.cost_buckets:
+            identity = _cost_bucket_identity(bucket)
+            previous_count, previous_amount = derived_costs.get(
+                identity,
+                (0, None),
+            )
+            invocation_count = _bounded_summary_integer_add(
+                previous_count,
+                bucket.invocation_count,
+                MAX_USAGE_SUMMARY_RECORDS,
+            )
+            amount = None
+            if bucket.cost_type in _MONETARY_COST_TYPES:
+                if bucket.amount is None:
+                    raise ValueError(
+                        "monetary provider/model bucket requires an amount"
+                    )
+                amount = _bounded_summary_decimal_add(
+                    previous_amount or Decimal(0),
+                    bucket.amount,
+                )
+            derived_costs[identity] = (invocation_count, amount)
+
+    top_costs = {
+        _cost_bucket_identity(bucket): (bucket.invocation_count, bucket.amount)
+        for bucket in summary.cost_buckets
+    }
+    if derived_costs != top_costs:
+        raise ValueError("provider/model cost roll-up is inconsistent")
+
+
+def _bounded_summary_integer_add(
+    left: int,
+    right: int,
+    maximum: int,
+) -> int:
+    if right > maximum - left:
+        raise ValueError("provider/model integer roll-up exceeds bounds")
+    return left + right
+
+
+def _bounded_summary_decimal_add(
+    left: Decimal,
+    right: Decimal,
+) -> Decimal:
+    failed = False
+    canonical: Optional[Decimal] = None
+    try:
+        with localcontext() as context:
+            context.prec = 512
+            total = left + right
+        canonical = _canonical_decimal(total, "amount")
+    except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
+        raise
+    except Exception:
+        failed = True
+    if failed or canonical is None:
+        raise ValueError("provider/model cost roll-up exceeds bounds") from None
+    return canonical
 
 
 def _bounded_array(

@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, localcontext
 import json
+import subprocess
+import sys
 from typing import Any
 
 import pytest
@@ -213,6 +215,26 @@ def _assert_safe_error(
     assert "runtime-secret-marker" not in str(captured.value)
     assert captured.value.__cause__ is None
     assert captured.value.__context__ is None
+
+
+def _wire_token(
+    metrics: dict[str, Any],
+    field: TokenField,
+) -> dict[str, Any]:
+    return next(
+        item
+        for item in metrics["token_fields"]
+        if item["field"] == field.value
+    )
+
+
+def _shared_cost_records(
+    cost: CostEvidence,
+) -> tuple[AIInvocationRecord, ...]:
+    return (
+        _record(1, provider="provider.alpha", cost=cost),
+        _record(2, provider="provider.beta", cost=cost),
+    )
 
 
 def test_public_contract_fields_and_vocabularies_are_exact() -> None:
@@ -795,5 +817,426 @@ def test_resource_and_control_flow_exceptions_propagate_exactly(
 
     with pytest.raises(type(failure)) as captured:
         _summarize((_record(),))
+
+    assert captured.value is failure
+
+
+@pytest.mark.parametrize(
+    "group_updates",
+    (
+        {
+            "succeeded_invocation_count": 0,
+            "failed_invocation_count": 1,
+        },
+        {
+            "succeeded_invocation_count": 0,
+            "cancelled_invocation_count": 1,
+        },
+        {"retry_invocation_count": 1},
+        {"fallback_invocation_count": 1},
+    ),
+    ids=("succeeded-failed", "cancelled", "retry", "fallback"),
+)
+def test_cross_level_lifecycle_and_predecessor_mismatch_is_rejected(
+    group_updates: dict[str, int],
+) -> None:
+    wire = _summarize((_record(),)).to_dict()
+    wire["provider_model_groups"][0].update(group_updates)
+
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(wire)
+
+
+def test_cross_level_invocation_count_mismatch_is_rejected() -> None:
+    wire = _summarize(
+        (
+            _record(1, provider="provider.a"),
+            _record(2, provider="provider.b"),
+        )
+    ).to_dict()
+    group = wire["provider_model_groups"][0]
+    group["invocation_count"] = 2
+    group["succeeded_invocation_count"] = 2
+    for token in group["token_fields"]:
+        token["observed_invocation_count"] = 2
+        token["total"] *= 2
+    group["cost_buckets"][0]["invocation_count"] = 2
+    group["cost_buckets"][0]["amount"] = "0.2"
+
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(wire)
+
+
+def test_cross_level_duration_mismatch_rejected_by_all_entry_points() -> None:
+    summary = _summarize((_record(),))
+    wire = summary.to_dict()
+    wire["provider_model_groups"][0]["total_duration_ms"] = 999
+
+    with pytest.raises(ValidationError):
+        UsageSummary(**wire)
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(wire)
+
+    group = summary.provider_model_groups[0].model_copy(
+        update={"total_duration_ms": 999}
+    )
+    with pytest.raises(ValidationError):
+        summary.model_copy(update={"provider_model_groups": (group,)})
+
+
+def test_cross_level_token_observed_and_unavailable_counts_reconcile() -> None:
+    wire = _summarize(
+        (
+            _record(1),
+            _record(
+                2,
+                provider="provider.beta",
+                usage=_unavailable_usage(),
+            ),
+        )
+    ).to_dict()
+    unavailable_group = wire["provider_model_groups"][1]
+    group_token = _wire_token(unavailable_group, TokenField.INPUT_TOKENS)
+    group_token.update(
+        {
+            "total": 0,
+            "observed_invocation_count": 1,
+            "unavailable_invocation_count": 0,
+        }
+    )
+
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(wire)
+
+    wire = _summarize(
+        (
+            _record(1),
+            _record(
+                2,
+                provider="provider.beta",
+                usage=_unavailable_usage(),
+            ),
+        )
+    ).to_dict()
+    top_token = _wire_token(wire, TokenField.INPUT_TOKENS)
+    top_token.update(
+        {
+            "observed_invocation_count": 2,
+            "unavailable_invocation_count": 0,
+        }
+    )
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(wire)
+
+
+def test_cross_level_token_none_and_numeric_totals_reconcile() -> None:
+    unavailable_wire = _summarize(
+        (
+            _record(
+                1,
+                usage=_unavailable_usage(),
+                cost=_unavailable_cost(),
+            ),
+        )
+    ).to_dict()
+    group_token = _wire_token(
+        unavailable_wire["provider_model_groups"][0],
+        TokenField.INPUT_TOKENS,
+    )
+    group_token.update(
+        {
+            "total": 0,
+            "observed_invocation_count": 1,
+            "unavailable_invocation_count": 0,
+        }
+    )
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(unavailable_wire)
+
+    numeric_wire = _summarize((_record(),)).to_dict()
+    _wire_token(
+        numeric_wire["provider_model_groups"][0],
+        TokenField.INPUT_TOKENS,
+    )["total"] = 11
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(numeric_wire)
+
+    zero_record = _record(
+        usage=_usage(
+            input_tokens=0,
+            output_tokens=0,
+            cached_input_tokens=0,
+            total_tokens=0,
+        )
+    )
+    zero_wire = _summarize((zero_record,)).to_dict()
+    _wire_token(
+        zero_wire["provider_model_groups"][0],
+        TokenField.INPUT_TOKENS,
+    )["total"] = 1
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(zero_wire)
+
+
+def test_multiple_groups_merge_one_monetary_cost_identity_exactly() -> None:
+    records = _shared_cost_records(
+        _reported_cost(Decimal("0.1234567890123456789012345678"))
+    )
+    summary = _summarize(records)
+
+    assert len(summary.cost_buckets) == 1
+    assert summary.cost_buckets[0].invocation_count == 2
+    assert summary.cost_buckets[0].amount == Decimal(
+        "0.2469135780246913578024691356"
+    )
+    assert UsageSummary.from_dict(summary.to_dict()) == summary
+
+
+def test_multiple_groups_merge_subscription_and_unavailable_buckets() -> None:
+    records = (
+        _record(1, provider="provider.a", cost=_subscription_cost()),
+        _record(2, provider="provider.b", cost=_subscription_cost()),
+        _record(3, provider="provider.c", cost=_unavailable_cost()),
+        _record(4, provider="provider.d", cost=_unavailable_cost()),
+    )
+    summary = _summarize(records)
+
+    assert tuple(
+        (bucket.cost_type, bucket.invocation_count, bucket.amount)
+        for bucket in summary.cost_buckets
+    ) == (
+        (CostType.SUBSCRIPTION_INCLUDED, 2, None),
+        (CostType.UNAVAILABLE, 2, None),
+    )
+    assert UsageSummary.from_dict(summary.to_dict()) == summary
+
+
+def test_currency_and_pricing_provenance_remain_separate_across_groups() -> None:
+    records = (
+        _record(
+            1,
+            provider="provider.a",
+            cost=_reported_cost(currency="USD"),
+        ),
+        _record(
+            2,
+            provider="provider.b",
+            cost=_reported_cost(currency="EUR"),
+        ),
+        _record(
+            3,
+            provider="provider.c",
+            cost=_estimated_cost(version="pricing.v1"),
+        ),
+        _record(
+            4,
+            provider="provider.d",
+            cost=_estimated_cost(version="pricing.v2"),
+        ),
+    )
+    summary = _summarize(records)
+
+    assert len(summary.cost_buckets) == 4
+    assert UsageSummary.from_dict(summary.to_dict()) == summary
+
+
+def test_missing_and_extra_top_level_cost_identities_are_rejected() -> None:
+    different = _summarize(
+        (
+            _record(
+                1,
+                provider="provider.a",
+                cost=_reported_cost(Decimal("0.1"), currency="USD"),
+            ),
+            _record(
+                2,
+                provider="provider.b",
+                cost=_reported_cost(Decimal("1"), currency="EUR"),
+            ),
+        )
+    ).to_dict()
+    usd_bucket = next(
+        bucket
+        for bucket in different["cost_buckets"]
+        if bucket["currency"] == "USD"
+    )
+    usd_bucket["invocation_count"] = 2
+    usd_bucket["amount"] = "1.1"
+    different["cost_buckets"] = [usd_bucket]
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(different)
+
+    compatible = _summarize(
+        _shared_cost_records(_reported_cost(Decimal("0.1")))
+    ).to_dict()
+    first = dict(compatible["cost_buckets"][0])
+    first.update({"invocation_count": 1, "amount": "0.1"})
+    extra = dict(first)
+    extra["currency"] = "EUR"
+    compatible["cost_buckets"] = [first, extra]
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(compatible)
+
+
+def test_top_level_cost_amount_and_bucket_count_mismatch_are_rejected() -> None:
+    amount_wire = _summarize(
+        _shared_cost_records(_reported_cost(Decimal("0.1")))
+    ).to_dict()
+    amount_wire["cost_buckets"][0]["amount"] = "999"
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(amount_wire)
+
+    count_wire = _summarize(
+        (
+            _record(
+                1,
+                provider="provider.a",
+                cost=_reported_cost(currency="USD"),
+            ),
+            _record(
+                2,
+                provider="provider.a",
+                cost=_reported_cost(currency="USD"),
+            ),
+            _record(
+                3,
+                provider="provider.b",
+                cost=_reported_cost(currency="EUR"),
+            ),
+        )
+    ).to_dict()
+    for bucket in count_wire["cost_buckets"]:
+        bucket["invocation_count"] = (
+            1 if bucket["currency"] == "USD" else 2
+        )
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(count_wire)
+
+
+def test_cross_level_from_dict_failure_is_fixed_safe_and_marker_free() -> None:
+    wire = _summarize(
+        _shared_cost_records(_reported_cost(Decimal("0.1")))
+    ).to_dict()
+    wire["scope_id"] = "session.runtime-secret-marker"
+    wire["cost_buckets"][0]["amount"] = "999"
+
+    with pytest.raises(UsageSummaryValidationError) as captured:
+        UsageSummary.from_dict(wire)
+
+    assert str(captured.value) == "invalid PMQA usage summary"
+    assert "runtime-secret-marker" not in str(captured.value)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+    assert not isinstance(captured.value, UsageAggregationError)
+
+
+def test_cross_level_decimal_is_independent_of_ambient_precision() -> None:
+    summary = _summarize(
+        _shared_cost_records(
+            _reported_cost(Decimal("0.1234567890123456789012345678"))
+        )
+    )
+    wire = summary.to_dict()
+
+    with localcontext() as context:
+        context.prec = 2
+        reconstructed = UsageSummary.from_dict(wire)
+
+    assert reconstructed == summary
+
+
+def test_cross_level_integer_and_decimal_overflow_are_contract_failures() -> None:
+    duration_wire = _summarize(
+        (
+            _record(1, provider="provider.a"),
+            _record(2, provider="provider.b"),
+        )
+    ).to_dict()
+    for group in duration_wire["provider_model_groups"]:
+        group["total_duration_ms"] = MAX_USAGE_AGGREGATE_INTEGER
+    with pytest.raises(UsageSummaryValidationError):
+        UsageSummary.from_dict(duration_wire)
+
+    decimal_wire = _summarize(
+        _shared_cost_records(_reported_cost(Decimal("0.1")))
+    ).to_dict()
+    maximum = "9" * 128
+    for group in decimal_wire["provider_model_groups"]:
+        group["cost_buckets"][0]["amount"] = maximum
+    with pytest.raises(UsageSummaryValidationError) as captured:
+        UsageSummary.from_dict(decimal_wire)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
+def test_monetary_invariant_failure_uses_fixed_invalid_record(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record = _record()
+    record.cost.__dict__["amount"] = None
+
+    monkeypatch.setattr(
+        DefaultUsageAggregator,
+        "_snapshot_record",
+        staticmethod(lambda _record: record),
+    )
+
+    with pytest.raises(UsageAggregationError) as captured:
+        _summarize((record,))
+
+    _assert_safe_error(
+        captured,
+        UsageAggregationErrorCode.INVALID_RECORD,
+    )
+
+
+def test_monetary_invariant_is_explicit_under_optimized_python() -> None:
+    statement = "\n".join(
+        (
+            "import runpy",
+            "namespace = runpy.run_path('tests/test_usage_summary.py')",
+            "record = namespace['_record']()",
+            "summary = namespace['_summarize']((record,))",
+            "assert str(summary.cost_buckets[0].amount) == '0.1'",
+            "record.cost.__dict__['amount'] = None",
+            "aggregator = namespace['DefaultUsageAggregator']",
+            "aggregator._snapshot_record = staticmethod(lambda _value: record)",
+            "try:",
+            " namespace['_summarize']((record,))",
+            "except namespace['UsageAggregationError'] as error:",
+            " expected = namespace['UsageAggregationErrorCode'].INVALID_RECORD",
+            " assert error.code is expected",
+            "else:",
+            " raise AssertionError('invalid monetary evidence was accepted')",
+        )
+    )
+    completed = subprocess.run(
+        [sys.executable, "-O", "-c", statement],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+@pytest.mark.parametrize(
+    "failure",
+    (MemoryError(), KeyboardInterrupt(), SystemExit(), GeneratorExit()),
+)
+def test_cross_level_decimal_resource_exceptions_propagate_exactly(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: BaseException,
+) -> None:
+    wire = _summarize(
+        _shared_cost_records(_reported_cost(Decimal("0.1")))
+    ).to_dict()
+
+    def fail_decimal(_value, _field_name):
+        raise failure
+
+    monkeypatch.setattr(summary_module, "_canonical_decimal", fail_decimal)
+    with pytest.raises(type(failure)) as captured:
+        UsageSummary.from_dict(wire)
 
     assert captured.value is failure
