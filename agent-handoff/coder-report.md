@@ -2,11 +2,11 @@
 
 Owner: Coder
 
-Task: PMQA Task 5C.7 — Deterministic Usage Summary Contracts and Pure Aggregation
+Task: PMQA Task 5C.7 — Cross-Level Summary Consistency
 
 Task ID: `PMQA-5C.7`
 
-Attempt: `1`
+Attempt: `2`
 
 Status: Ready for Independent Reviewer
 
@@ -18,227 +18,235 @@ Branch:
 
 Exact Git-derived Coder starting HEAD:
 
-`4128ef969e1a3dc90297a74c513a6cd2eabf0376`
+`370434c4c42c31b3bde573f10bf63e2b503b0c00`
 
 That commit is the latest path-specific publication of
-`agent-handoff/current-task.md`, identifies Task `PMQA-5C.7` Attempt `1`, and
-was the clean local and tracking-branch HEAD before implementation. The
-Architect-reviewed Task 5C.6 Reviewer baseline
-`a258ba59b7fdd1edb6e01ab738ea9203610e954b` is its parent and ancestor. No
-Task 5C.6 commit was amended.
+`agent-handoff/current-task.md`, identifies Task `PMQA-5C.7` Attempt `2`, and
+was the clean local and tracking-branch HEAD before remediation. The reviewed
+Attempt 1 Reviewer HEAD
+`569c519c043b3ce97a17dca5d1370ed60a6bc5d9` is its ancestor. No Attempt 1
+implementation or report commit was amended.
 
-## Implementation Commit
+## Remediation Implementation Commit
 
-`eeba9a9dd1d2fac6a007580d4511fbb51722bd15`
+`3419a9e5d4460186c2608dbd7f1e26762241c070`
 
 Commit message:
 
-`add deterministic usage summaries`
+`enforce Task 5C.7 summary consistency`
 
-This report is committed separately after the implementation commit. The
+This report is committed separately after the remediation commit. The
 Independent Reviewer derives the report commit from Git; this report does not
 claim its own future commit SHA.
 
 ## Changed Files
 
-Implementation commit:
+Remediation implementation commit:
 
-- `README.md`
-- `docs/Roadmap.md`
-- `docs/architecture.md`
-- `docs/architecture/usage-cost-contracts.md`
-- `pmqa/usage/__init__.py`
 - `pmqa/usage/summary.py`
-- `tests/test_packaging.py`
-- `tests/test_usage_imports.py`
 - `tests/test_usage_summary.py`
 
 Report-only handoff commit:
 
 - `agent-handoff/coder-report.md`
 
-No Architect- or Reviewer-owned handoff file changed.
+No other implementation, test, documentation, packaging, or handoff file
+changed.
 
-## Public Contracts and Aggregation API
+## Cross-Level Reconciliation
 
-`pmqa.usage` now exports:
+Every `UsageSummary` now runs one contract-owned group roll-up validator after
+the existing top-level and nested validations. It reconstructs the complete
+top-level metrics exclusively from the canonical
+`provider_model_groups` snapshots and compares them to the public top-level
+values.
 
-- `UsageSummaryScope` with exact `session` and `run` values;
-- strict frozen `UsageTokenFieldSummary`, `UsageCostBucket`,
-  `UsageProviderModelSummary`, and `UsageSummary` contracts;
-- runtime-checkable synchronous `UsageAggregator`;
-- pure stateless `DefaultUsageAggregator`;
-- fixed `UsageAggregationErrorCode` and `UsageAggregationError`;
-- fixed `UsageSummaryValidationError`; and
-- explicit schema, record-count, and aggregate-integer bounds.
+The following counts are independently accumulated with exact bounded integer
+addition and must equal the top-level values:
 
-The aggregator accepts only a built-in tuple of exact
-`AIInvocationRecord` instances, an exact scope enum, and a canonical existing
-identifier. It independently reconstructs every invocation, rejects duplicate
-IDs and mixed correlation, and returns an independently reconstructed
-canonical summary. It retains no caller container or record and has no
-repository, clock, provider, pricing, callback, workflow, or CLI dependency.
+- invocation;
+- succeeded, failed, and cancelled invocation;
+- retry invocation; and
+- fallback invocation.
 
-## Empty, Zero, Partial, and Unavailable Semantics
+Group `total_duration_ms` is accumulated with the aggregate integer bound and
+must equal top-level duration. Addition checks the remaining bound before each
+operation; it does not use float conversion, unchecked `sum`, clamping, or
+wrap behavior. Reconciliation overflow is a normal contract `ValueError`, so
+persisted `from_dict()` exposes only `UsageSummaryValidationError`.
 
-An empty explicit selection is valid and yields numeric zero for invocation,
-status, predecessor, and duration counts; every `TokenField` appears once with
-`total=None` and zero observed/unavailable coverage; cost buckets and
-provider/model groups are empty. No unavailable invocation is fabricated.
+## Token Reconciliation
 
-Each non-empty token-field summary records an optional total, observed count,
-and unavailable count whose sum equals invocation count. No observation means
-`None`; an observed zero remains numeric zero. Partial totals coexist with
-explicit unavailable coverage and do not claim to cover missing records.
-Unavailable reasons remain on invocation evidence rather than being guessed
-or collapsed.
+For every exact `TokenField`, the validator:
 
-Status counts cover every invocation. Retry and fallback counts use only the
-explicit predecessor fields, not `attempt_number`. Duration sums canonical
-`duration_ms`, never wall-clock differences. Exact integer overflow fails with
-the fixed aggregate-overflow error.
+- sums group observed coverage with the record-count bound;
+- sums group unavailable coverage with the same bound;
+- requires both counts to equal the corresponding top-level counts;
+- requires every group total to remain `None` when the top total is `None`;
+  and
+- otherwise sums all observed group totals with the aggregate integer bound
+  and requires exact equality with the top total.
 
-## Cost and Decimal Semantics
+An explicit observed-total flag keeps numeric zero distinct from absence.
+Mixed observed/unavailable provider groups remain valid when their counts and
+observed totals reconcile. No unavailable group contributes an inferred
+numeric value.
 
-Every invocation contributes to exactly one cost bucket. Monetary bucket
-identity includes cost type, currency, pricing source ID, pricing version, and
-pricing effective timestamp. Provider-reported and estimated evidence,
-different currencies, and distinct pricing versions/effective times therefore
-never merge.
+## Cost-Bucket Reconciliation
 
-Subscription-included and unavailable evidence remain non-monetary; unavailable
-reasons form distinct buckets. Monetary zero remains a real amount. Decimal
-addition uses an explicit high-precision local context, never float or ambient
-precision, and the existing canonical Decimal bound is revalidated after each
-addition. Aggregate Decimal overflow fails safely.
+All group buckets are re-aggregated by the existing complete identity:
 
-## Provider/Model Grouping and Determinism
+- cost type;
+- currency;
+- pricing source ID;
+- pricing version;
+- pricing effective timestamp; and
+- unavailable reason.
 
-Each exact provider plus known model or exact model-unavailable reason produces
-one non-recursive `UsageProviderModelSummary` with the same status,
-retry/fallback, duration, token, and cost semantics as the top level. Known
-models and unavailable-model reasons cannot merge.
+Multiple provider/model groups may contribute to one identity. Invocation
+counts are merged with the record-count bound. Monetary amounts are merged as
+`Decimal` inside a local precision-512 context, then revalidated through the
+existing canonical Decimal bound. No float or caller ambient precision is
+used. Subscription-included and unavailable buckets retain `amount=None`.
 
-Token fields follow `TokenField` order. Cost buckets follow stable cost-type
-and complete-identity order. Provider/model groups sort by provider, known
-model before unavailable model, then exact identity. Reversed and arbitrary
-input orders produce equal summaries and byte-equivalent canonical JSON
-trees. The defined maximum of 64 records is validated with 64 distinct
-provider groups and 64 distinct cost buckets, including a complete canonical
-round trip.
+The normalized derived mapping must exactly equal the top-level identity set,
+invocation counts, and amounts. Missing, extra, currency/provenance-different,
+count-mismatched, and amount-mismatched buckets are rejected. Ordinary Decimal
+or bound failures become contract `ValueError`; resource/control-flow
+exceptions remain authoritative.
 
-## Contract, Error, and Security Boundaries
+The empty summary remains valid because every bounded roll-up is zero, every
+token field has no observed group total, and both cost/group collections are
+empty.
 
-All public records reuse the existing strict frozen Pydantic v2 Run/Usage
-boundary: forbidden extras, hidden invalid input, canonical plain-JSON
-`to_dict()`/`from_dict()`, fully revalidated `model_copy`, bounded trees and
-identifiers, deep immutable tuples, and reconstructed nested contracts.
-Summary reconstruction has one fixed safe error; aggregation has five fixed
-bounded errors for invalid request, invalid record, correlation mismatch,
-duplicate invocation, and aggregate overflow.
+## Contract Entry Points
 
-Tests inject unknown prohibited keys, runtime objects, invalid identifiers,
-mutated records, and marker-bearing values. Expected failures expose no
-identifier, provider/model, amount, payload, object representation, cause, or
-context. `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and
-`GeneratorExit` propagate with exact identity. No second prohibited-key list
-was added.
+The invariant is enforced by the `UsageSummary` model validator and therefore
+applies to:
 
-## Import and Packaging Isolation
+- direct `UsageSummary(...)` construction;
+- fixed-safe `UsageSummary.from_dict(...)`;
+- fully revalidated `model_copy(update=...)`; and
+- output from `DefaultUsageAggregator.summarize(...)`.
 
-Import coverage proves the expanded `pmqa.usage` surface performs no
-filesystem, environment, distribution, process, browser, product, Product
-Pack, provider, runner, Application Service, workflow, LangGraph, storage,
-SQLite, pricing lookup, CLI, or UI work. Top-level `pmqa` remains usage-lazy.
-The real-wheel regression explicitly includes `pmqa/usage/summary.py` and
-imports the summary protocol/default implementation from an unrelated
-directory. No runtime or build dependency was added.
+Tests start from real aggregator output and independently mutate canonical
+group or top-level wire values. Direct construction and revalidated-copy tests
+prove neither alternate public entry point bypasses reconciliation.
+`from_dict()` contradictions return only `invalid PMQA usage summary`, without
+marker, identifier, provider/model, amount, cause, context, aggregation code,
+or underlying arithmetic detail.
 
-## Documentation
+## Monetary Assertion Correction
 
-The four allowed status/architecture surfaces now record that Task 5C.6 passed
-architecture review and Task 5C.7 is ready for review. They document explicit
-bounded caller selection, zero/partial/unavailable meaning, cost type/currency/
-provenance separation, deterministic grouping, and the absence of repository
-completeness claims. Repository-backed selection, CLI rendering,
-outcome-metric joining, pricing calculation, provider integration, retention,
-and optimization remain deferred. Task 5C remains in progress and unmerged;
-Task 5B, Task 6, and Task 7 remain not started.
+The aggregation loop no longer contains:
+
+```text
+assert cost.amount is not None
+```
+
+It uses an explicit checked branch. Impossible monetary evidence at that
+service boundary raises the existing fixed
+`UsageAggregationErrorCode.INVALID_RECORD` without leaking the record or
+amount. An automated subprocess regression executes both valid monetary
+aggregation and the impossible-evidence branch under `python -O`, proving
+behavior does not depend on assertions. Resource/control-flow propagation is
+unchanged.
+
+## Focused Adversarial Coverage
+
+The added tests cover:
+
+- invocation, lifecycle, retry/fallback, and duration contradictions;
+- observed/unavailable token coverage, `None`, numeric total, and zero
+  contradictions;
+- missing, extra, different, count-mismatched, and amount-mismatched cost
+  buckets;
+- multiple groups merging one monetary, subscription, or unavailable
+  identity;
+- currency and pricing-provenance separation;
+- direct construction, `from_dict`, and `model_copy` enforcement;
+- input-order-independent existing aggregator output and empty summary
+  preservation;
+- reduced ambient Decimal precision;
+- integer and Decimal reconciliation overflow;
+- fixed marker-safe reconstruction;
+- optimized-Python monetary invariant behavior; and
+- exact `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit`
+  propagation from Decimal reconciliation.
+
+No public field, enum, schema version, limit, cost identity, ordering rule,
+canonical serialization, or aggregation meaning changed.
 
 ## Validation Results
 
-- Focused summary, repository, collector, usage contracts, pricing, and import
-  tests: `245 passed`.
+- Summary-only focused tests: `52 passed`.
+- Summary, repository, collector, usage contracts, pricing, and usage-import
+  tests: `267 passed`.
 - Run, Runner contract, Application contract/service, boundary-policy, and
   real-wheel packaging regressions: `332 passed`.
 - Task 4 runtime, reducer, Supervisor, and LangGraph regressions:
   `98 passed` with one existing LangGraph pending-deprecation warning.
-- Full default suite: `1806 passed, 5 skipped` with the same existing warning.
+- Full default suite: `1828 passed, 5 skipped` with the same existing warning.
   The skips are existing opt-in live/external environment gates.
 - Generated SauceDemo Playwright regressions: `2 passed`.
 - Isolated `compileall` for `pmqa` and `products`: passed with bytecode routed
-  to a temporary directory.
-- Markdown relative-link validation: passed.
+  to `/private/tmp`.
 - `git diff --check`: passed.
 - Pre-report implementation worktree: clean.
 
-All new and default summary tests remained offline. They invoked no model,
-provider CLI, network, browser, Node.js, external Product Pack, or repository
-runtime output.
-
-## Scope Confirmation
-
-No repository read/write or completeness logic, pagination, CLI command or
-rendering, outcome-metric join, price lookup or calculation, provider parser
-or SDK, collector persistence, workflow/Application Service/Runner
-integration, retry/fallback execution policy, retention, database, background
-work, remote storage, budget, optimization, model routing, or quality scoring
-was added. Existing usage contracts, pricing, collector, repository, Run,
-Runner, Application Service, WorkflowState, LangGraph, Supervisor, Task 5,
-and Product Pack behavior were not modified. Task 5B, Task 6, and Task 7 were
-not started. No PR was created and nothing was merged.
+All focused remediation and default tests remained offline. New tests invoked
+no model, provider CLI, network, browser, Node.js, repository output, or
+external Product Pack.
 
 ## Remaining Risks and Open Items
 
-- A summary describes only the caller's explicit bounded selection and cannot
-  prove repository completeness; that integration remains deferred.
-- The conservative 64-record limit is intentional for canonical tree bounds;
-  pagination and larger repository-backed reporting remain future policy.
-- Provider-reported and estimated amounts are aggregated exactly as supplied;
-  evidence reliability, price calculation, and outcome interpretation remain
-  outside this pure domain service.
+- A summary still describes only the caller's explicit bounded selection; it
+  does not claim repository completeness.
+- The public maximum remains 64 records, so larger persisted selections still
+  require future pagination/selection policy.
+- Provider-reported and estimated amounts are reconciled exactly as evidence;
+  reliability and price calculation remain outside this service.
 
-These are explicit task boundaries, not known acceptance blockers.
+These are preserved Task 5C.7 boundaries, not known remediation blockers.
+
+## Scope Confirmation
+
+No field, enum, schema, public error code, repository integration, pagination,
+CLI/UI, pricing lookup, provider adapter, workflow integration, persistence,
+retention, database, or runtime dependency was added. Usage contracts,
+pricing, collector, repository, Run, Runner, Application Service,
+WorkflowState, LangGraph, Supervisor, Task 5, and Product Pack behavior were
+not modified. Task 5D, Task 5B, Task 6, and Task 7 were not started. No PR was
+created and nothing was merged.
 
 ## Recommended Review Depth
 
 **Deep**
 
-Reason: the new canonical aggregate tree encodes subtle missing-versus-zero,
-cost-provenance, overflow, and input-order invariants that warrant adversarial
-contract review despite broad focused coverage.
+Reason: this remediation makes a persisted multi-level aggregate
+mathematically self-proving across bounded integers, missing-versus-zero
+tokens, complete cost identities, and exact Decimal arithmetic.
 
 ## Suggested Reviewer Focus
 
-- Challenge empty, zero, partial, unavailable, status, predecessor, and
-  overflow invariants at both top-level and provider/model-group contracts.
-- Verify reported/estimated, currency, pricing provenance,
-  subscription-included, unavailable reason, and Decimal identities never
-  merge incorrectly.
-- Confirm all ordering is input-independent and public contract round trips or
-  revalidated copies cannot admit noncanonical nested collections.
-- Exercise exact tuple/record boundaries, duplicate and correlation rejection,
-  fixed marker-safe errors, and resource/control-flow propagation.
-- Confirm import/wheel isolation and absence of repository, pricing,
-  provider, workflow, CLI, or new dependency coupling.
+- Independently mutate each count, duration, and token dimension while
+  preserving nested contract validity and confirm cross-level rejection.
+- Challenge cost identity merging across currencies, provenance, monetary and
+  non-monetary buckets, including multiple contributing groups.
+- Verify integer/Decimal overflow is contract validation rather than
+  `UsageAggregationError`, `InvalidOperation`, or ambient-context behavior.
+- Confirm direct construction, `from_dict`, and revalidated copies all execute
+  the same invariant with fixed marker-safe reconstruction.
+- Inspect the explicit monetary branch under optimized Python and exact
+  resource/control-flow propagation.
 
 ## Human Summary
 
-Task 5C.7 Attempt 1 已在指定分支完成，精确起点为 `4128ef969e1a3dc90297a74c513a6cd2eabf0376`。
-实现提交为 `eeba9a9dd1d2fac6a007580d4511fbb51722bd15`。
-新增严格 usage summary contracts 与纯聚合器，保持 zero/partial/unavailable、cost provenance 和 provider/model 分组语义。
-输入顺序、Decimal、overflow、correlation、canonical round-trip、import/wheel 隔离均有专项验证。
-验证结果：focused 245、边界/packaging 332、Task 4 回归 98、全量 1806 passed / 5 skipped、Playwright 2 passed。
-未接入 repository、CLI、pricing/provider/workflow，也未开始 Task 5B、Task 6 或 Task 7。
+PMQA-5C.7 Attempt 2 已完成，精确起点为 `370434c4c42c31b3bde573f10bf63e2b503b0c00`。
+remediation 提交为 `3419a9e5d4460186c2608dbd7f1e26762241c070`。
+所有 lifecycle、predecessor、duration、token 与 cost 指标现在必须由 provider/model groups 精确回卷得到。
+bounded integer、missing-versus-zero、完整 cost identity 与 Decimal ambient-precision 边界均已覆盖。
+monetary aggregation 已移除 domain assert，并通过 `python -O` 回归验证固定 `INVALID_RECORD` 行为。
+验证结果：focused 267、边界/packaging 332、Task 4 回归 98、全量 1828 passed / 5 skipped、Playwright 2 passed。
 Action Needed From Human: 请将下方 Handoff Note 传递给 Independent Reviewer。
-Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 PMQA-5C.7 review。
+Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 review。
