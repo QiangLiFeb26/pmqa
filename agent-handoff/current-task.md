@@ -2,18 +2,18 @@
 
 Owner: Architect
 
-Task: PMQA Task 5C.7 — Cross-Level Summary Consistency
+Task: PMQA Task 5C.7 — Retry/Fallback Aggregate Exclusivity
 
 Task ID: `PMQA-5C.7`
 
-Attempt: `2`
+Attempt: `3`
 
 Status: Changes Required
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
-Reviewed Attempt 1 Reviewer HEAD:
-`569c519c043b3ce97a17dca5d1370ed60a6bc5d9`
+Reviewed Attempt 2 Reviewer HEAD:
+`d6b1acd1572bf55de8cb85ed303059b832daa55d`
 
 Coder starting HEAD: derive and record the latest pushed branch commit that
 contains this remediation publication before changing implementation files.
@@ -23,216 +23,120 @@ informational only.
 
 ## Task Objective
 
-Make every successfully constructed `UsageSummary` prove that its top-level
-metrics are the exact deterministic roll-up of its
-`provider_model_groups`.
+Enforce the final Task 5C.7 predecessor-count invariant:
 
-Also replace the internal monetary `assert` with an explicit fixed safe
-invariant check.
+```text
+retry_invocation_count + fallback_invocation_count
+    <= invocation_count
+```
 
-Do not change public fields, aggregation meaning, limits, ordering, or
-Task 5C.7 scope.
+The invariant must apply to both top-level `UsageSummary` and every
+`UsageProviderModelSummary`.
+
+This is a minimal contract correction. Do not change fields, aggregation
+output, cross-level reconciliation, or Task 5C.7 architecture.
 
 ## Background
 
-Attempt 1 correctly generates internally consistent summaries through
-`DefaultUsageAggregator`, but the public contract accepts a contradictory
-wire payload as long as group invocation counts add to the top-level count.
+Every valid `AIInvocationRecord` permits:
 
-The Architect reproduced a `UsageSummary.from_dict()` result where the
-top-level claimed:
+- no predecessor for attempt one; or
+- exactly one retry predecessor for a later attempt; or
+- exactly one fallback predecessor for a later attempt.
 
-```text
-succeeded=1, duration=100ms, input_tokens=10, cost=USD 0.1
-```
+The two predecessor categories are mutually exclusive per invocation.
 
-while the only provider/model group claimed:
+Task 5C.7 currently validates each aggregate count independently:
 
 ```text
-failed=1, duration=999ms, input_tokens=999, cost=USD 999
+retry <= invocation_count
+fallback <= invocation_count
 ```
 
-Both nested views were individually valid and `invocation_count` remained
-one, so the current validator accepted the impossible aggregate.
+It therefore accepts this impossible canonical payload:
 
-The full evidence and disposition are in
-`agent-handoff/architect-review.md`.
-
-## Scope
-
-- Add complete top-level/provider-group reconciliation to `UsageSummary`.
-- Add focused adversarial contract tests.
-- Replace the monetary `assert` with an explicit fixed safe branch.
-- Replace `agent-handoff/coder-report.md` with the Attempt 2 report.
-
-No public field, enum, schema version, limit, or aggregation policy changes.
-
-## Required Cross-Level Invariants
-
-For every valid `UsageSummary`, provider/model groups must collectively
-reconstruct the exact top-level:
-
-### Invocation and lifecycle counts
-
-The sum across all groups must equal the corresponding top-level value for:
-
-- invocation count;
-- succeeded invocation count;
-- failed invocation count;
-- cancelled invocation count;
-- retry invocation count;
-- fallback invocation count.
-
-### Duration
-
-The exact bounded sum of group `total_duration_ms` must equal the top-level
-`total_duration_ms`.
-
-Use bounded integer arithmetic. Do not allow wrap, clamp, float conversion,
-or unchecked sum behavior.
-
-Contract reconciliation failures, including reconciliation overflow, must
-surface through normal contract validation (`ValueError` /
-`UsageSummaryValidationError` at the applicable public entry point). Do not
-let the service-owned `UsageAggregationError` escape from
-`UsageSummary.from_dict()`.
-
-### Token fields
-
-For every exact `TokenField`:
-
-- sum of group observed counts equals top-level observed count;
-- sum of group unavailable counts equals top-level unavailable count;
-- if top-level `total is None`, every group must have `total is None`;
-- otherwise, the exact bounded sum of every observed group total equals the
-  top-level total;
-- observed numeric zero remains zero;
-- mixed observed/unavailable group coverage remains valid when it reconciles.
-
-Do not infer values for unavailable groups.
-
-### Cost buckets
-
-Re-aggregate all group cost buckets by the existing complete cost identity:
-
-- cost type;
-- currency;
-- pricing source ID;
-- pricing version;
-- pricing effective timestamp;
-- unavailable reason.
-
-The normalized group-derived buckets must match the top-level buckets exactly:
-
-- identical identity set;
-- exact invocation counts;
-- exact monetary amount for monetary buckets;
-- no amount for subscription-included or unavailable buckets.
-
-Multiple provider/model groups may legitimately contribute to the same
-top-level cost-bucket identity. Merge those contributions using exact bounded
-Decimal arithmetic before comparison.
-
-Do not compare Decimal through float conversion or caller ambient precision.
-The contract validator must contain Decimal bound failures as contract
-validation, not leak `InvalidOperation`, `UsageAggregationError`, or an
-underlying arithmetic exception.
-
-### Empty summary
-
-The existing empty summary remains valid:
-
-- no provider/model groups;
-- zero lifecycle/duration/predecessor counts;
-- every token field has `total=None` and zero coverage;
-- no cost buckets.
-
-## Contract Entry Points
-
-The invariant must hold through:
-
-- direct `UsageSummary(...)` construction;
-- `UsageSummary.from_dict(...)`;
-- `UsageSummary.model_copy(update=...)`;
-- `DefaultUsageAggregator.summarize(...)`.
-
-Expected direct construction/copy failures may remain Pydantic
-`ValidationError` consistent with existing contract style.
-
-Persisted reconstruction must expose only the fixed
-`UsageSummaryValidationError`, with no contradictory identifier, provider,
-model, amount, marker, underlying message, cause, or context.
-
-## Monetary Assertion Remediation
-
-Replace:
-
-```python
-assert cost.amount is not None
+```text
+invocation_count=1
+retry_invocation_count=1
+fallback_invocation_count=1
 ```
 
-with an explicit checked branch.
+When the same contradiction is present at top-level and in the sole
+provider/model group, cross-level roll-up validation also succeeds.
 
-Requirements:
+The complete evidence is in `agent-handoff/architect-review.md`.
 
-- do not add a public error code;
-- impossible monetary evidence at the aggregation boundary fails with the
-  existing fixed `UsageAggregationErrorCode.INVALID_RECORD`;
-- do not leak the record, amount, provider/model identity, or underlying
-  exception;
-- retain exact resource/control-flow propagation;
-- valid monetary aggregation remains unchanged under normal and `python -O`
-  execution.
+## Required Correction
+
+Update the existing shared metrics validator so:
+
+- `retry_invocation_count + fallback_invocation_count` cannot exceed
+  `invocation_count`;
+- the addition is bounded and cannot wrap or depend on unchecked arithmetic;
+- the invariant applies to both `UsageSummary` and
+  `UsageProviderModelSummary`;
+- direct construction and `model_copy(update=...)` fail through normal
+  Pydantic contract validation;
+- `UsageSummary.from_dict()` contradictions expose only fixed
+  `UsageSummaryValidationError`;
+- no identifier, count, provider/model, marker, underlying message, cause, or
+  context leaks;
+- valid generated summaries remain byte-identical.
+
+Do not require:
+
+```text
+retry + fallback == invocation_count
+```
+
+Attempt-one invocations legitimately contribute to neither category.
+
+## Required Valid Cases
+
+Retain and test:
+
+- empty summary: invocation `0`, retry `0`, fallback `0`;
+- one first attempt: invocation `1`, retry `0`, fallback `0`;
+- one retry: invocation `1`, retry `1`, fallback `0`;
+- one fallback: invocation `1`, retry `0`, fallback `1`;
+- two invocations, one retry and one fallback:
+  invocation `2`, retry `1`, fallback `1`;
+- mixed first attempts and later attempts where the combined predecessor
+  count is less than invocation count;
+- multiple provider/model groups whose combined top-level counts remain
+  valid.
+
+## Required Rejection Cases
+
+Reject:
+
+- top-level invocation `1`, retry `1`, fallback `1`;
+- provider/model group invocation `1`, retry `1`, fallback `1`;
+- a canonical wire where top-level and group both contain the same impossible
+  overlap and therefore still reconcile cross-level;
+- any larger values where combined retry/fallback exceeds invocation count;
+- bypass attempts through direct construction, `from_dict()`, or
+  `model_copy(update=...)`.
+
+Start from a real `DefaultUsageAggregator` result and mutate only the intended
+predecessor counts where practical, so tests reach this invariant rather than
+an unrelated nested failure.
 
 ## Preserve Existing Behavior
 
 Do not change:
 
-- any public Task 5C.7 field set or enum;
-- `USAGE_SUMMARY_SCHEMA_VERSION`;
-- `MAX_USAGE_SUMMARY_RECORDS`;
-- aggregate integer bounds;
-- empty/zero/partial/unavailable semantics;
-- cost-bucket identity or ordering;
-- provider/model identity or ordering;
-- canonical JSON serialization;
-- input tuple, exact record, duplicate, and correlation boundaries;
+- public fields, enums, schema versions, or error codes;
+- record-count, integer, Decimal, or canonical-tree bounds;
+- provider/model roll-up reconciliation;
+- status, duration, token, or cost semantics;
+- empty/zero/partial/unavailable behavior;
+- cost-bucket or provider/model ordering;
+- canonical serialization;
+- `DefaultUsageAggregator` output for valid records;
 - repository, collector, pricing, Run, Runner, Application Service,
   WorkflowState, LangGraph, or Product Pack behavior;
 - import or packaging isolation.
-
-## Required Tests
-
-Add focused tests that independently mutate otherwise canonical summaries and
-prove rejection for:
-
-- top-level versus group succeeded/failed/cancelled mismatch;
-- retry and fallback mismatch;
-- duration mismatch;
-- token observed-count mismatch;
-- token unavailable-count mismatch;
-- token `None` versus observed total mismatch;
-- token numeric total mismatch, including zero;
-- missing, extra, or different top-level cost-bucket identity;
-- monetary cost amount mismatch;
-- cost-bucket invocation-count mismatch;
-- multiple groups contributing to one compatible top-level monetary bucket;
-- multiple groups contributing to subscription/unavailable buckets;
-- different currency and pricing-provenance buckets remaining separate;
-- empty summary remaining valid;
-- `from_dict()` fixed safe failure with marker/cause/context checks;
-- `model_copy(update=...)` revalidation;
-- input-order-independent canonical aggregator output remaining unchanged;
-- exact Decimal behavior under reduced caller ambient precision;
-- bounded integer and Decimal reconciliation overflow;
-- explicit monetary-invariant failure without relying on `assert`;
-- resource/control-flow exception propagation.
-
-Use canonical summaries from the real aggregator as the starting point for
-adversarial wire mutations where practical.
-
-Do not weaken a test by creating an object that fails an unrelated nested
-contract before reaching cross-level validation.
 
 ## Allowed Changes
 
@@ -240,9 +144,7 @@ contract before reaching cross-level validation.
 - `tests/test_usage_summary.py`;
 - `agent-handoff/coder-report.md`.
 
-Minimal additive changes to `tests/test_usage_imports.py` or
-`tests/test_packaging.py` are allowed only if genuinely required by the
-remediation; none are expected.
+No documentation, import, or packaging change is expected.
 
 Do not modify:
 
@@ -250,27 +152,22 @@ Do not modify:
 - `agent-handoff/current-task.md`;
 - `agent-handoff/reviewer-report.md`;
 - `agent-handoff/architect-review.md`;
-- public usage contracts, pricing, collector, or repository;
-- README, Roadmap, or architecture documentation;
-- RunRecord, Runner, Application Service, WorkflowState, LangGraph,
-  Supervisor, Task 5, or Product Pack behavior.
+- any other production or test module.
 
-Use one focused remediation implementation commit and one report-only Coder
-handoff commit. Do not amend Attempt 1.
+Use one minimal remediation implementation commit and one report-only Coder
+handoff commit. Do not amend previous attempts.
 
 ## Out of Scope
 
 Do not add:
 
-- new summary fields, enum values, schema versions, or public error codes;
-- repository-backed selection, pagination, or completeness claims;
+- any other Task 5C feature;
+- new summary fields or aggregate categories;
+- repository-backed selection or pagination;
 - CLI or Web UI;
-- conversation, workflow, capability, artifact, or approval contracts;
-- pricing lookup or cost calculation;
-- provider/Copilot/ADO integration;
-- outcome metrics;
-- automatic persistence;
-- retention, deletion, migration, database, or remote storage;
+- conversation, workflow, capability, artifact, approval, ADO, or Copilot
+  integration;
+- pricing calculation or provider parsing;
 - Task 5D, Task 5B, Task 6, or Task 7;
 - PR creation or merge.
 
@@ -293,37 +190,34 @@ Use an isolated bytecode cache for compileall. New tests remain offline.
 
 ## Acceptance Criteria
 
-- no public `UsageSummary` can contain contradictory top-level and grouped
-  lifecycle, predecessor, duration, token, or cost evidence;
-- every contract entry point enforces the invariant;
-- exact bounded integer and Decimal semantics remain deterministic;
-- monetary aggregation contains no domain `assert`;
-- fixed safe errors and exact resource/control-flow propagation remain intact;
-- generated aggregator output and canonical wire format remain unchanged;
-- existing Task 5C.4–5C.7, application, Task 4, Task 5, Product Pack,
-  import, and packaging regressions remain green;
+- no canonical top-level or provider/model summary can count one invocation
+  in both retry and fallback categories;
+- valid combinations, including one retry plus one fallback across two
+  invocations, remain accepted;
+- all public contract entry points enforce the invariant;
+- fixed safe errors and exact resource/control-flow behavior remain intact;
+- valid aggregator output and canonical serialization remain unchanged;
+- existing Task 5C.4–5C.7 and full regressions remain green;
 - only allowed files change.
 
 ## Expected Deliverables
 
-- complete cross-level summary reconciliation;
-- explicit monetary invariant handling;
-- focused adversarial tests;
-- one remediation implementation commit;
+- one shared predecessor-exclusivity invariant;
+- focused valid and adversarial tests;
+- one minimal implementation commit;
 - one report-only Coder handoff commit;
 - clean synchronized branch;
 - no PR or merge.
 
 ## Required Coder Handoff
 
-Replace `agent-handoff/coder-report.md` with the complete Task 5C.7 Attempt 2
+Replace `agent-handoff/coder-report.md` with the complete Task 5C.7 Attempt 3
 report. Include:
 
 - Task/Attempt, branch, and exact Git-derived starting HEAD;
 - remediation implementation commit;
 - changed files;
-- exact cross-level reconciliation semantics;
-- monetary assertion correction;
+- exact predecessor-count invariant and entry-point behavior;
 - focused and full validation results;
 - remaining risks and scope confirmation;
 - one recommended review depth (`Light`, `Standard`, or `Deep`);
