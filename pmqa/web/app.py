@@ -60,6 +60,7 @@ _CSRF_QUERY_KEYS = frozenset(
     {"csrf", "csrf_token", "x_pmqa_csrf_token"}
 )
 _MAX_QUERY_BYTES = 8 * 1024
+_MAX_TARGET_BYTES = 8 * 1024
 _SECURITY_HEADERS = (
     (b"cache-control", b"no-store"),
     (
@@ -121,29 +122,39 @@ class _PMQASecurityMiddleware:
         try:
             declared_length = self._validate_target_and_body(scope)
             received = 0
-            request_messages = []
+            body_buffer = bytearray()
             while True:
                 message = await receive()
-                if message["type"] != "http.request":
+                if (
+                    type(message) is not dict
+                    or set(message) - {"type", "body", "more_body"}
+                    or type(message.get("type")) is not str
+                    or message.get("type") != "http.request"
+                ):
                     raise _RequestBoundaryFailure(
                         WebAPIFailureCode.INVALID_REQUEST,
                         400,
                     )
                 body = message.get("body", b"")
+                more_body = message.get("more_body", False)
+                if type(body) is not bytes or type(more_body) is not bool:
+                    raise _RequestBoundaryFailure(
+                        WebAPIFailureCode.INVALID_REQUEST,
+                        400,
+                    )
+                if not body and more_body:
+                    raise _RequestBoundaryFailure(
+                        WebAPIFailureCode.INVALID_REQUEST,
+                        400,
+                    )
                 received += len(body)
                 if received > MAX_WEB_REQUEST_BODY_BYTES:
                     raise _RequestBoundaryFailure(
                         WebAPIFailureCode.REQUEST_TOO_LARGE,
                         413,
                     )
-                request_messages.append(
-                    {
-                        "type": "http.request",
-                        "body": body,
-                        "more_body": message.get("more_body", False),
-                    }
-                )
-                if not message.get("more_body", False):
+                body_buffer.extend(body)
+                if not more_body:
                     break
             if declared_length is not None and received != declared_length:
                 raise _RequestBoundaryFailure(
@@ -151,14 +162,18 @@ class _PMQASecurityMiddleware:
                     400,
                 )
             self._validate_security(scope)
-            replay_index = 0
+            replayed = False
+            canonical_message = {
+                "type": "http.request",
+                "body": bytes(body_buffer),
+                "more_body": False,
+            }
 
             async def replay_receive():
-                nonlocal replay_index
-                if replay_index < len(request_messages):
-                    message = request_messages[replay_index]
-                    replay_index += 1
-                    return message
+                nonlocal replayed
+                if not replayed:
+                    replayed = True
+                    return canonical_message
                 return {"type": "http.disconnect"}
 
             await self.app(scope, replay_receive, secure_send)
@@ -192,6 +207,7 @@ class _PMQASecurityMiddleware:
         if (
             type(raw_path) is not bytes
             or not raw_path.startswith(b"/")
+            or len(raw_path) > _MAX_TARGET_BYTES
             or b"://" in raw_path
             or b"%" in raw_path
             or b"\\" in raw_path
@@ -199,22 +215,28 @@ class _PMQASecurityMiddleware:
             or b"\x00" in raw_path
             or type(path) is not str
             or not path.startswith("/")
-            or path.encode("ascii", errors="ignore") != raw_path
+            or len(path) > _MAX_TARGET_BYTES
         ):
             raise _RequestBoundaryFailure(
                 WebAPIFailureCode.INVALID_REQUEST,
                 400,
             )
 
-        declared_length = _declared_content_length(headers)
-        _validate_query(scope.get("query_string", b""), self.security)
         try:
+            encoded_path = path.encode("ascii", errors="strict")
             path_text = raw_path.decode("ascii", errors="strict")
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, UnicodeEncodeError):
             raise _RequestBoundaryFailure(
                 WebAPIFailureCode.INVALID_REQUEST,
                 400,
             ) from None
+        if encoded_path != raw_path:
+            raise _RequestBoundaryFailure(
+                WebAPIFailureCode.INVALID_REQUEST,
+                400,
+            )
+        declared_length = _declared_content_length(headers)
+        _validate_query(scope.get("query_string", b""), self.security)
         if any(
             self.security.contains_runtime_token(segment)
             for segment in path_text.split("/")
@@ -703,6 +725,11 @@ def _declared_content_length(
         raise _RequestBoundaryFailure(
             WebAPIFailureCode.INVALID_REQUEST,
             400,
+        )
+    if len(decoded[0]) > len(str(MAX_WEB_REQUEST_BODY_BYTES)):
+        raise _RequestBoundaryFailure(
+            WebAPIFailureCode.REQUEST_TOO_LARGE,
+            413,
         )
     length = int(decoded[0])
     if length > MAX_WEB_REQUEST_BODY_BYTES:

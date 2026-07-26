@@ -208,6 +208,133 @@ def test_runtime_tokens_are_rejected_in_route_cookie_and_body(
     assert service.list_sessions() == ()
 
 
+@pytest.mark.parametrize("token", (SESSION_TOKEN, CSRF_TOKEN))
+@pytest.mark.parametrize(
+    "template",
+    ("prefix{}", "{}suffix", "prefix{}suffix"),
+)
+def test_runtime_token_containment_rejects_embedded_tokens(
+    components,
+    token,
+    template,
+) -> None:
+    _, _, _, security, _ = components
+
+    assert security.contains_runtime_token(template.format(token))
+    assert not security.contains_runtime_token(token[:-1])
+    assert not security.contains_runtime_token(token[1:])
+
+
+@pytest.mark.parametrize("token", (SESSION_TOKEN, CSRF_TOKEN))
+@pytest.mark.parametrize(
+    "template",
+    ("prefix{}", "{}suffix", "prefix{}suffix"),
+)
+def test_embedded_runtime_tokens_in_routes_fail_before_service_work(
+    client,
+    components,
+    token,
+    template,
+) -> None:
+    _, service, _, _, clock = components
+    before = clock.calls
+
+    response = client.get(
+        f"/api/v1/sessions/{template.format(token)}",
+        headers=READ_HEADERS,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_request"
+    assert clock.calls == before
+    assert service.list_sessions() == ()
+    _assert_safe_response(response)
+
+
+@pytest.mark.parametrize("token", (SESSION_TOKEN, CSRF_TOKEN))
+@pytest.mark.parametrize(
+    "template",
+    ("prefix{}", "{}suffix", "prefix{}suffix"),
+)
+@pytest.mark.parametrize("location", ("key", "value"))
+def test_embedded_runtime_tokens_in_decoded_query_are_rejected(
+    client,
+    token,
+    template,
+    location,
+) -> None:
+    embedded = template.format(token)
+    encoded = embedded.replace(token[0], f"%{ord(token[0]):02x}", 1)
+    query = (
+        f"{encoded}=safe"
+        if location == "key"
+        else f"safe={encoded}"
+    )
+
+    response = client.get(
+        f"/api/v1/health?{query}",
+        headers=READ_HEADERS,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_request"
+    _assert_safe_response(response)
+
+
+@pytest.mark.parametrize("token", (SESSION_TOKEN, CSRF_TOKEN))
+@pytest.mark.parametrize(
+    "template",
+    ("prefix{}", "{}suffix", "prefix{}suffix"),
+)
+@pytest.mark.parametrize("location", ("key", "value", "user_message"))
+def test_embedded_runtime_tokens_in_json_fail_before_mutation(
+    client,
+    components,
+    token,
+    template,
+    location,
+) -> None:
+    _, service, _, _, clock = components
+    before = clock.calls
+    embedded = template.format(token)
+    payload = {"schema_version": "1"}
+    if location == "key":
+        payload["nested"] = [{embedded: "safe"}]
+    elif location == "value":
+        payload["nested"] = [{"safe": embedded}]
+    else:
+        session = service.create_session()
+        before = clock.calls
+        payload = {
+            "schema_version": "1",
+            "session_id": session.session_id,
+            "expected_revision": 1,
+            "user_message": embedded,
+        }
+        response = client.post(
+            f"/api/v1/sessions/{session.session_id}/turns",
+            headers=MUTATION_HEADERS,
+            json=payload,
+        )
+        assert service.list_turns(session.session_id) == ()
+        assert response.status_code == 400
+        assert clock.calls == before
+        _assert_safe_response(response)
+        return
+
+    response = client.post(
+        "/api/v1/sessions",
+        headers=MUTATION_HEADERS,
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_request"
+    assert clock.calls == before
+    assert service.list_sessions() == ()
+    _assert_safe_response(response)
+
+
 def test_preexisting_runtime_token_is_not_exposed_by_read_model(
     client,
     components,
@@ -226,6 +353,58 @@ def test_preexisting_runtime_token_is_not_exposed_by_read_model(
     )
 
     assert current.revision == 2
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "internal_failed"
+    _assert_safe_response(response)
+
+
+@pytest.mark.parametrize("token", (SESSION_TOKEN, CSRF_TOKEN))
+@pytest.mark.parametrize(
+    "template",
+    ("prefix{}", "{}suffix", "prefix{}suffix"),
+)
+def test_preexisting_embedded_runtime_token_is_not_exposed(
+    client,
+    components,
+    token,
+    template,
+) -> None:
+    _, service, _, _, _ = components
+    session = service.create_session()
+    _, turn = service.start_turn(
+        session.session_id,
+        expected_revision=1,
+        user_message=template.format(token),
+    )
+
+    response = client.get(
+        f"/api/v1/sessions/{session.session_id}/turns/{turn.turn_id}",
+        headers=READ_HEADERS,
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "internal_failed"
+    _assert_safe_response(response)
+
+
+@pytest.mark.parametrize("token", (SESSION_TOKEN, CSRF_TOKEN))
+@pytest.mark.parametrize(
+    "template",
+    ("prefix{}", "{}suffix", "prefix{}suffix"),
+)
+def test_workflow_catalog_embedded_runtime_token_is_not_exposed(
+    client,
+    components,
+    token,
+    template,
+) -> None:
+    _, _, registry, _, _ = components
+    registry._registrations[0].definition.__dict__["description"] = (
+        template.format(token)
+    )
+
+    response = client.get("/api/v1/workflows", headers=READ_HEADERS)
+
     assert response.status_code == 500
     assert response.json()["error"]["code"] == "internal_failed"
     _assert_safe_response(response)
@@ -466,6 +645,29 @@ def test_ambiguous_request_targets_are_rejected(
     assert payload["error"]["code"] == "invalid_request"
 
 
+def test_decoded_and_raw_path_require_exact_ascii_equality(components) -> None:
+    app, service, _, _, clock = components
+    before = clock.calls
+    valid_status, _, _ = _raw_request(
+        app,
+        path="/api/v1/health",
+        raw_path=b"/api/v1/health",
+        headers=_raw_headers(),
+    )
+    invalid_status, _, payload = _raw_request(
+        app,
+        path="/api/v1/healthé",
+        raw_path=b"/api/v1/health",
+        headers=_raw_headers(),
+    )
+
+    assert valid_status == 200
+    assert invalid_status == 400
+    assert payload["error"]["code"] == "invalid_request"
+    assert clock.calls == before
+    assert service.list_sessions() == ()
+
+
 @pytest.mark.parametrize(
     ("name", "value", "code"),
     (
@@ -519,6 +721,22 @@ def test_malformed_content_length_is_rejected(
     assert status == 400
     assert payload["error"]["code"] == "invalid_request"
     assert "runtime-secret-marker" not in json.dumps(payload)
+
+
+def test_extreme_content_length_is_bounded_before_integer_conversion(
+    components,
+) -> None:
+    app, service, _, _, clock = components
+    before = clock.calls
+    status, _, payload = _raw_request(
+        app,
+        headers=_raw_headers((b"content-length", b"9" * 10000)),
+    )
+
+    assert status == 413
+    assert payload["error"]["code"] == "request_too_large"
+    assert clock.calls == before
+    assert service.list_sessions() == ()
 
 
 def test_conflicting_content_lengths_are_rejected(components) -> None:
@@ -604,6 +822,63 @@ def test_streamed_oversized_and_dishonest_lengths_fail_before_mutation(
     assert payload["error"]["code"] == "request_too_large"
     assert clock.calls == before
     assert service.list_sessions() == ()
+
+
+@pytest.mark.parametrize(
+    "body_chunks",
+    (
+        (b"", b'{"schema_version":"1"}'),
+        ("not-bytes",),
+        (bytearray(b'{"schema_version":"1"}'),),
+    ),
+)
+def test_malformed_stream_messages_fail_before_mutation(
+    components,
+    body_chunks,
+) -> None:
+    app, service, _, _, clock = components
+    before = clock.calls
+    status, _, payload = _raw_request(
+        app,
+        method="POST",
+        path="/api/v1/sessions",
+        headers=_raw_headers(
+            (b"origin", ORIGIN.encode("ascii")),
+            (b"x-pmqa-csrf-token", CSRF_TOKEN.encode("ascii")),
+            (b"content-type", b"application/json"),
+        ),
+        body_chunks=body_chunks,
+    )
+
+    assert status == 400
+    assert payload["error"]["code"] == "invalid_request"
+    assert clock.calls == before
+    assert service.list_sessions() == ()
+
+
+def test_many_small_stream_chunks_replay_one_canonical_body(
+    components,
+) -> None:
+    app, service, _, _, clock = components
+    body = b'{"schema_version":"1"}'
+    before = clock.calls
+    status, _, payload = _raw_request(
+        app,
+        method="POST",
+        path="/api/v1/sessions",
+        headers=_raw_headers(
+            (b"origin", ORIGIN.encode("ascii")),
+            (b"x-pmqa-csrf-token", CSRF_TOKEN.encode("ascii")),
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(body)).encode("ascii")),
+        ),
+        body_chunks=tuple(bytes((value,)) for value in body),
+    )
+
+    assert status == 201
+    assert payload["session"]["session_id"] == "conversation.session.1"
+    assert clock.calls == before + 1
+    assert len(service.list_sessions()) == 1
 
 
 def test_unknown_route_cannot_bypass_streamed_body_limit(components) -> None:

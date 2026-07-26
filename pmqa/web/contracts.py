@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import Any, Dict, Literal, Optional, Tuple, TypeVar
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
@@ -47,18 +48,52 @@ class _WebContract(BaseModel):
     def to_dict(self) -> Dict[str, Any]:
         return self.model_dump(mode="json")
 
+    def model_copy(
+        self: _ContractT,
+        *,
+        update: Optional[Dict[str, Any]] = None,
+        deep: bool = False,
+    ) -> _ContractT:
+        _ = deep
+        if update is not None and type(update) is not dict:
+            raise WebAPIContractValidationError() from None
+        values = {
+            name: getattr(self, name)
+            for name in type(self).model_fields
+        }
+        values.update(update or {})
+        try:
+            return type(self).model_validate(values)
+        except (
+            ValidationError,
+            TypeError,
+            ValueError,
+        ):
+            raise WebAPIContractValidationError() from None
+
     @classmethod
     def from_dict(cls: type[_ContractT], value: Any) -> _ContractT:
-        if type(value) is not dict:
+        if (
+            type(value) is not dict
+            or not _bounded_plain_json(value)
+        ):
             raise WebAPIContractValidationError() from None
         try:
-            result = cls.model_validate(dict(value))
-        except ValidationError:
+            result = cls.model_validate(cls._wire_values(value))
+        except (
+            ValidationError,
+            TypeError,
+            ValueError,
+        ):
             pass
         else:
             if value == result.to_dict():
                 return result
         raise WebAPIContractValidationError() from None
+
+    @classmethod
+    def _wire_values(cls, value: Dict[str, Any]) -> Dict[str, Any]:
+        return dict(value)
 
 
 class HealthResponse(_WebContract):
@@ -77,6 +112,17 @@ class WorkflowCatalogResponse(_WebContract):
         if type(value) is not tuple:
             raise ValueError("workflows must be an exact tuple")
         return tuple(_workflow_snapshot(item) for item in value)
+
+    @classmethod
+    def _wire_values(cls, value: Dict[str, Any]) -> Dict[str, Any]:
+        selected = dict(value)
+        workflows = selected.get("workflows")
+        if type(workflows) is not list:
+            raise ValueError("workflows must be a canonical array")
+        selected["workflows"] = tuple(
+            WorkflowDefinition.from_dict(item) for item in workflows
+        )
+        return selected
 
 
 class CreateSessionRequest(_WebContract):
@@ -98,18 +144,24 @@ class CreateSessionRequest(_WebContract):
         selected.setdefault("connection_context_id", None)
         return super().from_dict(selected)
 
+    @classmethod
+    def _wire_values(cls, value: Dict[str, Any]) -> Dict[str, Any]:
+        selected = dict(value)
+        policy = selected.get("retention_policy")
+        if type(policy) is not str:
+            raise ValueError("retention policy must be canonical")
+        selected["retention_policy"] = ConversationRetentionPolicy(policy)
+        return selected
+
     @field_validator("retention_policy", mode="before")
     @classmethod
     def parse_retention_policy(
         cls,
         value: Any,
     ) -> ConversationRetentionPolicy:
-        if type(value) is not str:
+        if type(value) is not ConversationRetentionPolicy:
             raise ValueError("retention policy must be canonical")
-        try:
-            return ConversationRetentionPolicy(value)
-        except ValueError:
-            raise ValueError("retention policy must be canonical") from None
+        return value
 
     @field_validator("connection_context_id")
     @classmethod
@@ -189,6 +241,14 @@ class SessionResponse(_WebContract):
     def snapshot_session(cls, value: Any) -> ConversationSession:
         return _session_snapshot(value)
 
+    @classmethod
+    def _wire_values(cls, value: Dict[str, Any]) -> Dict[str, Any]:
+        selected = dict(value)
+        selected["session"] = ConversationSession.from_dict(
+            selected.get("session")
+        )
+        return selected
+
 
 class SessionListResponse(_WebContract):
     schema_version: Literal["1"]
@@ -201,6 +261,17 @@ class SessionListResponse(_WebContract):
             raise ValueError("sessions must be an exact tuple")
         return tuple(_session_snapshot(item) for item in value)
 
+    @classmethod
+    def _wire_values(cls, value: Dict[str, Any]) -> Dict[str, Any]:
+        selected = dict(value)
+        sessions = selected.get("sessions")
+        if type(sessions) is not list:
+            raise ValueError("sessions must be a canonical array")
+        selected["sessions"] = tuple(
+            ConversationSession.from_dict(item) for item in sessions
+        )
+        return selected
+
 
 class TurnResponse(_WebContract):
     schema_version: Literal["1"]
@@ -210,6 +281,14 @@ class TurnResponse(_WebContract):
     @classmethod
     def snapshot_turn(cls, value: Any) -> ConversationTurn:
         return _turn_snapshot(value)
+
+    @classmethod
+    def _wire_values(cls, value: Dict[str, Any]) -> Dict[str, Any]:
+        selected = dict(value)
+        selected["turn"] = ConversationTurn.from_dict(
+            selected.get("turn")
+        )
+        return selected
 
 
 class TurnListResponse(_WebContract):
@@ -222,6 +301,17 @@ class TurnListResponse(_WebContract):
         if type(value) is not tuple:
             raise ValueError("turns must be an exact tuple")
         return tuple(_turn_snapshot(item) for item in value)
+
+    @classmethod
+    def _wire_values(cls, value: Dict[str, Any]) -> Dict[str, Any]:
+        selected = dict(value)
+        turns = selected.get("turns")
+        if type(turns) is not list:
+            raise ValueError("turns must be a canonical array")
+        selected["turns"] = tuple(
+            ConversationTurn.from_dict(item) for item in turns
+        )
+        return selected
 
 
 class TurnMutationResponse(_WebContract):
@@ -238,6 +328,17 @@ class TurnMutationResponse(_WebContract):
     @classmethod
     def snapshot_turn(cls, value: Any) -> ConversationTurn:
         return _turn_snapshot(value)
+
+    @classmethod
+    def _wire_values(cls, value: Dict[str, Any]) -> Dict[str, Any]:
+        selected = dict(value)
+        selected["session"] = ConversationSession.from_dict(
+            selected.get("session")
+        )
+        selected["turn"] = ConversationTurn.from_dict(
+            selected.get("turn")
+        )
+        return selected
 
 
 class DeleteSessionResponse(_WebContract):
@@ -262,6 +363,7 @@ def parse_canonical_json_object(value: bytes) -> Dict[str, Any]:
     except (
         UnicodeDecodeError,
         json.JSONDecodeError,
+        OverflowError,
         RecursionError,
         ValueError,
     ):
@@ -295,7 +397,11 @@ def _bounded_plain_json(value: Any) -> bool:
         seen_items += 1
         if seen_items > _MAX_JSON_TREE_ITEMS:
             return False
-        if current is None or type(current) in {bool, int, float}:
+        if current is None or type(current) in {bool, int}:
+            continue
+        if type(current) is float:
+            if not math.isfinite(current):
+                return False
             continue
         if type(current) is str:
             if not _valid_json_string(current, allow_layout=True):

@@ -89,9 +89,11 @@ class PMQAWebSecurityContext:
         )
 
     def contains_runtime_token(self, candidate: Any) -> bool:
-        return type(candidate) is str and (
-            hmac.compare_digest(candidate, self.__session_token)
-            or hmac.compare_digest(candidate, self.__csrf_token)
+        if type(candidate) is not str or len(candidate) > 64 * 1024:
+            return False
+        return (
+            self.__session_token in candidate
+            or self.__csrf_token in candidate
         )
 
     def __repr__(self) -> str:
