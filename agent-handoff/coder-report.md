@@ -2,11 +2,11 @@
 
 Owner: Coder
 
-Task: PMQA Task 5D.1A — Repository Result Correlation
+Task: PMQA Task 5D.1B — Secure Loopback Web/API Boundary
 
-Task ID: `PMQA-5D.1A`
+Task ID: `PMQA-5D.1B`
 
-Attempt: `2`
+Attempt: `1`
 
 Status: Ready for Independent Reviewer
 
@@ -18,23 +18,34 @@ Branch:
 
 Exact Git-derived Coder starting HEAD:
 
-`edb3382e4483fefaaba5c18d0c3baf3980b08109`
+`d9fc04c4c02f3ed13b6f91f05ec6fb3912f49029`
 
-That commit was the latest pushed branch commit containing the Attempt 2
-Architect handoff in `agent-handoff/current-task.md`. Before implementation,
-local HEAD and `origin/agent/task-5c-1-canonical-run-contract` both equaled
-that commit and the worktree was clean. The handoff identified reviewed
-Attempt 1 Reviewer HEAD
-`67492ea5ef551fd10a47338f270408e92baa99c4`. No Attempt 1 or earlier commit
-was amended, rebased, or replaced.
+That commit was the latest pushed branch commit containing this Task 5D.1B
+Attempt 1 publication in `agent-handoff/current-task.md`. Before
+implementation, local HEAD and
+`origin/agent/task-5c-1-canonical-run-contract` both equaled that commit and
+the worktree was clean. The handoff recorded approved Task 5D.1A Reviewer
+HEAD `55ea5067e87d502951cd102b40ede17a2d23796f`. No Task 5D.1A or earlier
+commit was amended, rebased, or replaced.
 
-## Remediation Implementation Commit
+## Implementation Commits
 
-`c13fc8729e22fe5316719fdf2eafef31b6bcbb80`
+`c2ebcad3cbf6d0456ea55deceaebb06e4a37e69b`
 
 Commit message:
 
-`harden conversation repository correlation`
+`add secure loopback Web API boundary`
+
+`16d34501c1e55afc50cc4006153256e7319d1383`
+
+Commit message:
+
+`enforce Web body bounds before authentication`
+
+The second focused commit moves complete streamed-body bounding ahead of
+Host/authentication validation so the required target/body → Host → auth →
+Origin/CSRF ordering is explicit. It changes no endpoint, contract, error, or
+valid response.
 
 This report is committed separately after the implementation commit. The
 Independent Reviewer derives the report commit from Git; this report does not
@@ -42,167 +53,278 @@ claim its own future commit SHA.
 
 ## Changed Files
 
-Implementation:
+Production:
 
-- `pmqa/conversation/service.py`;
-- `tests/test_conversation_service.py`.
+- `pmqa/web/__init__.py`;
+- `pmqa/web/app.py`;
+- `pmqa/web/contracts.py`;
+- `pmqa/web/errors.py`;
+- `pmqa/web/security.py`;
+- `pyproject.toml`.
+
+Tests:
+
+- `tests/test_web_app.py`;
+- `tests/test_web_contracts.py`;
+- `tests/test_web_security.py`;
+- `tests/test_packaging.py`.
+
+Documentation:
+
+- `README.md`;
+- `docs/Roadmap.md`;
+- `docs/architecture.md`;
+- `docs/architecture/conversational-workflow-platform.md`.
 
 Report-only handoff:
 
 - `agent-handoff/coder-report.md`.
 
-No contract, repository implementation, security primitive, reasoning code,
-CLI, dependency, packaging, Task 4/5/5A/5C production code, product
-documentation, or another role's handoff file changed.
+No conversation contract/repository/service, Task 4/5/5A/5C production code,
+CLI, Product Pack, workflow runtime, provider, reasoning, usage, frontend,
+TypeScript, Node, Uvicorn, or product implementation changed.
 
-## Session Lookup Correlation
+## Application Factory and Dependency Direction
 
-Every `_find_session` resolution now queries the injected volatile and durable
-repository roles before selecting an owner. Each successful result must be an
-exact `ConversationSession` that survives fresh canonical wire
-reconstruction, has the requested session ID, and matches its repository
-role:
+`create_pmqa_web_app(...) -> FastAPI` requires exact, already-created:
 
-- volatile results must use `session_only`;
-- durable results must use one of `7_days`, `30_days`, or `90_days`.
+- `ConversationApplicationService`;
+- `WorkflowRegistry`;
+- `PMQAWebSecurityContext`.
 
-Exactly one valid owner is required. No owner produces the existing fixed
-`session_not_found`; duplicate ownership, a non-`not_found` dependency
-failure, a malformed snapshot, wrong ID, or role mismatch produces only fixed
-`repository_failed`.
+Invalid factory dependencies fail with one fixed configuration message. The
+factory creates no repository, file, environment lookup, socket, process,
+browser, credential, provider, runner, or product dependency. It disables
+Swagger UI, ReDoc, and OpenAPI exposure and installs no CORS middleware.
 
-The same lookup protects `get_session`, `get_turn`, `list_turns`,
-`start_turn`, `complete_turn`, `fail_turn`, `close_session`, and
-`delete_session`. Tests use two real in-memory repositories to prove equal-ID
-ownership with equal and different payloads is rejected. They also prove the
-durable role is inspected after a volatile hit and that ambiguity is rejected
-before append, replacement, close, or deletion.
+The Web endpoints call only public `ConversationApplicationService` and
+`WorkflowRegistry` APIs. They do not access repository implementations,
+LangGraph, `WorkflowState`, Product Packs, Playwright, provider SDKs, runners,
+or product modules. Import tests prove `pmqa.web` performs no filesystem side
+effect and does not load Uvicorn, Playwright, products, LangGraph,
+orchestration/runtime/supervisor, reasoning, traces, or Product Packs.
+Generic `import pmqa` and `import pmqa.cli` remain Web/FastAPI-lazy.
 
-Creation-time identifier availability was hardened consistently: a returned
-session is canonically reconstructed and ID/retention-role checked before an
-identifier conflict is trusted. A returned turn is reconstructed and must
-carry the generated ID before it can establish a conflict.
+## API v1 Inventory
 
-## Turn and List Correlation
+The only application routes are:
 
-A repository turn result must now:
+```text
+GET    /api/v1/health
+GET    /api/v1/workflows
+POST   /api/v1/sessions
+GET    /api/v1/sessions
+GET    /api/v1/sessions/{session_id}
+POST   /api/v1/sessions/{session_id}/close
+DELETE /api/v1/sessions/{session_id}
+POST   /api/v1/sessions/{session_id}/turns
+GET    /api/v1/sessions/{session_id}/turns
+GET    /api/v1/sessions/{session_id}/turns/{turn_id}
+```
 
-- be an exact `ConversationTurn`;
-- survive fresh canonical wire reconstruction;
-- have the requested turn ID;
-- belong to the owning canonical session; and
-- occupy exactly `session.turn_ids[sequence_number - 1]`.
+Health returns only schema/API identity and `ready`. The workflow catalog
+sorts fresh canonical `WorkflowDefinition` snapshots by workflow ID/version
+and exposes no adapter or runtime object. Session creation supports the four
+existing retention values and the approved 30-day default. Session/turn lists
+reuse the existing 1–256 limit. Route-correlated close and pending-turn
+requests carry schema version, exact session ID, and expected revision.
 
-Out-of-range, wrong-ID, foreign-session, or wrong-slot turns fail with fixed
-`repository_failed`, including before complete/fail replacement.
+Responses contain fresh canonical session/turn/workflow snapshots. No
+assistant complete/fail, purge, SQL/storage, command, runner/workflow
+execution, provider configuration, credential, arbitrary metadata, or
+external-operation endpoint exists.
 
-Session-list results from each role must be exact built-in tuples no longer
-than the requested per-repository limit. Every item is freshly reconstructed,
-IDs must be unique within the role, and every retention policy must match the
-role. Duplicate IDs across roles are then rejected before the existing stable
-global `updated_at`/ID ordering and global limit are applied.
+## Contracts and Canonical JSON
 
-Turn-list results must be exact built-in tuples no longer than the requested
-limit. Reconstructed turns must all belong to the owner, have unique IDs,
-carry sequence numbers exactly `1..N`, and match the exact ordered
-`session.turn_ids[:N]` prefix. Lists, tuple subclasses, oversized responses,
-duplicates, reordered responses, gaps, foreign-session turns, and wrong
-prefixes are rejected. A correct bounded prefix and existing deterministic
-output remain unchanged.
+API contracts are strict, frozen Pydantic v2 records with exact fields,
+forbidden extras, hidden inputs, and no coercion. Schema version is exactly
+`1`; identifiers reuse `validate_run_identifier`; revision and list values
+reuse existing conversation bounds; user messages reuse the existing message
+size/control-character bound. Response validators reconstruct fresh
+canonical domain snapshots rather than retaining dependency objects.
 
-## Purge Result Validation
+The narrow request parser:
 
-The durable purge result must be an exact built-in tuple no longer than the
-requested limit. Every member must be an exact canonical PMQA identifier and
-the tuple must be unique. The service no longer materializes arbitrary
-iterables.
+- requires a nonempty UTF-8 JSON object for JSON mutations;
+- rejects duplicate keys and non-finite numbers;
+- rejects invalid UTF-8, surrogate/control ambiguity, wrong roots, excessive
+  depth/items/string size, unknown fields, coercion, and schema drift;
+- accepts only `application/json` with optional exact UTF-8 charset; and
+- never echoes invalid input or parser details.
 
-Focused tests reject lists, tuple subclasses, generators/iterators, sets,
-mappings, mutable tuple members, runtime objects, duplicates, invalid
-identifiers, and oversized exact tuples. Valid deterministic purge output is
-unchanged.
+JSON is parsed only after transport authentication and body bounds and before
+any application mutation.
 
-## Safe Failure and Side-Effect Evidence
+## Runtime Security Context
 
-New dependency contradictions expose only
-`ConversationApplicationErrorCode.REPOSITORY_FAILED` and its fixed safe
-message. Expected errors have no retained cause or context, and tests verify
-marker-bearing malformed values do not appear in the public exception.
-Identifiers, policy values, dependency representations, paths, payloads, and
-repository details are not copied into an error or public state.
+`PMQAWebSecurityContext` accepts only distinct exact built-in session and CSRF
+strings of 43–128 unpadded base64url characters, exact loopback host
+`127.0.0.1` or `::1`, and an exact integer port from 1–65535. It derives the
+single HTTP Origin and Host authority, including bracketed IPv6.
 
-Ambiguous ownership tests cover start, complete, fail, close, and delete and
-assert that neither repository receives `append_turn`, `replace_turn`,
-`close_session`, or `delete_session`. The implementation performs no
-cross-store move, repair, or cleanup.
+Tokens are private slotted state, redacted from `repr`, not exported through a
+property, and explicitly unavailable to JSON or pickle serialization. Caller
+containers are not retained. Authentication and CSRF comparisons use
+`hmac.compare_digest`.
 
+Every request requires:
+
+- exactly one configured Host authority;
+- exactly one `Authorization: Bearer <session-token>`;
+- an exact configured Origin whenever Origin is supplied; and
+- for POST/PUT/PATCH/DELETE, exactly one configured Origin and exactly one
+  matching `X-PMQA-CSRF-Token`.
+
+Wrong, missing, malformed, non-ASCII, or duplicate security headers fail
+closed. Cookies are rejected. Credential-like query keys reuse the shared
+`RUN_PAYLOAD_PROHIBITED_KEYS` normalization policy; only protocol-specific
+CSRF aliases are added locally. The middleware also rejects the exact runtime
+tokens if they appear in route segments or query values. Parsed request and
+response trees are compared only against the two known runtime tokens, so an
+actual token cannot cross a body/read-model boundary while ordinary strings
+are not globally scanned or rejected.
+
+## Request Target, Body Limit, and Side-Effect Ordering
+
+The middleware rejects missing/duplicate/wrong Host, absolute-form or
+percent-encoded/backslash/query-bearing raw paths, non-ASCII path ambiguity,
+malformed query encoding, and credential-like query keys before routing.
+
+Content-Length must be canonical; conflicting values are rejected. A declared
+body over 64 KiB fails before receive. The middleware then buffers and counts
+the complete ASGI request stream up to 64 KiB before FastAPI routing and
+replays only that bounded stream. This catches omitted or dishonest
+Content-Length, multi-chunk overflow, and oversized bodies even for unknown
+routes that would not read a body.
+
+For every mutation the order is bounded target/body, Host, authentication,
+Origin/CSRF, canonical contract reconstruction, route/body correlation, then
+one intended service call. Tests prove wrong security, malformed JSON,
+runtime-token placement, oversized/dishonest streams, invalid IDs, and
+route/body mismatch leave service clocks and real in-memory repositories
+unchanged. No retry, fallback, repair, or cross-repository movement was added.
+
+## Safe Responses and Error Mapping
+
+The stable API error vocabulary is:
+
+- `invalid_request`;
+- `authentication_failed`;
+- `host_failed`;
+- `origin_failed`;
+- `csrf_failed`;
+- `request_too_large`;
+- `resource_not_found`;
+- `conversation_failed`;
+- `internal_failed`.
+
+Conversation not-found errors map to safe 404, validation to safe 400,
+revision/lifecycle/sensitive-ingress conflicts to safe 409, and dependency or
+configuration failures to safe 500. Unexpected endpoint/dependency exceptions
+are contained by fixed `internal_failed` responses without marker, identifier,
+message, header, token, path, SQL, runtime repr, cause, or exception text.
 `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit` remain
-authoritative. Focused lookup tests prove exact propagation, and validation
-paths retain explicit resource/control-flow propagation. Unexpected
-programming errors continue to follow the pre-existing application/repository
-policy; no broad dependency exception catch was added.
+authoritative and propagate from direct ASGI invocation.
+
+Successes and all error paths receive:
+
+- `Cache-Control: no-store`;
+- `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`;
+- `X-Content-Type-Options: nosniff`;
+- `Referrer-Policy: no-referrer`;
+- `X-Frame-Options: DENY`;
+- `Cross-Origin-Resource-Policy: same-origin`.
+
+The middleware removes wildcard/credential CORS response headers. No body,
+Authorization/CSRF header, exception, or credential logging was added.
+
+## Dependency and Packaging Changes
+
+Runtime dependency:
+
+- `fastapi>=0.115,<1`.
+
+This bounded range supports Python 3.9+, Pydantic v2, and the declared project
+Python versions while deferring Uvicorn to Task 5D.1C.
+
+Development dependency:
+
+- `httpx>=0.27,<1`.
+
+This is the direct bounded dependency used by FastAPI/Starlette's in-process
+ASGI `TestClient`; tests bind no socket and access no network.
+
+The real-wheel regression now requires all five `pmqa/web` modules and the
+FastAPI metadata dependency, imports `pmqa.web` from an extracted wheel in an
+unrelated directory, and retains existing runtime-output/cache/credential
+exclusions.
 
 ## Validation Results
 
-All commands were run from the repository at implementation commit
-`c13fc8729e22fe5316719fdf2eafef31b6bcbb80`, with the report file still
-unchanged:
+All final implementation commands used the cumulative source state ending at
+`16d34501c1e55afc50cc4006153256e7319d1383`:
 
-- Conversation/security/packaging focused group: `195 passed`.
-- Task 5C Run/Application/Usage regressions: `467 passed`.
+- Web/conversation focused group: `258 passed`.
+- Task 5C Application/Run/Usage regressions: `467 passed`.
+- Security/import/real-wheel group: `29 passed`.
 - Task 4 runtime/reducer/Supervisor/LangGraph regressions: `98 passed`.
-- Full default suite: `2014 passed, 5 skipped`.
+- Full default suite: `2104 passed, 5 skipped`.
 - Generated SauceDemo Playwright regressions: `2 passed`.
-- Isolated `compileall` for `pmqa` and `products`: passed with
-  `PYTHONPYCACHEPREFIX` outside the repository.
+- Isolated `compileall` for `pmqa` and `products`: passed with bytecode
+  outside the repository.
+- Tracked Markdown relative-link validation: all `19` files passed.
+- Editable install and `pip check`: passed; no broken requirements.
 - `git diff --check`: passed.
 - Pre-report implementation worktree: clean and implementation commit pushed.
 
-The only observed warnings were the pre-existing local LibreSSL warning and
+The only observed warnings were the existing local LibreSSL warning and
 LangGraph pending-deprecation warning. The five default-suite skips are
-existing environment-gated tests. New tests are deterministic and offline;
-they use no browser, network, Node, provider, ADO, or external Product Pack.
+existing environment-gated tests. New Web tests are offline/in-process and use
+no live socket, browser, network, Node, provider, ADO, external Product Pack,
+or paid model.
 
 ## Remaining Risks and Scope Confirmation
 
-The service defensively validates returned snapshots but cannot prove a
-malicious repository honored its internal transaction semantics; repository
-implementations and their existing transaction/corruption tests remain the
-trusted persistence adapters. This is not a known Attempt 2 defect.
+Task 5D.1B intentionally accepts pre-generated runtime tokens and a selected
+loopback authority. Cryptographic token generation, port selection, Uvicorn
+startup/readiness, browser delivery, static frontend assets, logout, and
+distribution runtime startup belong to Task 5D.1C. This API-only checkpoint
+does not claim those composition/runtime guarantees.
 
-Task 5D.1B, Task 5D.1C, Task 5D.2, Task 5B, Task 6, and Task 7 were not
-started. No Web/API/frontend/HTTP/FastAPI/Uvicorn/React/TypeScript/Vite/Node,
-new CLI, ADO/Copilot, workflow capability, approval, operation, receipt,
-artifact, or usage UI was added. No PR was created and nothing was merged.
+Task 5D.1C, Task 5D.2+, Task 5B, Task 6, and Task 7 were not started. No
+server/socket/browser lifecycle, frontend, React/TypeScript/Vite/Node, `pmqa
+web`, SSE/WebSocket, provider/reasoning call, workflow execution, ADO/Copilot,
+capability, approval, operation, receipt, artifact repository, usage UI, or
+external write was added. No PR was created and nothing was merged.
 
 ## Recommended Review Depth
 
 **Deep**
 
-Reason: this remediation defines the untrusted repository correlation gate
-that protects every future conversation read and mutation before the local
-Web boundary is added.
+Reason: this checkpoint creates the HTTP trust root that will receive
+browser-originated content and protect local credentials and conversation
+mutation in Task 5D.1C.
 
 ## Suggested Reviewer Focus
 
-- Reproduce same-ID ownership in two real repositories and verify every
-  resolving read/mutation rejects it before side effects.
-- Challenge wrong session IDs, retention-role mismatches, wrong turn IDs,
-  foreign turns, sequence slots, and exact ordered turn prefixes.
-- Exercise non-tuple/subclass/oversized/duplicate session, turn, and purge
-  results and confirm fixed safe failures without marker or cause leakage.
-- Confirm valid volatile/durable routing, list ordering/limits, turn
-  lifecycle, retention, deletion, and purge remain structurally unchanged.
-- Verify resource/control-flow propagation and confirm no contract,
-  repository, sensitive-text, Task 5C, packaging, or later Task 5D surface
-  changed.
+- Attempt Host/Auth/Origin/CSRF duplication, ambiguity, token relocation, raw
+  target encoding, cookie/query/body smuggling, and response-token exposure.
+- Challenge declared, undeclared, conflicting, dishonest, streamed, and
+  unknown-route body sizes plus duplicate/non-finite/deep JSON.
+- Verify rejected requests reach no conversation mutation and valid endpoints
+  call only the intended public service/registry API once.
+- Inspect fixed-safe error mapping/security headers across success, 404/405,
+  application conflicts, malformed dependencies, and resource/control flow.
+- Confirm import/wheel dependency direction and the absence of Uvicorn,
+  frontend, CLI, provider, workflow execution, Product Pack, and later Task
+  5D scope.
 
 ## Human Summary
 
-PMQA-5D.1A Attempt 2 已完成，Git 派生起点为 `edb3382e4483fefaaba5c18d0c3baf3980b08109`。
-实现提交为 `c13fc8729e22fe5316719fdf2eafef31b6bcbb80`。
-Application Service 现在要求 session 恰有一个正确 repository owner，并验证 retention role、session/turn ID、turn slot 与有序 prefix。
-所有 session/turn/purge collection 都要求 exact tuple、bounded、canonical、unique；矛盾统一安全失败且 mutation 前终止。
-验证结果：focused 195、Task 5C 467、Task 4 98、全量 2014 passed / 5 skipped、Playwright 2 passed，compileall 与 diff check 通过。
+PMQA-5D.1B Attempt 1 已完成，Git 派生起点为 `d9fc04c4c02f3ed13b6f91f05ec6fb3912f49029`。
+实现提交为 `c2ebcad3cbf6d0456ea55deceaebb06e4a37e69b` 与 `16d34501c1e55afc50cc4006153256e7319d1383`。
+新增 side-effect-free FastAPI factory、严格 `/api/v1` contracts、Bearer/Host/Origin/CSRF、64 KiB streamed-body 和 canonical JSON 边界。
+所有响应使用固定安全错误与 no-store/security headers，实际 runtime tokens 不得进入 URL、cookie、body、domain read model 或响应。
+验证结果：focused 258、Task 5C 467、security/import/wheel 29、Task 4 98、全量 2104 passed / 5 skipped、Playwright 2 passed。
 Action Needed From Human: 请将下方 Handoff Note 传递给 Independent Reviewer。
 Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 review。
