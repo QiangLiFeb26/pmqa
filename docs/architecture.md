@@ -299,11 +299,9 @@ new contracts are reserved for the genuine conversation, artifact-revision,
 authorization, capability, receipt, and provider-session observation gaps.
 
 The recommended future UI is React with strict TypeScript and Vite, served as
-packaged assets by a loopback-only FastAPI/Uvicorn application. A versioned
-REST/JSON boundary and server-sent progress events keep the browser independent
-from Python, LangGraph, provider, and repository internals. This is a
-recommendation only; Task 5D.0 adds no dependency, server, frontend, CLI,
-connector, or runtime behavior.
+packaged assets by a loopback-only FastAPI/Uvicorn application. Task 5D.1B
+implements only the versioned FastAPI/REST trust boundary; Uvicorn, server
+startup, frontend assets, and progress transport remain future work.
 
 Task 5D.0 passed architecture review. Task 5D.1A implements only the first
 conversation foundation: strict immutable sessions and turns, the approved
@@ -317,17 +315,20 @@ transitions, and expected-revision compare-and-write.
 Recognizable Bearer, Cookie, and credential-assignment text is rejected before
 conversation persistence through the same neutral sensitive-text primitive
 used by the existing reasoning scrubber. This is bounded defense in depth, not
-a claim to detect every arbitrary secret. Task 5D.1A does not add Web/API
-transport, frontend assets, CLI behavior, reasoning or workflow execution,
-ADO/Copilot adapters, capabilities, artifacts, authorization, or receipts.
-5D.1B and 5D.1C have not started.
+a claim to detect every arbitrary secret. Task 5D.1A passed architecture
+review. Task 5D.1B adds strict immutable API v1 contracts, invocation-local
+Bearer authentication, exact loopback Host and Origin checks, CSRF protection,
+body/JSON bounds, fixed-safe errors, security headers, and an inert FastAPI app
+factory over the existing service and registry. It adds no frontend, CLI,
+reasoning/workflow execution, ADO/Copilot adapter, capability, artifact,
+authorization, or receipt. Task 5D.1B is ready for architecture review and
+5D.1C has not started.
 
 The full authority model, ADO acquisition/write and recovery boundaries,
 local-Web security, untrusted-content policy, usage integration, company
 validation stop points, and independently reviewable 5D.1–5D.6 plan are in the
 [Conversational Workflow Platform architecture](architecture/conversational-workflow-platform.md).
-Task 5D.1A is ready for architecture review; Task 5B pilot, Task 6, and Task 7
-have not started.
+Task 5B pilot, Task 6, and Task 7 have not started.
 
 ### Memory
 

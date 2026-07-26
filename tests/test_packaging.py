@@ -34,6 +34,13 @@ REQUIRED_PRODUCT_MODULES = {
     "products/demo/validator_agent.py",
     "products/demo/workflow.py",
 }
+REQUIRED_WEB_MODULES = {
+    "pmqa/web/__init__.py",
+    "pmqa/web/app.py",
+    "pmqa/web/contracts.py",
+    "pmqa/web/errors.py",
+    "pmqa/web/security.py",
+}
 FORBIDDEN_EXACT_ENTRIES = {
     "products/demo/artifacts/knowledge.json",
     "products/demo/generated_tests/test_saucedemo_generated.py",
@@ -139,6 +146,7 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         assert "pmqa/conversation/contracts.py" in names
         assert "pmqa/conversation/repository.py" in names
         assert "pmqa/conversation/service.py" in names
+        assert REQUIRED_WEB_MODULES <= names
         assert "pmqa/security/sensitive_text.py" in names
         assert "pmqa/usage/__init__.py" in names
         assert "pmqa/usage/contracts.py" in names
@@ -163,6 +171,7 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         )
         metadata_text = archive.read(metadata_file).decode("utf-8")
         assert "Requires-Dist: packaging" in metadata_text
+        assert "Requires-Dist: fastapi" in metadata_text
         assert "Requires-Dist: tomli" in metadata_text
 
 
@@ -248,6 +257,7 @@ import pmqa.runners
 import pmqa.application
 import pmqa.conversation
 import pmqa.usage
+import pmqa.web
 import products.demo
 import products.demo.application
 from products.demo.config import load_config, validate_config
@@ -280,6 +290,8 @@ assert pmqa.usage.LocalJSONUsageRepository
 assert pmqa.usage.UsageSummary
 assert pmqa.usage.UsageAggregator
 assert pmqa.usage.DefaultUsageAggregator
+assert pmqa.web.PMQAWebSecurityContext
+assert pmqa.web.create_pmqa_web_app
 modules = (
     pmqa,
     pmqa.product_pack,
@@ -288,6 +300,7 @@ modules = (
     pmqa.application,
     pmqa.conversation,
     pmqa.usage,
+    pmqa.web,
     products.demo,
     products.demo.application,
 )

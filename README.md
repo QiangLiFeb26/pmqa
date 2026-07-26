@@ -316,9 +316,10 @@ registered workflows; reasoning may propose capabilities, artifacts, and
 actions, while PMQA owns authority, deterministic execution, receipts, and
 usage/audit boundaries. The first flagship workflow is
 `ado.story_test_authoring`, with `ado.work_item_summary` documenting a smaller
-future read-only workflow. Task 5D.0 is architecture-only and does not
-implement the Web workbench, ADO/Copilot adapters, conversation runtime,
-authorization, or external writes. See the
+future read-only workflow. Task 5D.0 is the approved architecture baseline;
+Task 5D.1A and 5D.1B now implement the conversation foundation and its
+API-only trust boundary without starting the browser workbench, ADO/Copilot
+adapters, authorization, or external writes. See the
 [Conversational Workflow Platform architecture](docs/architecture/conversational-workflow-platform.md),
 the
 [Run Contract architecture](docs/architecture/run-contract.md) and
@@ -338,7 +339,18 @@ synchronous application service. Recognizable credential-shaped text is
 rejected through the same shared primitive used by the Task 3 scrubber, while
 ordinary QA discussion remains valid. Task 5D.1A adds no HTTP server,
 frontend, CLI, reasoning call, workflow execution, ADO/Copilot integration, or
-external side effect.
+external side effect and has passed architecture review.
+
+Task 5D.1B adds a side-effect-free FastAPI application factory and strict
+`/api/v1` health, workflow-catalog, session, and pending-turn endpoints. Every
+request is bounded and requires the invocation-local Bearer token plus exact
+Host validation; mutations additionally require the exact local Origin and
+CSRF token. Canonical JSON, fixed-safe errors, no-store/security headers, and
+runtime-token non-disclosure are enforced before conversation mutation.
+Swagger/ReDoc/OpenAPI, permissive CORS, Uvicorn startup, socket binding,
+browser launch, static frontend assets, assistant completion, and workflow
+execution remain absent. Task 5D.1B is ready for architecture review; 5D.1C
+has not started.
 See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)
