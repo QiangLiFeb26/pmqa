@@ -2,27 +2,27 @@
 
 Owner: Architect
 
-Task: PMQA Task 5D.0 — Conversational Workflow Platform Architecture
+Task: PMQA Task 5D.1A — Conversation Session and Retention Foundation
 
-Task ID: `PMQA-5D.0`
+Task ID: `PMQA-5D.1A`
 
 Attempt: `1`
 
-Status: Approved
+Status: Needs Revision
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
 Reviewed Starting HEAD:
-`9d2ba638c9692eb542bb6d1c023388d959573316`
+`16655cd3a8129599a585b78bcc5336706d595a3b`
 
-Reviewed Documentation Implementation Commit:
-`df2aeddf8949729cf5121e1c4327a504b6eb59f8`
+Reviewed Implementation Commit:
+`4ae3893d4f12a4dff1a8f6bf18cbfcc07578be20`
 
 Derived Coder Report Commit:
-`4e8ecc8c525eb65031abf03aaba7ba7febaca408`
+`4f0b6ae28a1a7aea0acdacadb9180ee4cf6693b3`
 
 Derived Reviewer Report Commit:
-`115910e2662ce6bd2de6f807dfb3dfddc201a4b3`
+`67492ea5ef551fd10a47338f270408e92baa99c4`
 
 The Reviewer report commit was derived from Git with:
 
@@ -34,18 +34,18 @@ This review does not predict the SHA of its own containing commit.
 
 ## Correlation and Ownership Verification
 
-- the current branch and upstream are
+- the active branch and upstream are
   `agent/task-5c-1-canonical-run-contract`;
-- starting HEAD `9d2ba63...` is an ancestor of documentation commit
-  `df2aedd...`;
-- documentation commit `df2aedd...` is an ancestor of Coder report commit
-  `4e8ecc8...`;
-- Coder report commit `4e8ecc8...` is an ancestor of Reviewer report commit
-  `115910e...`;
+- starting HEAD `16655cd...` is an ancestor of implementation commit
+  `4ae3893...`;
+- implementation commit `4ae3893...` is an ancestor of Coder report commit
+  `4f0b6ae...`;
+- Coder report commit `4f0b6ae...` is an ancestor of Reviewer report commit
+  `67492ea...`;
 - Coder and Reviewer reports identify the same Task, Attempt, branch,
-  starting HEAD, and documentation implementation commit;
-- the implementation changed only the four authorized product/architecture
-  documentation paths;
+  starting HEAD, and implementation commit;
+- the implementation changed only authorized production, test, and
+  documentation files;
 - the Coder report commit changed only `agent-handoff/coder-report.md`;
 - the Reviewer report commit changed only
   `agent-handoff/reviewer-report.md`;
@@ -56,238 +56,255 @@ This review does not predict the SHA of its own containing commit.
 
 Deep
 
-The Architect independently selected Deep review. Task 5D.0 is
-documentation-only, but its record separation, capability policy, Human
-authorization, external-write, local-Web, and provider boundaries become the
-trust foundation for six later implementation checkpoints.
+The Architect independently selected Deep review. This checkpoint establishes
+persisted user text, retention, SQLite transaction, repository routing, and
+safe-ingress boundaries used by the future local Web trust root.
 
 ## Independent Reviewer Result
 
 Reviewer verdict: `Pass`
 
-Reviewer findings: None
+Reviewer finding:
 
-The Reviewer read the complete architecture document, checked its factual
-reuse claims against implementation contracts, verified scope, and
-independently ran the full validation set. The Architect accepts the advisory
-verdict.
+- one Low scope deviation: the shared sensitive-text primitive expands the
+  existing Task 3 scrubber's matching surface.
+
+The Reviewer performed a legitimate Deep review, read all production modules,
+traced SQL and transaction behavior, ran the full validation set, and
+independently reproduced high-risk invariants.
+
+The Architect accepts the Reviewer's evidence but overrides the advisory
+verdict because independent application-boundary review found a blocking
+repository-correlation defect.
 
 ## Overall Assessment
 
-Task 5D.0 is approved.
+The core implementation is strong:
 
-The architecture establishes PMQA as a local-first, provider-neutral
-conversational QA workflow platform rather than a fixed Story wizard or a
-cost dashboard. It preserves arbitrary conversation while requiring explicit
-registered workflows and deterministic lifecycle for structured artifacts and
-external effects.
+- strict immutable conversation contracts and retention invariants;
+- approved session-only/7/30/90-day policy with 30-day default;
+- deterministic turn lifecycle and optimistic session revision;
+- separate volatile and durable repository composition;
+- real SQLite schema, parameterized SQL, transactions, foreign keys,
+  corruption checks, deletion, and expiry purge;
+- fixed-safe sensitive-text ingress;
+- import and wheel isolation;
+- no premature Web/API/frontend/ADO/Copilot scope.
 
-The flagship `ado.story_test_authoring` flow is a catalog workflow, not the UI
-or global conversation state machine. The smaller future
-`ado.work_item_summary` flow proves the proposed workbench and application
-boundary are not hard-coded to authoring.
+However, `ConversationApplicationService` does not consistently treat its
+injected repositories as untrusted correlated dependencies. Lookup returns
+the first session found and does not inspect the second repository, validate
+the returned session ID, or validate retention-policy ownership.
 
-The design correctly separates:
+The result is a valid public service state that is ambiguous or incorrectly
+correlated across repositories.
 
-- conversation sessions and turns;
-- workflow runs and runner invocations;
-- reasoning/model invocations;
-- capability invocations;
-- immutable artifact revisions;
-- Human authorization;
-- deterministic external operations;
-- execution receipts; and
-- provider-session usage observations.
+## Accepted Reviewer Finding
 
-Correlation does not transfer authority. Chat text, provider output, retrieved
-ADO content, a workflow run, or a prior approval cannot become an executable
-write without an exact current plan revision, canonical digest, external
-scope, source revisions, approving identity, and deterministic executor.
+### Shared sensitive-text matching expansion
 
-## Architect Findings
+Accepted as an intentional security hardening.
 
-None.
+The neutral primitive adds recognition of:
 
-## Architecture Disposition
+- `Set-Cookie`;
+- `secret=...`; and
+- `credential=...` / `credentials=...`.
 
-### Existing contract reuse
+This expands Task 3 scrubber behavior for previously unrecognized
+high-confidence credential shapes. It does not reduce redaction, change
+previously matched output, expose data, or break existing tests.
 
-Approved.
+The original task contained competing requirements: use one non-drifting
+primitive, cover these conversation-ingress shapes, and preserve Task 3
+behavior. Expanding the shared security boundary is safer than maintaining
+two independent vocabularies. The Architect explicitly authorizes this
+additive behavior.
 
-The document reuses the existing Workflow and Runner registries, Run
-contracts, Application Service, Task 4 orchestration, Task 5 verified handoff,
-Task 5A external execution seam, Task 3 reasoning boundary, and Task 5C usage
-services where their semantics fit.
+No rollback or split pattern vocabulary is required.
 
-New future contracts are limited to genuine gaps: conversation response,
-capability invocation, artifact revision, authorization, operation/receipt,
-connection context, and optional provider-session usage observation.
+## Blocking Finding
 
-`WorkflowState`, `KnowledgeArtifact`, `RunArtifact`, reasoning traces, and
-usage records are not broadened into universal state containers.
+### F1 — Repository lookup silently accepts ambiguous or miscorrelated state
 
-### Capability and authority
+Severity: Blocking
 
-Approved.
+Primary location:
 
-The provider may interpret intent and propose registered calls, artifacts,
-workflows, and actions. It cannot register capabilities, change policy,
-expand connection scope, approve a plan, supply an executor, or receive an
-unrestricted ADO writer.
+- `pmqa/conversation/service.py`;
+- `ConversationApplicationService._find_session`;
+- adjacent service read/correlation helpers.
 
-`read_only`, `proposal_only`, `approval_required`, and `external_write`
-express materially different authority. Prompt wording is explicitly not
-treated as a security boundary.
+Current `_find_session` iterates:
 
-### ADO read and write
+```text
+volatile repository
+durable repository
+```
 
-Approved.
+and returns immediately after the first successful lookup.
 
-Copilot-mediated acquisition preserves the desired no-copy user experience,
-but only when its read-tool restriction is technically enforceable. Otherwise
-the design selects a PMQA-controlled wrapper or direct read adapter.
+It does not:
 
-Writes are isolated behind final version/digest-bound Human authorization,
-permission preflight, optimistic concurrency, deterministic operation order,
-idempotency correlation, verification, and per-operation receipts. Partial
-completion cannot be reported as complete, unknown outcomes stop for Human
-review, and automatic rollback is not promised.
+- query the second repository before deciding uniqueness;
+- reject the same `session_id` existing in both repositories;
+- require the returned `ConversationSession.session_id` to equal the
+  requested ID; or
+- require session-only records to come from the volatile role and durable
+  retention records to come from the durable role.
 
-### Local Web and identity
+#### Independent reproduction 1 — duplicate ownership
 
-Approved as an architecture direction.
+The Architect created one valid `ConversationSession` with the same ID in two
+independent real `InMemoryConversationRepository` instances, then injected
+them as volatile and durable repositories.
 
-React with strict TypeScript and Vite, served as packaged assets by a
-loopback-only FastAPI/Uvicorn process, is a reasonable local-first boundary
-with a hosted migration path. The browser consumes versioned read models and
-cannot import LangGraph, read repository JSON, use provider credentials, or
-invoke arbitrary commands.
+Observed:
 
-The loopback interface is correctly not treated as authentication by itself.
-Session-token delivery, Host/Origin enforcement, CSRF, CORS/CSP, XSS/HTML
-sanitization, output encoding, and browser-to-command allowlisting are
-identified as 5D.1 trust-root work.
+```text
+service.get_session(id)  -> accepted and returned the volatile record
+service.list_sessions()  -> repository_failed
+```
 
-### Untrusted content and secret handling
+The same invalid cross-repository state is therefore accepted or rejected
+depending on the read path.
 
-Approved with a mandatory 5D.1 implementation focus.
+#### Independent reproduction 2 — wrong returned identity
 
-ADO and provider content remain untrusted and cannot elevate authority.
-Existing prohibited-key and reasoning scrubber policies are reusable, but
-future implementation must distinguish:
+The Architect injected a Protocol-conforming repository whose
+`get_session(requested_id)` returned a valid canonical session with a
+different ID.
 
-- excluding credential fields and runtime objects, which is enforceable;
-- high-confidence redaction/rejection of recognizable secrets in arbitrary
-  text, which is best-effort; and
-- the impossible claim that all user-authored free text can be proven
-  secret-free.
+Observed:
 
-5D.1 must define ingress behavior before persistence or provider forwarding,
-must not log rejected raw text, and must use fixed-safe errors. It must not
-claim that a detector can recognize every arbitrary password. This is a
-next-phase acceptance focus, not a Task 5D.0 blocker.
+```text
+requested: conversation.session.requested
+returned:  conversation.session.wrong
+```
 
-### Usage and AIC
+`get_session()` returned the miscorrelated record without error.
 
-Approved.
+#### Affected behavior
 
-Task 5C remains authoritative for model-invocation evidence. A whole Copilot
-session total is separate evidence and cannot be allocated across
-invocations. Provider-reported, parsed, estimated, subscription-included, and
-unavailable evidence remain distinct; no tokens or dollar cost are invented.
+Because `_find_session` is shared, the ambiguity affects:
+
+- `get_session`;
+- `get_turn`;
+- `list_turns`;
+- `start_turn`;
+- `complete_turn`;
+- `fail_turn`;
+- `close_session`; and
+- `delete_session`.
+
+A duplicated or miscorrelated identity can select the wrong retention store,
+return the wrong conversation, mutate the wrong copy, close it, or delete it.
+This is incompatible with the service report's claim that duplicate identities
+are rejected across repositories and with the task's dependency-snapshot and
+correlation requirements.
+
+#### Adjacent boundary gaps to close in the same remediation
+
+The same service trust boundary should directly validate:
+
+- `get_turn(requested_id)` returns that exact turn ID;
+- bounded session lists do not exceed the requested limit and each record
+  belongs to the repository's retention role;
+- bounded turn lists match the owning session's exact ordered turn-ID prefix,
+  sequence numbers, and session ID;
+- repository collection results use the canonical exact collection shape
+  promised by the Protocol; and
+- purge results are bounded, unique, canonical IDs in their canonical
+  collection shape.
+
+These are not requests to redesign repository implementations. They are
+defensive checks on values returned by injected dependencies before the
+Application Service trusts or exposes them.
+
+## Non-Blocking Architecture Notes
+
+### Conversation contract base
+
+The independent `_ConversationContract` is acceptable.
+
+Importing a private Run base would create inappropriate coupling, and
+conversation message/tree bounds differ from Run and Usage. Do not consolidate
+contract families in the remediation.
+
+### Plain-JSON equality
+
+The current plain `==` canonical comparison is not a demonstrated bypass:
+strict Pydantic fields reject int/float and bool/int coercion for the existing
+numeric fields. Do not change wire semantics in this remediation.
+
+If a future conversation contract adds dynamic numeric payloads, it must use
+or add a type-sensitive recursive equality check.
 
 ## Acceptance Criteria Coverage
 
 | Acceptance criterion | Result |
 | --- | --- |
-| Multi-workflow conversational product position | Met |
-| Arbitrary conversation and structured workflows coexist | Met |
-| Story authoring is a registered flagship workflow | Met |
-| Reasoning, capability, authorization, and execution are separate | Met |
-| Automatic ADO read does not grant unrestricted write | Met |
-| Retrieved content remains untrusted | Met |
-| Revision/digest authorization and receipts are defined | Met |
-| Partial execution and recovery are explicit | Met |
-| Local-Web identity/security boundary is addressed | Met |
-| Exact invocation usage is separate from provider-session AIC | Met |
-| Existing Task 4/5/5A/5C contracts are reused | Met |
-| UI technology and hosted migration recommendations are explicit | Met |
-| 5D.1–5D.6 are independently reviewable | Met |
-| Only authorized documentation/report files changed | Met |
+| Canonical session and turn contracts | Met |
+| Approved retention modes and 30-day default | Met |
+| Session-only state excluded from SQLite | Met at repository create boundary |
+| Deterministic activity and expiration | Met |
+| Manual deletion and purge | Met in valid repository state |
+| SQLite atomic writes and revision CAS | Met |
+| Shared safe sensitive ingress | Met; additive Task 3 expansion accepted |
+| SQLite corruption and operational containment | Met |
+| Import and packaging isolation | Met |
+| Service rejects duplicate identities across repositories | Not met |
+| Service validates dependency result correlation | Not met |
+| Existing regressions remain green | Met |
+| No later 5D scope started | Met |
 
 ## Validation Evidence
 
 Independent Reviewer:
 
-- full default suite: `1840 passed, 5 skipped`;
+- focused conversation/security/packaging group: `151 passed`;
+- Task 5C regressions: `467 passed`;
+- Task 4 regressions: `98 passed`;
+- full default suite: `1970 passed, 5 skipped`;
 - generated Playwright regressions: `2 passed`;
-- Markdown relative-link, stale-status, private-information, scope, and
-  `git diff --check` checks: passed.
+- compileall, Markdown links, `git diff --check`, scope, and worktree checks:
+  passed.
 
 Architect:
 
-- complete `current-task.md`, Coder report, Reviewer report, and all `744`
-  architecture-document lines reviewed;
-- complete documentation implementation diff inspected;
-- implementation, Coder-report, and Reviewer-report ancestry and exclusive
-  ownership verified;
-- existing Run, Application, Runner, Workflow, reasoning, storage, knowledge,
-  security, and usage contract claims spot-checked against source;
-- full default suite: `1839 passed, 5 skipped`, with one expected restricted
-  sandbox failure while updating external-example wheel metadata;
-- the exact sandbox-blocked wheel test rerun with normal build permission:
-  `1 passed`;
-- generated Playwright regressions: `2 passed`;
+- complete task, Coder report, Reviewer report, production modules, and
+  implementation diff inspected;
+- focused conversation/security/packaging group: `151 passed`;
+- duplicate same-ID state independently reproduced with two real in-memory
+  repositories;
+- wrong-session-ID return independently reproduced with a
+  Protocol-conforming injected repository;
 - `git diff --check` passed and the worktree remained clean.
 
-The full-suite discrepancy is environmental, not behavioral. The Reviewer ran
-the complete suite successfully, and the one sandbox-blocked test passed when
-given its normal build permission.
-
-## Non-Blocking Follow-ups
-
-- `docs/architecture/usage-cost-contracts.md` preserves its historical
-  publication-stage wording for Task 5C.7. The authoritative Roadmap explains
-  this convention. Refreshing that checkpoint document is optional future
-  closure work, not a Task 5D.0 finding.
-- 5D.1 must calibrate the secret-ingress guarantee as described above.
-- Company-side ADO/Copilot authentication, CLI structure, read-tool
-  allowlisting, and provider-session AIC semantics remain evidence gates, not
-  assumed facts.
-
-## Human Decision Gate Before 5D.1
-
-Task 5D.1 requires a product decision about the default local retention of
-conversation messages and structured artifact revisions.
-
-Architect recommendation:
-
-- retain local conversation and artifact content for `30 days` after the
-  session's last activity;
-- permit immediate manual deletion;
-- permit explicit user configuration for session-only, `7`, `30`, or `90`
-  days;
-- do not silently select indefinite retention;
-- keep Task 5C usage, reasoning traces, and future execution receipts under
-  their own explicit retention policies rather than deleting them implicitly
-  with conversation content.
-
-The Human accepted this recommendation on `2026-07-25`. The decision gate is
-closed, and the executable Task 5D.1A handoff is published in
-`agent-handoff/current-task.md`.
+The passing suite does not contain the cross-repository duplicate and
+miscorrelated dependency-return cases above.
 
 ## Required Changes
 
-None for Task 5D.0.
+Complete one narrow Task 5D.1A Attempt 2 remediation:
+
+- harden Application Service repository-result correlation;
+- reject ambiguous cross-repository ownership;
+- validate repository role, IDs, bounds, and ordered correlations;
+- retain all approved contract, repository, SQLite, retention, and
+  sensitive-text behavior;
+- add focused adversarial tests.
+
+Do not begin Web/API/frontend work.
 
 ## Decision
 
-Approved
+Needs Revision
 
-PMQA Task 5D.0 is approved at documentation implementation commit
-`df2aeddf8949729cf5121e1c4327a504b6eb59f8`.
+PMQA Task 5D.1A is not approved at implementation commit
+`4ae3893d4f12a4dff1a8f6bf18cbfcc07578be20`.
 
 ## Next Recommended Task
 
-Proceed to PMQA Task 5D.1A — Conversation Session and Retention Foundation,
+Complete PMQA Task 5D.1A Attempt 2 — Repository Result Correlation,
 defined in `agent-handoff/current-task.md`.
