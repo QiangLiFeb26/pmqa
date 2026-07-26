@@ -2,27 +2,27 @@
 
 Owner: Architect
 
-Task: PMQA Task 5C.7 — Cross-Level Summary Consistency
+Task: PMQA Task 5C.7 — Retry/Fallback Aggregate Exclusivity
 
 Task ID: `PMQA-5C.7`
 
-Attempt: `2`
+Attempt: `3`
 
-Status: Needs Revision
+Status: Approved
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
 Reviewed Starting HEAD:
-`370434c4c42c31b3bde573f10bf63e2b503b0c00`
+`e18ffd74a5cf1a6d97de3709177af86ac073de46`
 
 Reviewed Implementation Commit:
-`3419a9e5d4460186c2608dbd7f1e26762241c070`
+`2540acf98be7a1645c252de595be6930c63ab717`
 
 Derived Coder Report Commit:
-`71aa76384a628915e170950758f256add9d5eaee`
+`5678d20f239ed40fc8a0cc6749bf98ae1f5e7949`
 
 Derived Reviewer Report Commit:
-`d6b1acd1572bf55de8cb85ed303059b832daa55d`
+`9d28c1361111d75e642292ec87a9a8f1f406cdc7`
 
 The Reviewer report commit was derived with:
 
@@ -30,24 +30,24 @@ The Reviewer report commit was derived with:
 git log -1 --format=%H -- agent-handoff/reviewer-report.md
 ```
 
-This review does not claim the SHA of its own containing commit. The Coder
-records the publication commit containing this disposition and remediation
-task as the next starting HEAD.
+This review does not claim the SHA of its own containing commit. The next
+Coder derives and records the publication commit containing this disposition
+and Task 5D.0.
 
 ## Correlation and Ownership Verification
 
 - the active branch and upstream are
   `agent/task-5c-1-canonical-run-contract`;
 - starting HEAD
-  `370434c4c42c31b3bde573f10bf63e2b503b0c00` is an ancestor of implementation
-  commit `3419a9e5d4460186c2608dbd7f1e26762241c070`;
+  `e18ffd74a5cf1a6d97de3709177af86ac073de46` is an ancestor of implementation
+  commit `2540acf98be7a1645c252de595be6930c63ab717`;
 - the implementation commit is an ancestor of Coder report commit
-  `71aa76384a628915e170950758f256add9d5eaee`;
+  `5678d20f239ed40fc8a0cc6749bf98ae1f5e7949`;
 - the Coder report commit is an ancestor of Reviewer report commit
-  `d6b1acd1572bf55de8cb85ed303059b832daa55d`;
+  `9d28c1361111d75e642292ec87a9a8f1f406cdc7`;
 - Coder and Reviewer reports identify the same Task, Attempt, branch,
   starting HEAD, and implementation commit;
-- the remediation changed only `pmqa/usage/summary.py` and
+- the implementation changed only `pmqa/usage/summary.py` and
   `tests/test_usage_summary.py`;
 - the Coder and Reviewer report commits changed only their exclusively owned
   handoff files;
@@ -57,33 +57,43 @@ task as the next starting HEAD.
 
 Deep
 
-The Architect independently selected Deep review because this attempt makes a
-public multi-level aggregate mathematically self-consistent. Review included
-cross-level and cross-field adversarial construction, not only the generated
-aggregator path.
+The Architect independently selected Deep review despite the two-line
+production change because this was the third attempt on a public aggregate
+contract. Review included the assigned predecessor invariant and a final
+pairwise audit of lifecycle, predecessor, token-coverage, cost-bucket, and
+cross-level interactions.
 
 ## Overall Assessment
 
-Attempt 2 correctly closes both findings assigned by the prior Architect:
+Task 5C.7 is approved.
 
-- top-level lifecycle, predecessor, duration, token, and cost metrics are now
-  reconciled from provider/model groups;
-- reconciliation uses bounded integer and exact Decimal arithmetic;
-- direct construction, `from_dict()`, and revalidated copy paths run the
-  invariant;
-- persisted contradictions become fixed safe summary-validation errors;
-- the monetary aggregation loop no longer relies on a removable `assert`;
-- generated aggregator output and all existing public fields remain
-  unchanged.
+The shared metrics validator now correctly requires:
 
-However, independent cross-field review found one remaining impossible public
-summary state. Retry and fallback counts are each bounded independently, but
-their combined count is not bounded by invocation count.
+```text
+retry_invocation_count + fallback_invocation_count
+    <= invocation_count
+```
 
-Because every source `AIInvocationRecord` permits at most one predecessor kind,
-a canonical summary cannot legitimately count one invocation as both retry
-and fallback. This affects future retry-waste and fallback reporting, so Task
-5C.7 remains unapproved.
+without unsafe addition, duplication, or equality overconstraint. It applies
+to top-level `UsageSummary` and every `UsageProviderModelSummary`.
+
+The completed Task 5C.7 contract now enforces:
+
+- strict immutable canonical summaries;
+- empty, observed-zero, partial, and unavailable token distinction;
+- exact status and mutually exclusive predecessor coverage;
+- bounded duration and token arithmetic;
+- provider-reported, estimated, subscription-included, and unavailable cost
+  separation;
+- currency and complete pricing-provenance separation;
+- exact Decimal aggregation independent of caller ambient precision;
+- deterministic provider/model grouping and ordering;
+- complete top-level/group lifecycle, predecessor, duration, token, and cost
+  reconciliation;
+- fixed safe public reconstruction failures;
+- provider, storage, pricing, workflow, CLI, and UI isolation.
+
+No remaining Task 5C.7 blocker or required follow-up exists.
 
 ## Independent Reviewer Result
 
@@ -91,148 +101,115 @@ Reviewer verdict: `Pass`
 
 Reviewer blocking findings: None
 
-The Reviewer performed a legitimate Deep review, independently reproduced the
-assigned cross-level contradiction and optimized-Python monetary case, and ran
-all required tests.
+The Reviewer independently hand-traced the invariant, reproduced the exact
+prior contradiction, ran every required validation command, and deliberately
+selected Deep review rather than accepting the Coder's Standard
+recommendation.
 
-The Architect accepts that both assigned remediation targets are closed, but
-overrides the advisory verdict because the broader predecessor-count contract
-still admits an impossible aggregate.
+The Architect accepts the advisory verdict.
 
-## Closed Findings
+## Architect Findings
 
-### Cross-level roll-up consistency
+None.
 
-Closed.
+## Closed Finding
 
-`_validate_group_rollup` now derives and compares lifecycle counts, predecessor
-counts, duration, token coverage/totals, and normalized cost buckets. The
-Attempt 1 contradictory status/duration/token/cost wire payload is rejected.
-
-### Monetary domain assertion
+### Retry/fallback aggregate exclusivity
 
 Closed.
 
-The aggregation service now uses an explicit fixed `INVALID_RECORD` branch and
-retains the same behavior under `python -O`.
-
-## New Blocking Finding
-
-### F1 — Retry and fallback counts can overlap beyond invocation count
-
-Severity: Blocking
-
-Location:
-
-- `pmqa/usage/summary.py`
-- `_validate_metrics`
-
-Current validation checks:
+The validator first confirms each count does not exceed invocation count,
+then safely compares:
 
 ```text
-retry_invocation_count <= invocation_count
-fallback_invocation_count <= invocation_count
+retry <= invocation_count - fallback
 ```
 
-but does not require:
+The subtraction cannot become negative because of short-circuit ordering.
+Attempt-one invocations may contribute to neither category. Different
+invocations may legitimately produce one retry and one fallback.
 
-```text
-retry_invocation_count + fallback_invocation_count <= invocation_count
-```
+Independent reproduction confirms:
 
-Every valid `AIInvocationRecord` has either:
+- `invocation=1, retry=1, fallback=1` is rejected through fixed
+  `UsageSummaryValidationError`;
+- `invocation=2, retry=1, fallback=1` is accepted and canonical round-trips.
 
-- no predecessor on attempt one; or
-- exactly one retry predecessor; or
-- exactly one fallback predecessor.
+## Final Task 5C.7 Adversarial Disposition
 
-It can never have both predecessor fields.
+The Architect performed one final interaction audit because earlier attempts
+found individually valid nested views that were collectively impossible.
 
-Independent reproduction:
+Confirmed:
 
-```text
-invocation_count=1
-retry_invocation_count=1
-fallback_invocation_count=1
-```
+- status categories sum exactly to invocation count;
+- retry and fallback are individually and collectively bounded;
+- every token field has exact observed/unavailable coverage;
+- `None` and observed numeric zero remain distinct;
+- cost buckets cover every invocation exactly once;
+- duplicate cost identities are rejected;
+- group-derived cost identities/counts/amounts equal top-level buckets;
+- provider/model group lifecycle, predecessor, duration, token, and cost
+  roll-ups equal the top-level view;
+- all public construction and reconstruction paths execute the invariant.
 
-The same values were placed in the sole provider/model group, so all new
-cross-level reconciliation passed. `UsageSummary.from_dict()` accepted the
-payload.
-
-Impact:
-
-- one invocation may be counted twice across mutually exclusive predecessor
-  categories;
-- retry-waste and fallback analysis can overstate activity;
-- top-level and group views may agree with each other while both contradict
-  every possible source-record selection;
-- a future CLI or Web UI can display impossible operational evidence.
-
-Required correction:
-
-- enforce the combined predecessor bound in the shared `_validate_metrics`
-  path so it applies to top-level and provider/model summaries;
-- prove all public contract entry points reject overlap;
-- retain legitimate mixtures where different invocations account for retry
-  and fallback separately.
+No further contradictory canonical state was found.
 
 ## Acceptance Criteria Coverage
 
 | Acceptance criterion | Result |
 | --- | --- |
-| Assigned top-level/group lifecycle reconciliation | Met |
-| Assigned duration/token/cost reconciliation | Met |
-| Every contract entry point runs cross-level validation | Met |
-| Exact bounded integer and Decimal behavior | Met |
-| Monetary aggregation contains no domain `assert` | Met |
-| Predecessor aggregate represents possible source records | Not met |
-| Fixed safe reconstruction errors | Met |
-| Existing behavior and allowed scope preserved | Met |
+| One invocation cannot be both retry and fallback | Met |
+| Valid mixed retry/fallback across different invocations remains accepted | Met |
+| Top-level and provider/model summaries share one policy | Met |
+| Direct construction, copy, and `from_dict()` enforce it | Met |
+| Fixed safe error behavior remains intact | Met |
+| Valid aggregation and canonical serialization remain unchanged | Met |
+| Existing regressions remain green | Met |
+| Only authorized files changed | Met |
 
 ## Validation Evidence
 
 Independent Reviewer evidence:
 
-- focused usage suite: `267 passed`;
+- focused usage suite: `279 passed`;
 - Run/Runner/Application/boundary/packaging regressions: `332 passed`;
 - Task 4 regressions: `98 passed`;
-- full default suite: `1828 passed, 5 skipped`;
+- full default suite: `1840 passed, 5 skipped`;
 - generated Playwright regressions: `2 passed`;
 - isolated compileall and `git diff --check`: passed.
 
 Architect evidence:
 
 - complete Reviewer and Coder reports read;
-- full remediation diff and new roll-up helpers inspected;
+- complete production diff and shared validator inspected;
 - ancestry, role ownership, and report correlation verified;
-- focused usage suite independently run: `267 passed`;
-- direct `UsageSummary.from_dict()` reproduction accepted
-  `invocation_count=1`, `retry=1`, `fallback=1` at both top-level and the sole
-  provider/model group;
-- `git diff --check` through the Reviewer commit: passed;
-- the worktree was clean before Architect disposition.
+- focused usage suite independently run: `279 passed`;
+- invalid predecessor overlap independently rejected;
+- valid two-invocation retry/fallback selection independently accepted and
+  canonical round-tripped;
+- Architect full-suite run produced `1839 passed, 5 skipped` plus one
+  sandbox-permission failure in the existing external-example wheel build;
+- that exact failed test was rerun with normal build permissions and passed;
+- `git diff --check` passed and the worktree remained clean.
 
-The passing suite validates cross-level equality but lacks a mutually
-exclusive predecessor-category test.
+The full-suite discrepancy was environmental, not behavioral: the restricted
+Architect sandbox prevented updating external-example build metadata. The
+Reviewer completed the same full suite successfully, and the isolated failed
+test passed immediately when granted its expected build permission.
 
 ## Required Changes
 
-Complete one minimal PMQA-5C.7 Attempt 3 remediation for predecessor-count
-exclusivity. Do not change public fields or revisit the completed roll-up
-implementation.
+None.
 
 ## Decision
 
-Needs Revision
+Approved
 
-PMQA Task 5C.7 is not approved at implementation commit
-`3419a9e5d4460186c2608dbd7f1e26762241c070`.
+PMQA Task 5C.7 is approved at implementation commit
+`2540acf98be7a1645c252de595be6930c63ab717`.
 
 ## Next Recommended Task
 
-Complete PMQA Task 5C.7 Attempt 3 — Retry/Fallback Aggregate Exclusivity,
+Proceed to PMQA Task 5D.0 — Conversational Workflow Platform Architecture,
 defined in `agent-handoff/current-task.md`.
-
-PMQA Task 5D.0 begins immediately after this narrow remediation passes final
-review.
