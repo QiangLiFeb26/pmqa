@@ -305,12 +305,29 @@ from Python, LangGraph, provider, and repository internals. This is a
 recommendation only; Task 5D.0 adds no dependency, server, frontend, CLI,
 connector, or runtime behavior.
 
+Task 5D.0 passed architecture review. Task 5D.1A implements only the first
+conversation foundation: strict immutable sessions and turns, the approved
+session-only/7/30/90-day retention policy with a 30-day default, immediate
+manual deletion, expiry purge, explicit in-memory and SQLite repositories, and
+a deterministic synchronous application service. Session-only content is
+never written to SQLite. The durable repository uses versioned schema
+identity, foreign keys, canonical reconstruction, atomic session/turn
+transitions, and expected-revision compare-and-write.
+
+Recognizable Bearer, Cookie, and credential-assignment text is rejected before
+conversation persistence through the same neutral sensitive-text primitive
+used by the existing reasoning scrubber. This is bounded defense in depth, not
+a claim to detect every arbitrary secret. Task 5D.1A does not add Web/API
+transport, frontend assets, CLI behavior, reasoning or workflow execution,
+ADO/Copilot adapters, capabilities, artifacts, authorization, or receipts.
+5D.1B and 5D.1C have not started.
+
 The full authority model, ADO acquisition/write and recovery boundaries,
 local-Web security, untrusted-content policy, usage integration, company
 validation stop points, and independently reviewable 5D.1–5D.6 plan are in the
 [Conversational Workflow Platform architecture](architecture/conversational-workflow-platform.md).
-Task 5D.0 is ready for architecture review; no Task 5D implementation phase,
-Task 5B pilot, Task 6, or Task 7 has started.
+Task 5D.1A is ready for architecture review; Task 5B pilot, Task 6, and Task 7
+have not started.
 
 ### Memory
 

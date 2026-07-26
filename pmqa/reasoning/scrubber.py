@@ -1,7 +1,6 @@
 """Provider-independent security boundary for reasoning requests."""
 
 import math
-import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -12,6 +11,7 @@ from pmqa.models import Element, Interaction, Page
 from pmqa.reasoning.boundary_policy import is_prohibited_reasoning_key
 from pmqa.reasoning.models import ReasoningRequest
 from pmqa.reasoning.validation import ReasoningValidationError, validate_reasoning_request
+from pmqa.security.sensitive_text import redact_recognizable_sensitive_text
 from pmqa.utils.hashing import canonical_json_sha256
 
 
@@ -134,15 +134,6 @@ class DeterministicReasoningScrubber(ReasoningScrubber):
         return ScrubResult(request=request, report=report)
 
 
-_BEARER_PATTERN = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
-_COOKIE_PATTERN = re.compile(r"(?i)\b(cookie)\s*:\s*[^\r\n]+")
-_ASSIGNMENT_PATTERN = re.compile(
-    r"(?i)\b(api[\s_-]?key|password|passwd|access[\s_-]?token|"
-    r"refresh[\s_-]?token|token)\s*([:=])\s*"
-    r"(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)"
-)
-
-
 def _sanitize(
     value: Any,
     path: str,
@@ -213,24 +204,10 @@ def _redact_string(
     redactions: List[RedactionRecord],
     rules: set[str],
 ) -> str:
-    result, count = _BEARER_PATTERN.subn("Bearer [REDACTED]", value)
-    if count:
-        _record_redaction(path, "bearer-value-redaction", count, redactions, rules)
-
-    def redact_cookie(match: re.Match) -> str:
-        return f"{match.group(1)}: [REDACTED]"
-
-    result, count = _COOKIE_PATTERN.subn(redact_cookie, result)
-    if count:
-        _record_redaction(path, "cookie-header-redaction", count, redactions, rules)
-
-    def redact_assignment(match: re.Match) -> str:
-        return f"{match.group(1)}{match.group(2)}[REDACTED]"
-
-    result, count = _ASSIGNMENT_PATTERN.subn(redact_assignment, result)
-    if count:
-        _record_redaction(path, "secret-assignment-redaction", count, redactions, rules)
-    return result
+    result = redact_recognizable_sensitive_text(value)
+    for rule, count in result.rule_counts:
+        _record_redaction(path, rule, count, redactions, rules)
+    return result.text
 
 
 def _record_redaction(

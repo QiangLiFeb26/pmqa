@@ -2,11 +2,11 @@
 
 ## Status and scope
 
-PMQA Task 5D.0 is an architecture checkpoint, ready for independent
-architecture review. It defines the product flow, logical boundaries, future
-contracts, and phased delivery plan. It does not implement a Web application,
-conversation runtime, capability gateway, Azure DevOps (ADO) connector,
-authorization service, external writer, or new workflow.
+PMQA Task 5D.0 passed architecture review. Task 5D.1A implements the bounded
+conversation session and retention foundation described here and is ready for
+independent architecture review. It does not implement a Web application,
+capability gateway, Azure DevOps (ADO) connector, authorization service,
+external writer, or new workflow.
 
 PMQA is:
 
@@ -15,8 +15,8 @@ PMQA is:
 
 The first flagship workflow is `ado.story_test_authoring`, but it is one
 explicitly registered workflow on a reusable platform. General QA questions
-and smaller read-only workflows remain first-class. Task 5D.0 does not start
-Task 5D.1, the company-side pilot, Task 6, or Task 7.
+and smaller read-only workflows remain first-class. Task 5D.1B, Task 5D.1C,
+the company-side pilot, Task 6, and Task 7 have not started.
 
 ## Product definition
 
@@ -589,10 +589,13 @@ nor the append-only usage-file repository: their content, retention,
 concurrency, and corruption semantics differ. Large artifact bodies may use a
 content-addressed local store referenced by logical keys.
 
-Retention is an explicit user setting with a conservative documented default;
-deletion must account independently for conversation, artifacts, traces,
-usage, and receipts. The company-side decision is required before selecting a
-duration.
+Retention is an explicit user setting. The approved choices are session-only,
+7, 30, or 90 days after the session's last authoritative activity; 30 days is
+the default. Manual deletion is available immediately, and indefinite
+retention is never selected silently. Task 5D.1A applies this decision to
+conversation sessions and turns. Future structured artifact repositories must
+reuse it, while reasoning traces, usage, and execution receipts retain
+separate explicit policies.
 
 A hosted migration replaces the local session principal with authenticated
 users, adds tenant/scope isolation, managed secrets, server-side repositories,
@@ -627,7 +630,7 @@ stop at the listed checkpoint when evidence or a Human decision is missing.
 | Sandbox Test Plan/Suite for write validation | Separate non-production sandbox selected by the Human | 5D.5 cannot enable any write adapter without an approved sandbox and identity |
 | Discussion sharing with Copilot | Disabled until field-level policy is approved | 5D.3 must omit discussion if policy is unresolved |
 | Attachment handling | Metadata only; no fetch or provider sharing | Any attachment-content checkpoint requires separate security review |
-| Local session/artifact retention | Explicit configurable policy; no silent indefinite promise | 5D.1 must stop before persistence release until a retention default is approved |
+| Local session/artifact retention | Session-only, 7, 30, or 90 days; 30 days by default; immediate manual deletion | Decision approved for conversations in 5D.1A; later artifact storage must reuse it |
 | Supported Work Item types and custom fields | Story-like type and an explicit allowlist after schema inspection | 5D.2 must fail safely on unvalidated types/fields |
 | Copilot CLI structured output | Treat as unverified | 5D.3 cannot select the live adapter until bounded structured output is proven |
 | Copilot CLI tool allowlisting/approval | Require technical enforcement, not prompt text | 5D.2 uses a PMQA read wrapper/direct adapter if enforcement is absent |
@@ -656,6 +659,26 @@ external writes, and usage UI.
 **Recommended review depth:** Deep, because loopback authentication, CSRF,
 origin enforcement, persistence, packaging, and browser/local-command
 boundaries establish the platform trust root.
+
+This phase is decomposed as follows:
+
+- **5D.1A — Conversation Session and Retention Foundation:** strict sessions
+  and turns, shared sensitive-text ingress, in-memory/session-only storage,
+  durable revision-checked SQLite storage, retention purge, manual deletion,
+  and a synchronous application service. Status: ready for architecture
+  review.
+- **5D.1B — Secure Loopback Web/API Boundary:** not started.
+- **5D.1C — Browser Workbench, `pmqa web`, and Distribution Packaging:** not
+  started.
+
+5D.1A rejects malformed or recognizable sensitive text before sampling.
+After static input validation, it samples one clock value for each attempted
+authoritative create/start/terminalize/close/purge operation, and one new
+identifier only for create or turn start. Reads do not extend retention.
+Successful turn start,
+turn completion/failure, and session close each advance the session revision,
+`updated_at`, and durable expiration together. Session-only state uses only the
+in-memory repository and makes no durable expiration claim.
 
 ### 5D.2 — Conversational ADO Read / Story Acquisition
 
@@ -741,4 +764,5 @@ stabilization, budgets/optimization, Task 6, and Task 7.
 redaction, retention, real packaging, and security regression closure determine
 release readiness.
 
-No delivery phase begins as part of Task 5D.0.
+Only the bounded 5D.1A foundation has begun. No Web/API/frontend checkpoint or
+later Task 5D phase has started.

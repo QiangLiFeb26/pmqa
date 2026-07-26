@@ -16,7 +16,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
 | Task 5A — Product Pack Adoption Foundation | Complete | Task 5A.1–5A.6 establish the experimental manifest, explicit loading, protocol, bounded transport, scaffolding/conformance, and external SauceDemo architecture-validation slice; merged through PR #22. |
 | Task 5C — Local Application and Run Layer | In progress | Task 5C.1–5C.7 passed architecture review; the cumulative branch remains unmerged. |
-| Task 5D — Conversational Workflow Platform | In progress | Task 5D.0 defines the local-first conversational product, authority, artifact, ADO, usage, Web, and phased-delivery architecture; no runtime phase has started. |
+| Task 5D — Conversational Workflow Platform | In progress | Task 5D.0 passed architecture review; Task 5D.1A implements the conversation session, retention, repository, and application-service foundation and is ready for architecture review. |
 | Task 5B — Company-side MDE Read-Only Pilot | Not started | Validate Product Pack assumptions in a company-managed, private, read-only pilot before API v1 stabilization. |
 
 ## Task 4 closure
@@ -237,8 +237,8 @@ Task 5B remains Not started; Task 6 and Task 7 remain Not started.
 
 ## Task 5D — Conversational Workflow Platform
 
-**Task 5D.0 status: Ready for architecture review. No implementation phase has
-started.**
+**Task 5D.0 status: Architecture review passed. Task 5D.1A status: Ready for
+architecture review.**
 
 Task 5D.0 defines PMQA as a local-first, provider-neutral conversational QA
 workflow platform rather than a fixed wizard or cost-only dashboard.
@@ -263,9 +263,25 @@ The planned implementation sequence is:
 5. 5D.5 — Version-Bound Authorization and Deterministic ADO Write; and
 6. 5D.6 — Usage, Audit, Security, Packaging, and End-to-End Hardening.
 
-Task 5D.0 implements none of these phases. It adds no Web dependency, CLI,
-conversation runtime, capability gateway, ADO or Copilot adapter,
-authorization service, or external write. See the
+Task 5D.1 is split into independently reviewed checkpoints:
+
+- **5D.1A — Conversation Session and Retention Foundation:** strict immutable
+  session/turn lifecycle, session-only and durable repositories, approved
+  retention and deletion, and the deterministic application service;
+- **5D.1B — Secure Loopback Web/API Boundary:** not started; and
+- **5D.1C — Browser Workbench, `pmqa web`, and Distribution Packaging:** not
+  started.
+
+The approved retention choices are session-only, 7, 30, or 90 days after last
+authoritative activity; 30 days is the default. Manual deletion is immediately
+available, and indefinite retention is never selected silently. Task 5D.1A
+applies this policy only to conversations. Reasoning traces, usage, and future
+receipts retain separate policies.
+
+Task 5D.1A adds no Web dependency, HTTP/API transport, CLI, browser frontend,
+workflow selection/execution, ADO or Copilot adapter, capability gateway,
+structured QA artifact repository, authorization service, or external write.
+See the
 [Conversational Workflow Platform architecture](architecture/conversational-workflow-platform.md).
 Task 5B, Task 6, and Task 7 remain Not started.
 

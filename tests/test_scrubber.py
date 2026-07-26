@@ -96,6 +96,32 @@ def test_sensitive_string_patterns_are_redacted(source_text: str, expected: str)
     assert result.report.redacted_values[0].replacement == "[REDACTED]"
 
 
+@pytest.mark.parametrize(
+    ("source_text", "expected"),
+    (
+        ("Set-Cookie: session=fake-cookie", "Set-Cookie: [REDACTED]"),
+        ("secret=fake-secret", "secret=[REDACTED]"),
+        ("credential: fake-credential", "credential:[REDACTED]"),
+    ),
+)
+def test_shared_sensitive_text_rules_cover_conversation_ingress_shapes(
+    source_text: str,
+    expected: str,
+) -> None:
+    result = DeterministicReasoningScrubber().scrub(
+        _input(metadata={"note": source_text})
+    )
+
+    assert result.request.metadata["note"] == expected
+    assert result.report.rules_applied == [
+        (
+            "cookie-header-redaction"
+            if source_text.startswith("Set-Cookie")
+            else "secret-assignment-redaction"
+        )
+    ]
+
+
 def test_raw_dom_and_html_fields_do_not_cross_the_boundary() -> None:
     result = DeterministicReasoningScrubber().scrub(
         _input(metadata={"raw_dom": "<body>fake</body>", "HTML": "<p>fake</p>"})

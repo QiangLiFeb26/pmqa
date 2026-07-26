@@ -135,6 +135,11 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         assert "pmqa/application/contracts.py" in names
         assert "pmqa/application/registry.py" in names
         assert "pmqa/application/service.py" in names
+        assert "pmqa/conversation/__init__.py" in names
+        assert "pmqa/conversation/contracts.py" in names
+        assert "pmqa/conversation/repository.py" in names
+        assert "pmqa/conversation/service.py" in names
+        assert "pmqa/security/sensitive_text.py" in names
         assert "pmqa/usage/__init__.py" in names
         assert "pmqa/usage/contracts.py" in names
         assert "pmqa/usage/collector.py" in names
@@ -241,6 +246,7 @@ import pmqa.product_pack
 import pmqa.run
 import pmqa.runners
 import pmqa.application
+import pmqa.conversation
 import pmqa.usage
 import products.demo
 import products.demo.application
@@ -258,6 +264,11 @@ assert pmqa.runners.MockRunner
 assert pmqa.application.PMQAApplicationService
 assert pmqa.application.WorkflowRegistry
 assert pmqa.application.RunnerRegistry
+assert pmqa.conversation.ConversationSession
+assert pmqa.conversation.ConversationTurn
+assert pmqa.conversation.ConversationApplicationService
+assert pmqa.conversation.InMemoryConversationRepository
+assert pmqa.conversation.SQLiteConversationRepository
 assert pmqa.usage.AIInvocationRecord
 assert pmqa.usage.TokenUsageEvidence
 assert pmqa.usage.CostEvidence
@@ -275,6 +286,7 @@ modules = (
     pmqa.run,
     pmqa.runners,
     pmqa.application,
+    pmqa.conversation,
     pmqa.usage,
     products.demo,
     products.demo.application,

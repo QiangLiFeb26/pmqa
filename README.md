@@ -327,6 +327,18 @@ the
 [Application Service architecture](docs/architecture/application-service.md)
 and
 [Usage and cost contracts](docs/architecture/usage-cost-contracts.md).
+
+Task 5D.1 is decomposed into conversation persistence (5D.1A), the secure
+loopback Web/API boundary (5D.1B), and the browser workbench/packaging
+(5D.1C). Task 5D.1A implements strict provider-neutral session and turn
+contracts, the approved retention choices (session-only, 7, 30, or 90 days,
+with 30 days as the default), immediate manual deletion, deterministic expiry
+purge, an in-memory repository, a revision-checked SQLite repository, and a
+synchronous application service. Recognizable credential-shaped text is
+rejected through the same shared primitive used by the Task 3 scrubber, while
+ordinary QA discussion remains valid. Task 5D.1A adds no HTTP server,
+frontend, CLI, reasoning call, workflow execution, ADO/Copilot integration, or
+external side effect.
 See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)
