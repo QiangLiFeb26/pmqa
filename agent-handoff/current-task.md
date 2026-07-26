@@ -2,278 +2,376 @@
 
 Owner: Architect
 
-Task: PMQA Task 5D.1A — Repository Result Correlation
+Task: PMQA Task 5D.1B — Secure Loopback Web/API Boundary
 
-Task ID: `PMQA-5D.1A`
+Task ID: `PMQA-5D.1B`
 
-Attempt: `2`
+Attempt: `1`
 
-Status: Changes Required
+Status: Authorized
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
-Reviewed Attempt 1 Reviewer HEAD:
-`67492ea5ef551fd10a47338f270408e92baa99c4`
+Approved Task 5D.1A Reviewer HEAD:
+`55ea5067e87d502951cd102b40ede17a2d23796f`
 
 Coder starting HEAD: derive and record the latest pushed branch commit that
-contains this remediation publication before changing implementation files.
+contains this task publication before changing implementation files.
 
 Repository Markdown and Git history are authoritative. Chat summaries are
 informational only.
 
 ## Task Objective
 
-Harden `ConversationApplicationService` so every value returned by its
-injected volatile and durable repositories is correlated, bounded, and
-unambiguous before it is exposed or used for a transition.
+Implement the provider-neutral, versioned, secure local ASGI/API boundary for
+PMQA's existing conversation service and workflow catalog.
 
-This is a narrow remediation. Preserve the approved Task 5D.1A contracts,
-repository implementations, retention behavior, sensitive-text policy, and
-scope.
+This checkpoint establishes the HTTP trust boundary only. It must be usable by
+the future browser workbench, but it must not start a server, open a browser,
+ship frontend assets, invoke reasoning, read ADO, or execute a PMQA workflow.
 
 ## Background
 
-Attempt 1 created:
+Task 5D.0 approved the Conversational Workflow Platform architecture:
 
-- canonical conversation session and turn contracts;
-- volatile and durable repository composition;
-- real SQLite persistence;
-- deterministic retention and revision transitions; and
-- shared sensitive-text ingress.
+- a local Python FastAPI boundary;
+- versioned REST/JSON under `/api/v1`;
+- loopback-only deployment;
+- invocation-local authentication;
+- strict Host, Origin, and CSRF controls;
+- bounded canonical requests and fixed-safe responses; and
+- a future React/TypeScript workbench packaged into the PMQA wheel.
 
-The implementation and Reviewer report are strong, but the Application
-Service currently trusts repository return correlation too early.
+Task 5D.1A now provides the approved conversation foundation:
 
-`_find_session` returns immediately after the first repository finds a
-session. It neither checks the second repository nor proves the returned
-session has the requested ID and belongs to that repository's retention role.
+- immutable session and turn contracts;
+- session-only and durable repositories;
+- SQLite retention and purge;
+- optimistic revision transitions;
+- shared sensitive-text ingress; and
+- repository-result correlation before every read or mutation.
 
-The complete evidence is in `agent-handoff/architect-review.md`.
+Task 5D.1B puts a narrow HTTP boundary over those existing services. Task
+5D.1C will later own Uvicorn startup, `pmqa web`, token delivery to the local
+browser, static frontend assets, browser opening, and distribution-level
+runtime verification.
 
-## Accepted Architecture Decision
+## Accepted Architecture Decisions
 
-The shared sensitive-text primitive's additive recognition of `Set-Cookie`,
-`secret=...`, and `credential(s)=...` is explicitly approved.
+### Framework and execution boundary
 
-Do not roll it back, create separate drifting vocabularies, or change
-sensitive-text behavior in this remediation.
+- Use a FastAPI ASGI application factory.
+- Add one bounded Python runtime dependency for FastAPI, compatible with the
+  repository's supported Python versions and Pydantic v2.
+- Do not add or start Uvicorn in this checkpoint.
+- Do not use module-level application singletons or import-time dependency
+  creation.
+- Importing `pmqa.web` must perform no file, environment, network, browser,
+  process, discovery, repository, or credential operation.
 
-The separate `_ConversationContract` base and current canonical wire behavior
-are also accepted. Do not refactor contract families.
+### Dependency direction
 
-## Required Session Lookup Invariant
+The app factory receives explicit, already-created dependencies:
 
-For every service operation that resolves a session:
+- one exact `ConversationApplicationService`;
+- one exact `WorkflowRegistry`; and
+- one validated runtime-only local Web security context.
 
-1. query both injected repository roles;
-2. safely canonicalize each successful result;
-3. require each returned session ID to equal the requested ID;
-4. require a volatile-repository result to use
-   `ConversationRetentionPolicy.SESSION_ONLY`;
-5. require a durable-repository result to use one of the approved durable
-   policies;
-6. return only when exactly one repository owns the session;
-7. return `SESSION_NOT_FOUND` when neither owns it; and
-8. return fixed `REPOSITORY_FAILED` when both own it or either result is
-   malformed/miscorrelated.
+The Web layer may call only public application-service and registry APIs. It
+must not import or access concrete in-memory/SQLite repository internals,
+LangGraph, WorkflowState, provider SDKs, Product Packs, Playwright, or product
+modules.
 
-Do not short-circuit after the volatile repository succeeds.
+### Public API scope
 
-This invariant must protect:
+Implement only versioned endpoints needed for the offline local shell:
 
-- `get_session`;
-- `get_turn`;
-- `list_turns`;
-- `start_turn`;
-- `complete_turn`;
-- `fail_turn`;
-- `close_session`; and
-- `delete_session`.
+- authenticated health;
+- read-only workflow catalog;
+- create, list, get, close, and delete conversation sessions;
+- create one pending user turn;
+- list and get conversation turns.
 
-Ambiguity must be detected before mutation or deletion.
+Do not expose browser endpoints that complete or fail assistant turns. A
+future provider/application orchestration service will own that transition.
+Do not expose purge, SQL, storage paths, repository selection, arbitrary
+commands, runner execution, or workflow execution.
 
-## Required Turn Correlation
+## Required Public Modules and APIs
 
-Before trusting a repository turn result:
+Use a small `pmqa/web/` package with names chosen consistently. Expected
+surfaces are:
 
-- require exact `ConversationTurn`;
-- reconstruct a fresh canonical snapshot;
-- require `turn.turn_id` to equal the requested turn ID;
-- require `turn.session_id` to equal the owning session ID;
-- require the turn ID to occupy exactly
-  `session.turn_ids[turn.sequence_number - 1]`;
-- reject out-of-range, duplicate, missing, or mismatched correlation with
-  fixed `REPOSITORY_FAILED`.
+- strict immutable API v1 request/response/read-model contracts;
+- a runtime-only local Web security configuration/context;
+- `create_pmqa_web_app(...) -> FastAPI`.
 
-Do not reveal whether a malformed dependency returned another valid
-identifier.
+The exact module split may differ if it stays small and preserves import
+isolation. Export only the APIs needed by future composition and tests.
 
-## Required List Correlation
+The runtime security object must:
 
-### Session lists
+- be non-serializable into PMQA domain/artifact payloads;
+- hide tokens from `repr` and validation errors;
+- retain no caller-owned mutable container;
+- require session and CSRF tokens to be distinct exact built-in strings,
+  43–128 characters long, using only the unpadded base64url alphabet
+  (`A-Z`, `a-z`, `0-9`, `-`, `_`); this validates capacity and wire shape,
+  while actual cryptographic generation remains Task 5D.1C's responsibility;
+- require an exact loopback literal host (`127.0.0.1` or `::1`) and valid
+  nonzero port;
+- derive or validate one exact `http` Origin and Host authority; and
+- reject wildcard, path, URL ambiguity, credentials, query, fragment,
+  non-ASCII, control, or non-loopback host configuration.
 
-For each repository result:
+Token generation and browser delivery are deferred to Task 5D.1C. Tests may
+construct deterministic valid tokens explicitly.
 
-- require the exact canonical collection shape promised by the Protocol;
-- reject a result longer than the requested limit before global aggregation;
-- snapshot every exact `ConversationSession`;
-- require volatile results to be session-only;
-- require durable results to be durable;
-- reject duplicate IDs within or across repositories;
-- preserve the service's existing deterministic global ordering and limit.
+## API v1 Endpoints
 
-The service may sort a valid bounded result; it must not silently truncate an
-oversized dependency response and call it valid.
+Use `/api/v1` and exact JSON request/response models. At minimum:
 
-### Turn lists
+```text
+GET    /api/v1/health
+GET    /api/v1/workflows
+POST   /api/v1/sessions
+GET    /api/v1/sessions
+GET    /api/v1/sessions/{session_id}
+POST   /api/v1/sessions/{session_id}/close
+DELETE /api/v1/sessions/{session_id}
+POST   /api/v1/sessions/{session_id}/turns
+GET    /api/v1/sessions/{session_id}/turns
+GET    /api/v1/sessions/{session_id}/turns/{turn_id}
+```
 
-Resolve and retain the owning canonical session, then require:
+Requirements:
 
-- the exact canonical collection shape promised by the Protocol;
-- result length not greater than the requested limit;
-- every item is an exact canonical `ConversationTurn`;
-- every `session_id` matches the requested/owning session;
-- IDs are unique;
-- sequence numbers are exactly `1..N` for the returned prefix; and
-- returned turn IDs equal
-  `session.turn_ids[:len(returned_turns)]`.
+- health returns only API/schema identity and bounded readiness state;
+- workflow catalog is a stable safe read model projected from canonical
+  `WorkflowDefinition` snapshots and never exposes adapters or runners;
+- create-session input selects one existing retention policy explicitly or
+  uses the approved 30-day default; optional connection-context identity
+  remains an identifier, not credentials;
+- create-turn input contains schema version, expected revision, and the
+  bounded user message;
+- close input contains schema version and expected revision;
+- session and turn list limits reuse existing canonical bounds;
+- mutation responses include the resulting canonical session/turn read model;
+- API contracts use exact fields, forbid extras, reject coercion, use
+  canonical UTC `Z` timestamps, and do not retain caller-owned containers;
+- no endpoint accepts prompts, provider configuration, credentials,
+  executable paths, commands, environment mappings, raw HTML/DOM, cookies,
+  storage state, or arbitrary free-form metadata.
 
-Reject sorted-but-gapped, reordered, foreign-session, wrong-ID, duplicate, or
-oversized results.
+Do not duplicate domain lifecycle policy in Web models. Reconstruct and
+project the existing canonical conversation and workflow contracts.
 
-## Required Purge Result Validation
+## Authentication, Origin, Host, and CSRF Policy
 
-Require the durable repository purge result to be:
+Every `/api/v1` endpoint requires an invocation-local session token using one
+fixed header scheme. Prefer:
 
-- the exact canonical collection shape promised by the Protocol;
-- no longer than the requested limit;
-- unique; and
-- composed only of canonical identifiers.
+```text
+Authorization: Bearer <invocation-local-token>
+```
 
-Do not accept a list subclass, generator, set, mapping, runtime object, or a
-tuple containing invalid/mutable items.
+Use timing-safe comparison. Reject missing, malformed, duplicate, or incorrect
+authentication with one fixed safe response. Never accept a session or CSRF
+token in a URL, query parameter, route value, request body, cookie, log, error,
+or response.
 
-No content or repository details may enter the public result or error.
+Every request must:
 
-## Safe Failure and Side-Effect Semantics
+- contain the exact configured Host authority;
+- reject multiple/ambiguous Host values;
+- reject absolute-form or otherwise ambiguous request targets where the ASGI
+  surface exposes them; and
+- reject credential-like query keys before endpoint processing.
 
-All newly detected dependency contradictions must:
+For Origin:
 
-- expose only fixed `ConversationApplicationErrorCode.REPOSITORY_FAILED`;
-- suppress expected cause/context;
-- not expose identifiers, retention policy, payload, path, SQL, marker,
-  runtime repr, or underlying exception details;
-- make no repository mutation or deletion;
-- not move a record between repositories;
-- not repair ambiguous state automatically.
+- a supplied Origin on any request must exactly equal the configured local
+  Origin;
+- every state-changing method must include that exact Origin;
+- state-changing methods must also include one exact
+  `X-PMQA-CSRF-Token` value matching the runtime CSRF token;
+- safe read requests may omit Origin but must still pass Host and
+  authentication.
 
-`MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit` remain
-authoritative and propagate unchanged.
+Do not install permissive CORS. Do not return
+`Access-Control-Allow-Origin: *`, allow cross-origin credentials, or treat
+loopback location alone as authentication.
 
-Unexpected programming errors retain the repository/application policy already
-established in Attempt 1; do not broaden exception catching unrelated to this
-finding.
+All API responses, including errors, must apply at least:
 
-## Preserve Existing Behavior
+- `Cache-Control: no-store`;
+- `Content-Security-Policy` suitable for an API-only surface, including
+  `default-src 'none'` and `frame-ancestors 'none'`;
+- `X-Content-Type-Options: nosniff`;
+- `Referrer-Policy: no-referrer`;
+- `X-Frame-Options: DENY`; and
+- `Cross-Origin-Resource-Policy: same-origin`.
 
-Do not change:
+Disable FastAPI Swagger UI, ReDoc, and unauthenticated OpenAPI exposure for
+this local runtime boundary.
 
-- public conversation fields, enums, schema versions, constants, or error
-  vocabulary;
-- retention policies, expiration, activity, or clock/ID sampling semantics;
-- session/turn lifecycle or revision behavior;
-- repository protocol or valid repository API output;
-- in-memory or SQLite transaction, schema, corruption, purge, or deletion
-  semantics;
-- canonical serialization;
-- sensitive-text matching/redaction;
-- Task 3 reasoning behavior;
-- Run, Runner, Application, Usage, Workflow, Product Pack, CLI, or packaging
-  behavior;
-- valid output ordering.
+## Request and Error Boundary
 
-Valid Attempt 1 service flows must remain byte/structurally identical.
+Enforce a fixed maximum request-body size no greater than 64 KiB:
+
+- reject oversized declared `Content-Length` before body parsing;
+- count streamed ASGI body bytes so omitted or dishonest Content-Length
+  cannot bypass the limit;
+- reject malformed Content-Length and multiple conflicting values;
+- require JSON content type for JSON mutations;
+- reject duplicate JSON keys, non-finite numbers, invalid UTF-8, excessive
+  nesting, container cycles/runtime objects where applicable, and
+  noncanonical representations;
+- do not use broad regular expressions over arbitrary terminal text.
+
+Define a small stable API failure vocabulary and fixed safe messages for:
+
+- invalid request;
+- authentication failure;
+- Host failure;
+- Origin failure;
+- CSRF failure;
+- request too large;
+- route/resource not found;
+- conversation application failure; and
+- internal/dependency failure.
+
+Map existing `ConversationApplicationErrorCode` values deliberately without
+exposing repository choice, identifiers, user text, payloads, SQL, paths,
+tokens, headers, exception text, runtime repr, cause, or context.
+
+Malformed provider/dependency-shaped failures must not crash the application
+or leak through an HTTP response. `MemoryError`, `KeyboardInterrupt`,
+`SystemExit`, and `GeneratorExit` remain authoritative in direct application
+boundaries and must not be deliberately converted into ordinary success.
+
+The API must never log request/response bodies, Authorization/CSRF headers,
+user messages, assistant responses, credentials, cookies, or raw exception
+text.
+
+## Side-Effect Ordering
+
+Before calling any conversation mutation:
+
+1. validate request target and body bound;
+2. validate Host;
+3. authenticate;
+4. validate Origin and CSRF;
+5. reconstruct the exact API contract; and
+6. validate route/body correlation.
+
+Any failure in these steps must cause zero conversation-service mutation.
+
+Reads and mutations must call the existing service exactly once per intended
+operation. Do not retry, fall back, repair, move repositories, or translate a
+failed HTTP request into another service operation.
+
+## Required Tests
+
+Use FastAPI's in-process ASGI test support and real in-memory conversation
+repositories. Tests remain offline and must not bind a socket or start a
+browser/server.
+
+Directly cover:
+
+- valid authenticated health and workflow catalog;
+- exact safe workflow definition projection and deterministic ordering;
+- complete valid session/turn create/read/list/close/delete flow;
+- 30-day default and explicit session-only/durable retention choices;
+- optimistic revision and closed-session errors mapped safely;
+- wrong, missing, malformed, duplicated, or query-carried auth tokens;
+- wrong, missing, malformed, or duplicate Host;
+- wrong/missing Origin on mutations and wrong supplied Origin on reads;
+- wrong, missing, duplicated, or query/body-carried CSRF tokens;
+- no wildcard CORS and exact security headers on success and every error;
+- malformed JSON, duplicate keys, wrong content type, non-finite values,
+  unknown fields, coercion, and schema-version mismatch;
+- declared, streamed, and dishonestly declared oversized bodies;
+- route/body ID mismatch and invalid identifiers;
+- 404/405 and unexpected dependency failures produce bounded fixed errors;
+- token, header, marker, payload, exception, path, SQL, and runtime repr
+  non-disclosure;
+- every rejected mutation makes zero service/repository change;
+- control/resource exception policy;
+- application factory and `pmqa.web` import isolation;
+- generic `import pmqa` and `import pmqa.cli` remain Web-lazy;
+- real PMQA wheel contains the Web modules but no test/runtime output.
+
+If FastAPI's standard parser cannot enforce a required canonical JSON
+invariant, add one narrow boundary parser rather than weakening the invariant.
 
 ## Allowed Changes
 
 Expected:
 
-- `pmqa/conversation/service.py`;
-- `tests/test_conversation_service.py`;
+- new `pmqa/web/` modules;
+- focused `tests/test_web_*.py` files;
+- `pmqa/web/__init__.py`;
+- `pyproject.toml` for a bounded FastAPI runtime dependency and a direct
+  test-client dev dependency only if required;
+- packaging tests;
+- concise updates to `README.md`, `docs/Roadmap.md`,
+  `docs/architecture.md`, and
+  `docs/architecture/conversational-workflow-platform.md`;
 - `agent-handoff/coder-report.md`.
 
-If an additional focused conversation test file is genuinely required,
-explain why. No production module other than `service.py` should need to
-change.
-
-Do not modify:
-
-- conversation contracts or repositories;
-- security/sensitive-text or reasoning scrubber code;
-- CLI, dependencies, packaging configuration, Web/UI files;
-- Task 4/5/5A/5C production code;
-- product documentation;
-- another role's handoff file.
-
-Use one minimal remediation implementation commit and one report-only Coder
-handoff commit. Do not amend Attempt 1.
+An existing neutral security helper may be reused. If it must change, the
+change must be additive, generic, separately tested, and explained. Do not
+create a second drifting sensitive/prohibited-key vocabulary.
 
 ## Out of Scope
 
 Do not implement:
 
-- Task 5D.1B secure Web/API;
-- Task 5D.1C workbench/CLI/packaging;
-- FastAPI, Uvicorn, HTTP, React, TypeScript, Vite, or Node;
-- ADO/Copilot integration;
-- conversation citations, workflow suggestions, capabilities, artifacts,
-  approvals, operations, receipts, or usage UI;
-- new retention modes;
-- database repair or migration;
-- contract-family consolidation;
-- PR creation or merge;
-- Task 5D.2, Task 5B, Task 6, or Task 7.
+- Uvicorn startup, socket binding, port selection, readiness polling, or
+  process lifecycle;
+- `pmqa web`, browser opening, cookies, frontend token bootstrap, or logout;
+- React, TypeScript, Vite, npm, Node, static assets, HTML pages, or UI
+  components;
+- SSE, WebSockets, polling orchestration, live progress, reconnect, or
+  cancellation;
+- reasoning-provider execution or assistant-turn completion;
+- workflow/runner execution;
+- ADO, Copilot CLI, Azure CLI, provider login, capabilities, approvals,
+  operations, receipts, or external writes;
+- usage/cost UI or new usage collection;
+- repository migrations, new retention modes, or artifact repositories;
+- Task 5D.1C, Task 5D.2+, Task 5B, Task 6, or Task 7;
+- PR creation or merge.
 
-## Required Focused Tests
+## Acceptance Criteria
 
-Use deterministic Protocol-conforming fakes plus the real in-memory
-repositories where appropriate.
-
-Directly test:
-
-- same session ID present in both real repositories;
-- same ID with equal payload and with different payload;
-- volatile-only repository returning a durable policy;
-- durable-only repository returning session-only policy;
-- `get_session(requested_id)` returning a different valid session ID;
-- `get_turn(requested_id)` returning a different valid turn ID;
-- turn returned for a foreign session;
-- list result longer than requested;
-- wrong collection types and subclasses;
-- duplicate, reordered, gapped, foreign-session, or wrong-prefix turn lists;
-- duplicate IDs within one session list and across repository lists;
-- invalid or noncanonical purge result shapes;
-- marker-bearing malformed dependency values never leaked;
-- ambiguity detected before start/complete/fail/close/delete mutation;
-- both repositories are inspected even when volatile lookup succeeds;
-- resource/control-flow propagation.
-
-Retain tests proving:
-
-- exactly one correctly routed session resolves;
-- valid list ordering and limit remain unchanged;
-- valid turn start/terminal/close/delete flows remain unchanged;
-- valid purge output remains unchanged;
-- 30-day default and all retention modes remain unchanged;
-- sensitive ingress remains unchanged.
+- Task 5D.1A remains approved and unchanged;
+- one explicit side-effect-free FastAPI app factory exists;
+- the API is versioned under `/api/v1`;
+- only the bounded offline conversation/catalog endpoints exist;
+- all endpoints require invocation-local authentication;
+- Host, Origin, and CSRF policies fail closed as specified;
+- tokens never enter URLs, payloads, domain state, errors, logs, or responses;
+- request bodies and collections are bounded before application mutation;
+- API contracts are strict and canonical;
+- conversation errors and unexpected dependency failures are fixed-safe;
+- valid conversation lifecycle behavior remains canonical;
+- rejected requests cause zero application/repository mutation;
+- security headers apply to success and error responses;
+- no permissive CORS, docs UI, arbitrary command, or credential surface exists;
+- imports remain isolated and the real wheel packages the Web modules;
+- all focused and full regressions pass;
+- only allowed files change.
 
 ## Validation Commands
 
-Run and report:
+Run and report at minimum:
 
 ```bash
-.venv/bin/python -m pytest tests/test_conversation_service.py tests/test_conversation_repository.py tests/test_conversation_contracts.py tests/test_conversation_imports.py tests/test_scrubber.py tests/test_boundary_policy.py tests/test_packaging.py -q
-.venv/bin/python -m pytest tests/test_run_contracts.py tests/test_application_contracts.py tests/test_application_service.py tests/test_usage_contracts.py tests/test_usage_repository.py tests/test_usage_summary.py -q
+.venv/bin/python -m pytest tests/test_web_contracts.py tests/test_web_security.py tests/test_web_app.py tests/test_conversation_service.py tests/test_conversation_repository.py tests/test_conversation_contracts.py -q
+.venv/bin/python -m pytest tests/test_application_contracts.py tests/test_application_service.py tests/test_run_contracts.py tests/test_usage_contracts.py tests/test_usage_repository.py tests/test_usage_summary.py -q
+.venv/bin/python -m pytest tests/test_boundary_policy.py tests/test_scrubber.py tests/test_packaging.py tests/test_conversation_imports.py tests/test_run_imports.py -q
 .venv/bin/python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py -q
 .venv/bin/python -m pytest -q
 .venv/bin/python -m pytest products/demo/generated_tests -q
@@ -282,42 +380,38 @@ git diff --check
 git status --short
 ```
 
-Use an isolated bytecode cache for compileall. New tests remain offline and
-must not use browser, network, Node, provider, ADO, or external Product Pack.
+Adjust only the three focused Web test filenames if the implementation uses a
+smaller equivalent split. Use an isolated bytecode cache for compileall.
 
-## Acceptance Criteria
-
-- exactly one correctly routed repository owns every resolved session;
-- duplicate cross-repository ownership is rejected consistently;
-- returned session and turn identities are exactly correlated;
-- volatile/durable retention role mismatch is rejected;
-- session and turn lists are bounded, canonical, unique, and correlated;
-- purge output is canonical and bounded;
-- contradictions fail before mutation with fixed safe errors;
-- valid Attempt 1 behavior and output remain unchanged;
-- shared sensitive-text expansion remains in place;
-- focused and full regressions remain green;
-- only allowed files change.
+New tests must use no network, browser, live socket, Node, provider, ADO,
+external Product Pack, or paid model.
 
 ## Expected Deliverables
 
-- hardened repository-result correlation in the Application Service;
-- focused adversarial regression tests;
-- one minimal implementation commit;
-- one report-only Coder handoff commit;
+- secure runtime-only local Web security context;
+- strict API v1 contracts and safe errors;
+- authenticated FastAPI app factory over existing application APIs;
+- focused adversarial security and lifecycle tests;
+- real-wheel and import-isolation coverage;
+- concise architecture/status documentation;
+- one or more intentional implementation commits;
+- one separate report-only Coder handoff commit;
 - clean synchronized branch;
 - no PR or merge.
 
 ## Required Coder Handoff
 
-Replace `agent-handoff/coder-report.md` with the complete Task 5D.1A Attempt 2
+Replace `agent-handoff/coder-report.md` with the complete Task 5D.1B Attempt 1
 report. Include:
 
 - Task/Attempt, branch, and exact Git-derived starting HEAD;
-- remediation implementation commit;
+- implementation commit(s);
 - changed files;
-- exact lookup/list/turn/purge correlation behavior;
-- safe-failure and no-side-effect evidence;
+- exact API endpoint and contract inventory;
+- authentication, Host, Origin, CSRF, body-limit, canonical-JSON, security
+  header, and safe-error behavior;
+- side-effect ordering evidence;
+- dependency and packaging changes with compatibility rationale;
 - focused and full validation results;
 - remaining risks and scope confirmation;
 - one recommended review depth (`Light`, `Standard`, or `Deep`);
