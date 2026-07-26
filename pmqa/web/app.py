@@ -119,7 +119,7 @@ class _PMQASecurityMiddleware:
             await send(message)
 
         try:
-            declared_length = self._validate_request(scope)
+            declared_length = self._validate_target_and_body(scope)
             received = 0
             request_messages = []
             while True:
@@ -150,6 +150,7 @@ class _PMQASecurityMiddleware:
                     WebAPIFailureCode.INVALID_REQUEST,
                     400,
                 )
+            self._validate_security(scope)
             replay_index = 0
 
             async def replay_receive():
@@ -184,7 +185,7 @@ class _PMQASecurityMiddleware:
                 500,
             )
 
-    def _validate_request(self, scope) -> Optional[int]:
+    def _validate_target_and_body(self, scope) -> Optional[int]:
         headers = tuple(scope.get("headers", ()))
         raw_path = scope.get("raw_path", b"")
         path = scope.get("path", "")
@@ -222,7 +223,10 @@ class _PMQASecurityMiddleware:
                 WebAPIFailureCode.INVALID_REQUEST,
                 400,
             )
+        return declared_length
 
+    def _validate_security(self, scope) -> None:
+        headers = tuple(scope.get("headers", ()))
         host_values = _header_values(headers, b"host")
         if (
             len(host_values) != 1
@@ -295,7 +299,6 @@ class _PMQASecurityMiddleware:
                 WebAPIFailureCode.INVALID_REQUEST,
                 400,
             )
-        return declared_length
 
 
 def create_pmqa_web_app(
