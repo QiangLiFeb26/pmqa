@@ -272,8 +272,9 @@ Architect recommendation:
   their own explicit retention policies rather than deleting them implicitly
   with conversation content.
 
-Coder work must not begin until the Human accepts this recommendation or
-chooses another default.
+The Human accepted this recommendation on `2026-07-25`. The decision gate is
+closed, and the executable Task 5D.1A handoff is published in
+`agent-handoff/current-task.md`.
 
 ## Required Changes
 
@@ -288,5 +289,5 @@ PMQA Task 5D.0 is approved at documentation implementation commit
 
 ## Next Recommended Task
 
-After the Human retention decision, publish PMQA Task 5D.1 — Local Web
-Foundation and Session State.
+Proceed to PMQA Task 5D.1A — Conversation Session and Retention Foundation,
+defined in `agent-handoff/current-task.md`.
