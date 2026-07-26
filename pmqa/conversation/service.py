@@ -234,10 +234,12 @@ class ConversationApplicationService:
         volatile = self._list_sessions(
             self._volatile_repository,
             canonical_limit,
+            volatile=True,
         )
         durable = self._list_sessions(
             self._durable_repository,
             canonical_limit,
+            volatile=False,
         )
         combined = volatile + durable
         identities = tuple(item.session_id for item in combined)
@@ -256,17 +258,14 @@ class ConversationApplicationService:
         )
 
     def get_turn(self, session_id: str, turn_id: str) -> ConversationTurn:
-        repository, _ = self._find_session(
-            _canonical_identifier(session_id)
-        )
+        canonical_session_id = _canonical_identifier(session_id)
+        canonical_turn_id = _canonical_identifier(turn_id)
+        repository, session = self._find_session(canonical_session_id)
         turn = self._get_turn(
             repository,
-            _canonical_identifier(turn_id),
+            session,
+            canonical_turn_id,
         )
-        if turn.session_id != session_id:
-            _raise_application_error(
-                ConversationApplicationErrorCode.TURN_NOT_FOUND
-            )
         return _turn_snapshot(turn)
 
     def list_turns(
@@ -276,25 +275,27 @@ class ConversationApplicationService:
     ) -> Tuple[ConversationTurn, ...]:
         canonical_id = _canonical_identifier(session_id)
         canonical_limit = _canonical_limit(limit)
-        repository, _ = self._find_session(canonical_id)
+        repository, session = self._find_session(canonical_id)
         try:
             turns = repository.list_turns(canonical_id, canonical_limit)
         except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
             raise
         except ConversationRepositoryError as error:
             self._raise_repository_failure(error)
+        if type(turns) is not tuple or len(turns) > canonical_limit:
+            _raise_application_error(
+                ConversationApplicationErrorCode.REPOSITORY_FAILED
+            )
         canonical_turns = tuple(_turn_snapshot(turn) for turn in turns)
+        turn_ids = tuple(turn.turn_id for turn in canonical_turns)
         if (
-            len(canonical_turns) > canonical_limit
-            or any(
+            any(
                 turn.session_id != canonical_id for turn in canonical_turns
             )
-            or tuple(turn.sequence_number for turn in turns)
-            != tuple(
-                sorted(turn.sequence_number for turn in canonical_turns)
-            )
-            or len({turn.turn_id for turn in canonical_turns})
-            != len(canonical_turns)
+            or tuple(turn.sequence_number for turn in canonical_turns)
+            != tuple(range(1, len(canonical_turns) + 1))
+            or len(set(turn_ids)) != len(turn_ids)
+            or turn_ids != session.turn_ids[:len(canonical_turns)]
         ):
             _raise_application_error(
                 ConversationApplicationErrorCode.REPOSITORY_FAILED
@@ -425,29 +426,33 @@ class ConversationApplicationService:
         canonical_limit = _canonical_limit(limit)
         cutoff = self._sample_clock()
         try:
-            session_ids = tuple(
-                self._durable_repository.purge_expired(
-                    cutoff,
-                    canonical_limit,
-                )
+            session_ids = self._durable_repository.purge_expired(
+                cutoff,
+                canonical_limit,
             )
         except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
             raise
         except ConversationRepositoryError as error:
             self._raise_repository_failure(error)
-        if (
-            len(session_ids) > canonical_limit
-            or len(session_ids) != len(set(session_ids))
-        ):
+        if type(session_ids) is not tuple or len(session_ids) > canonical_limit:
             _raise_application_error(
                 ConversationApplicationErrorCode.REPOSITORY_FAILED
             )
         try:
-            return tuple(validate_run_identifier(item) for item in session_ids)
+            canonical_ids = tuple(
+                validate_run_identifier(item) for item in session_ids
+            )
+        except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
+            raise
         except Exception:
             _raise_application_error(
                 ConversationApplicationErrorCode.REPOSITORY_FAILED
             )
+        if len(canonical_ids) != len(set(canonical_ids)):
+            _raise_application_error(
+                ConversationApplicationErrorCode.REPOSITORY_FAILED
+            )
+        return canonical_ids
 
     def _terminalize_turn(
         self,
@@ -469,11 +474,11 @@ class ConversationApplicationService:
             _raise_application_error(
                 ConversationApplicationErrorCode.SESSION_CLOSED
             )
-        current_turn = self._get_turn(repository, canonical_turn_id)
-        if current_turn.session_id != canonical_session_id:
-            _raise_application_error(
-                ConversationApplicationErrorCode.TURN_NOT_FOUND
-            )
+        current_turn = self._get_turn(
+            repository,
+            current_session,
+            canonical_turn_id,
+        )
         if error_code is None:
             turn = current_turn.model_copy(
                 update={
@@ -540,9 +545,58 @@ class ConversationApplicationService:
         self,
         session_id: str,
     ) -> Tuple[ConversationRepository, ConversationSession]:
-        for repository in (
-            self._volatile_repository,
-            self._durable_repository,
+        matches = []
+        malformed = False
+        for repository, volatile in (
+            (self._volatile_repository, True),
+            (self._durable_repository, False),
+        ):
+            try:
+                session = repository.get_session(session_id)
+            except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
+                raise
+            except ConversationRepositoryError as error:
+                if error.code is ConversationRepositoryErrorCode.NOT_FOUND:
+                    continue
+                malformed = True
+                continue
+            try:
+                canonical_session = _session_snapshot(session)
+                if (
+                    canonical_session.session_id != session_id
+                    or (
+                        volatile
+                        and canonical_session.retention_policy
+                        is not ConversationRetentionPolicy.SESSION_ONLY
+                    )
+                    or (
+                        not volatile
+                        and not canonical_session.retention_policy.durable
+                    )
+                ):
+                    _raise_application_error(
+                        ConversationApplicationErrorCode.REPOSITORY_FAILED
+                    )
+            except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
+                raise
+            except ConversationApplicationError:
+                malformed = True
+                continue
+            matches.append((repository, canonical_session))
+        if malformed or len(matches) > 1:
+            _raise_application_error(
+                ConversationApplicationErrorCode.REPOSITORY_FAILED
+            )
+        if matches:
+            return matches[0]
+        _raise_application_error(
+            ConversationApplicationErrorCode.SESSION_NOT_FOUND
+        )
+
+    def _ensure_session_identifier_available(self, session_id: str) -> None:
+        for repository, volatile in (
+            (self._volatile_repository, True),
+            (self._durable_repository, False),
         ):
             try:
                 session = repository.get_session(session_id)
@@ -552,24 +606,22 @@ class ConversationApplicationService:
                 if error.code is ConversationRepositoryErrorCode.NOT_FOUND:
                     continue
                 self._raise_repository_failure(error)
-            return repository, _session_snapshot(session)
-        _raise_application_error(
-            ConversationApplicationErrorCode.SESSION_NOT_FOUND
-        )
-
-    def _ensure_session_identifier_available(self, session_id: str) -> None:
-        for repository in (
-            self._volatile_repository,
-            self._durable_repository,
-        ):
-            try:
-                repository.get_session(session_id)
-            except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
-                raise
-            except ConversationRepositoryError as error:
-                if error.code is ConversationRepositoryErrorCode.NOT_FOUND:
-                    continue
-                self._raise_repository_failure(error)
+            canonical_session = _session_snapshot(session)
+            if (
+                canonical_session.session_id != session_id
+                or (
+                    volatile
+                    and canonical_session.retention_policy
+                    is not ConversationRetentionPolicy.SESSION_ONLY
+                )
+                or (
+                    not volatile
+                    and not canonical_session.retention_policy.durable
+                )
+            ):
+                _raise_application_error(
+                    ConversationApplicationErrorCode.REPOSITORY_FAILED
+                )
             _raise_application_error(
                 ConversationApplicationErrorCode.IDENTIFIER_CONFLICT
             )
@@ -580,13 +632,17 @@ class ConversationApplicationService:
             self._durable_repository,
         ):
             try:
-                repository.get_turn(turn_id)
+                turn = repository.get_turn(turn_id)
             except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
                 raise
             except ConversationRepositoryError as error:
                 if error.code is ConversationRepositoryErrorCode.NOT_FOUND:
                     continue
                 self._raise_repository_failure(error)
+            if _turn_snapshot(turn).turn_id != turn_id:
+                _raise_application_error(
+                    ConversationApplicationErrorCode.REPOSITORY_FAILED
+                )
             _raise_application_error(
                 ConversationApplicationErrorCode.IDENTIFIER_CONFLICT
             )
@@ -594,10 +650,11 @@ class ConversationApplicationService:
     @staticmethod
     def _get_turn(
         repository: ConversationRepository,
+        session: ConversationSession,
         turn_id: str,
     ) -> ConversationTurn:
         try:
-            return _turn_snapshot(repository.get_turn(turn_id))
+            turn = _turn_snapshot(repository.get_turn(turn_id))
         except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
             raise
         except ConversationRepositoryError as error:
@@ -606,6 +663,18 @@ class ConversationApplicationService:
                     ConversationApplicationErrorCode.TURN_NOT_FOUND
                 )
             ConversationApplicationService._raise_repository_failure(error)
+        sequence_index = turn.sequence_number - 1
+        if (
+            turn.turn_id != turn_id
+            or turn.session_id != session.session_id
+            or sequence_index < 0
+            or sequence_index >= len(session.turn_ids)
+            or session.turn_ids[sequence_index] != turn_id
+        ):
+            _raise_application_error(
+                ConversationApplicationErrorCode.REPOSITORY_FAILED
+            )
+        return turn
 
     @staticmethod
     def _create_session(
@@ -623,16 +692,39 @@ class ConversationApplicationService:
     def _list_sessions(
         repository: ConversationRepository,
         limit: int,
+        *,
+        volatile: bool,
     ) -> Tuple[ConversationSession, ...]:
         try:
-            return tuple(
-                _session_snapshot(item)
-                for item in repository.list_sessions(limit)
-            )
+            sessions = repository.list_sessions(limit)
         except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
             raise
         except ConversationRepositoryError as error:
             ConversationApplicationService._raise_repository_failure(error)
+        if type(sessions) is not tuple or len(sessions) > limit:
+            _raise_application_error(
+                ConversationApplicationErrorCode.REPOSITORY_FAILED
+            )
+        canonical_sessions = tuple(
+            _session_snapshot(item) for item in sessions
+        )
+        identities = tuple(item.session_id for item in canonical_sessions)
+        if (
+            len(identities) != len(set(identities))
+            or any(
+                (
+                    item.retention_policy
+                    is not ConversationRetentionPolicy.SESSION_ONLY
+                )
+                if volatile
+                else not item.retention_policy.durable
+                for item in canonical_sessions
+            )
+        ):
+            _raise_application_error(
+                ConversationApplicationErrorCode.REPOSITORY_FAILED
+            )
+        return canonical_sessions
 
     @staticmethod
     def _build_pending_turn(

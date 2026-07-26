@@ -41,11 +41,17 @@ class CountingRepository:
         self.delegate = delegate or InMemoryConversationRepository()
         self.calls = []
         self.failure = None
+        self.results = {}
 
     def _call(self, name, *args, **kwargs):
         self.calls.append(name)
         if self.failure is not None and name == self.failure[0]:
             raise self.failure[1]
+        if name in self.results:
+            result = self.results[name]
+            if isinstance(result, BaseException):
+                raise result
+            return result(*args, **kwargs) if callable(result) else result
         return getattr(self.delegate, name)(*args, **kwargs)
 
     def create_session(self, session):
@@ -534,3 +540,414 @@ def test_repository_expected_failure_is_fixed_and_makes_no_partial_change() -> N
     assert captured.value.__context__ is None
     assert service.get_session(session.session_id) == session
     assert service.list_turns(session.session_id) == ()
+
+
+class TupleSubclass(tuple):
+    pass
+
+
+def _durable_copy(session):
+    return session.model_copy(
+        update={
+            "retention_policy": ConversationRetentionPolicy.THIRTY_DAYS,
+            "expires_at": session.updated_at + timedelta(days=30),
+        }
+    )
+
+
+def _two_turn_service():
+    service, volatile, durable, _, _, _ = _service(
+        clock=Sequence(
+            NOW,
+            NOW + timedelta(minutes=1),
+            NOW + timedelta(minutes=2),
+            NOW + timedelta(minutes=3),
+        ),
+        turn_ids=Sequence("conversation.turn.1", "conversation.turn.2"),
+    )
+    created = service.create_session()
+    current, first = service.start_turn(
+        created.session_id,
+        expected_revision=1,
+        user_message="First",
+    )
+    current, first = service.complete_turn(
+        created.session_id,
+        first.turn_id,
+        expected_revision=current.revision,
+        assistant_response="First result",
+    )
+    current, second = service.start_turn(
+        created.session_id,
+        expected_revision=current.revision,
+        user_message="Second",
+    )
+    return service, volatile, durable, current, first, second
+
+
+@pytest.mark.parametrize("different_payload", (False, True))
+def test_lookup_rejects_same_session_id_in_both_repositories(
+    different_payload,
+) -> None:
+    service, volatile, durable, _, _, _ = _service()
+    session = service.create_session(ConversationRetentionPolicy.SESSION_ONLY)
+    if different_payload:
+        duplicate = _durable_copy(session).model_copy(
+            update={"connection_context_id": "connection.other"}
+        )
+        durable.delegate.create_session(duplicate)
+    else:
+        durable.results["get_session"] = session
+    volatile.calls.clear()
+    durable.calls.clear()
+
+    with pytest.raises(ConversationApplicationError) as captured:
+        service.get_session(session.session_id)
+
+    assert captured.value.code is (
+        ConversationApplicationErrorCode.REPOSITORY_FAILED
+    )
+    assert volatile.calls == ["get_session"]
+    assert durable.calls == ["get_session"]
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
+@pytest.mark.parametrize(
+    ("owner", "policy"),
+    (
+        ("volatile", ConversationRetentionPolicy.THIRTY_DAYS),
+        ("durable", ConversationRetentionPolicy.SESSION_ONLY),
+    ),
+)
+def test_lookup_rejects_repository_retention_role_mismatch(
+    owner,
+    policy,
+) -> None:
+    volatile = CountingRepository()
+    durable = CountingRepository()
+    service, _, _, _, _, _ = _service(
+        volatile=volatile,
+        durable=durable,
+    )
+    seed, _, _, _, _, _ = _service()
+    session = seed.create_session(policy)
+    selected = volatile if owner == "volatile" else durable
+    selected.results["get_session"] = session
+
+    with pytest.raises(ConversationApplicationError) as captured:
+        service.get_session(session.session_id)
+
+    assert captured.value.code is (
+        ConversationApplicationErrorCode.REPOSITORY_FAILED
+    )
+    assert volatile.calls == ["get_session"]
+    assert durable.calls == ["get_session"]
+
+
+def test_lookup_rejects_miscorrelated_session_and_inspects_both_roles() -> None:
+    service, volatile, durable, _, _, _ = _service()
+    requested = service.create_session()
+    other = requested.model_copy(update={"session_id": "conversation.other"})
+    durable.results["get_session"] = other
+    volatile.calls.clear()
+    durable.calls.clear()
+
+    with pytest.raises(ConversationApplicationError) as captured:
+        service.get_session(requested.session_id)
+
+    assert captured.value.code is (
+        ConversationApplicationErrorCode.REPOSITORY_FAILED
+    )
+    assert volatile.calls == ["get_session"]
+    assert durable.calls == ["get_session"]
+    assert "conversation.other" not in str(captured.value)
+
+
+@pytest.mark.parametrize(
+    "action",
+    ("start", "complete", "fail", "close", "delete"),
+)
+def test_ambiguous_ownership_fails_before_every_mutation(action) -> None:
+    service, volatile, durable, _, _, _ = _service()
+    session = service.create_session(ConversationRetentionPolicy.SESSION_ONLY)
+    durable.delegate.create_session(_durable_copy(session))
+    volatile.calls.clear()
+    durable.calls.clear()
+
+    with pytest.raises(ConversationApplicationError) as captured:
+        if action == "start":
+            service.start_turn(
+                session.session_id,
+                expected_revision=1,
+                user_message="Analyze",
+            )
+        elif action == "complete":
+            service.complete_turn(
+                session.session_id,
+                "conversation.turn.unknown",
+                expected_revision=1,
+                assistant_response="Done",
+            )
+        elif action == "fail":
+            service.fail_turn(
+                session.session_id,
+                "conversation.turn.unknown",
+                expected_revision=1,
+            )
+        elif action == "close":
+            service.close_session(session.session_id, expected_revision=1)
+        else:
+            service.delete_session(session.session_id)
+
+    assert captured.value.code is (
+        ConversationApplicationErrorCode.REPOSITORY_FAILED
+    )
+    mutation_names = {
+        "append_turn",
+        "replace_turn",
+        "close_session",
+        "delete_session",
+    }
+    assert mutation_names.isdisjoint(volatile.calls + durable.calls)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    (MemoryError(), KeyboardInterrupt(), SystemExit(), GeneratorExit()),
+)
+def test_lookup_resource_and_control_flow_remains_authoritative(failure) -> None:
+    volatile = CountingRepository()
+    durable = CountingRepository()
+    volatile.results["get_session"] = failure
+    service, _, _, _, _, _ = _service(
+        volatile=volatile,
+        durable=durable,
+    )
+
+    with pytest.raises(type(failure)) as captured:
+        service.get_session("conversation.session.1")
+
+    assert captured.value is failure
+    assert durable.calls == []
+
+
+@pytest.mark.parametrize("kind", ("wrong_id", "foreign_session", "wrong_slot"))
+def test_get_turn_rejects_uncorrelated_repository_result(kind) -> None:
+    service, _, durable, session, first, second = _two_turn_service()
+    if kind == "wrong_id":
+        returned = first.model_copy(update={"turn_id": "conversation.turn.other"})
+    elif kind == "foreign_session":
+        returned = first.model_copy(
+            update={"session_id": "conversation.session.other"}
+        )
+    else:
+        returned = second.model_copy(update={"sequence_number": 1})
+    durable.results["get_turn"] = returned
+
+    with pytest.raises(ConversationApplicationError) as captured:
+        service.get_turn(session.session_id, first.turn_id)
+
+    assert captured.value.code is (
+        ConversationApplicationErrorCode.REPOSITORY_FAILED
+    )
+    assert "other" not in str(captured.value)
+
+
+@pytest.mark.parametrize(
+    "case",
+    (
+        "list",
+        "tuple_subclass",
+        "oversized",
+        "duplicate",
+        "reordered",
+        "gapped",
+        "foreign",
+        "wrong_prefix",
+    ),
+)
+def test_list_turns_rejects_noncanonical_or_uncorrelated_results(case) -> None:
+    service, _, durable, session, first, second = _two_turn_service()
+    if case == "list":
+        result = [first]
+    elif case == "tuple_subclass":
+        result = TupleSubclass((first,))
+    elif case == "oversized":
+        result = (first, second)
+    elif case == "duplicate":
+        result = (first, first)
+    elif case == "reordered":
+        result = (second, first)
+    elif case == "gapped":
+        result = (second,)
+    elif case == "foreign":
+        result = (
+            first.model_copy(
+                update={"session_id": "conversation.session.other"}
+            ),
+        )
+    else:
+        result = (
+            first.model_copy(update={"turn_id": "conversation.turn.other"}),
+        )
+    durable.results["list_turns"] = result
+    limit = 1 if case == "oversized" else 100
+
+    with pytest.raises(ConversationApplicationError) as captured:
+        service.list_turns(session.session_id, limit=limit)
+
+    assert captured.value.code is (
+        ConversationApplicationErrorCode.REPOSITORY_FAILED
+    )
+
+
+def test_list_turns_accepts_exact_correlated_prefix() -> None:
+    service, _, durable, session, first, _ = _two_turn_service()
+    durable.results["list_turns"] = (first,)
+
+    assert service.list_turns(session.session_id, limit=1) == (first,)
+
+
+@pytest.mark.parametrize(
+    "case",
+    (
+        "list",
+        "tuple_subclass",
+        "oversized",
+        "duplicate_within",
+        "wrong_volatile_role",
+        "wrong_durable_role",
+    ),
+)
+def test_list_sessions_rejects_noncanonical_bounded_or_role_results(case) -> None:
+    service, volatile, durable, _, _, _ = _service(
+        session_ids=Sequence(
+            "conversation.session.volatile",
+            "conversation.session.durable",
+        ),
+        clock=Sequence(NOW, NOW + timedelta(minutes=1)),
+    )
+    session_only = service.create_session(
+        ConversationRetentionPolicy.SESSION_ONLY
+    )
+    durable_session = service.create_session(
+        ConversationRetentionPolicy.THIRTY_DAYS
+    )
+    volatile.calls.clear()
+    durable.calls.clear()
+    if case == "list":
+        volatile.results["list_sessions"] = [session_only]
+    elif case == "tuple_subclass":
+        volatile.results["list_sessions"] = TupleSubclass((session_only,))
+    elif case == "oversized":
+        volatile.results["list_sessions"] = (session_only, session_only)
+    elif case == "duplicate_within":
+        volatile.results["list_sessions"] = (session_only, session_only)
+    elif case == "wrong_volatile_role":
+        volatile.results["list_sessions"] = (durable_session,)
+    else:
+        durable.results["list_sessions"] = (session_only,)
+    limit = 1 if case == "oversized" else 100
+
+    with pytest.raises(ConversationApplicationError) as captured:
+        service.list_sessions(limit=limit)
+
+    assert captured.value.code is (
+        ConversationApplicationErrorCode.REPOSITORY_FAILED
+    )
+
+
+def test_list_sessions_rejects_duplicate_id_across_repository_roles() -> None:
+    service, volatile, durable, _, _, _ = _service()
+    session_only = service.create_session(
+        ConversationRetentionPolicy.SESSION_ONLY
+    )
+    volatile.results["list_sessions"] = (session_only,)
+    durable.results["list_sessions"] = (_durable_copy(session_only),)
+
+    with pytest.raises(ConversationApplicationError) as captured:
+        service.list_sessions()
+
+    assert captured.value.code is (
+        ConversationApplicationErrorCode.REPOSITORY_FAILED
+    )
+
+
+def test_list_sessions_preserves_global_order_and_limit() -> None:
+    service, _, _, _, _, _ = _service(
+        session_ids=Sequence(
+            "conversation.session.volatile",
+            "conversation.session.durable",
+        ),
+        clock=Sequence(NOW, NOW + timedelta(minutes=1)),
+    )
+    older = service.create_session(ConversationRetentionPolicy.SESSION_ONLY)
+    newer = service.create_session(ConversationRetentionPolicy.THIRTY_DAYS)
+
+    assert service.list_sessions() == (newer, older)
+    assert service.list_sessions(limit=1) == (newer,)
+
+
+@pytest.mark.parametrize(
+    "result",
+    (
+        ["conversation.session.1"],
+        TupleSubclass(("conversation.session.1",)),
+        iter(("conversation.session.1",)),
+        {"conversation.session.1"},
+        {"session": "conversation.session.1"},
+        (["runtime-secret-marker"],),
+        (object(),),
+        ("conversation.session.1", "conversation.session.1"),
+    ),
+)
+def test_purge_rejects_noncanonical_or_duplicate_results_without_leak(
+    result,
+) -> None:
+    durable = CountingRepository()
+    durable.results["purge_expired"] = result
+    service, _, _, _, _, _ = _service(durable=durable)
+
+    with pytest.raises(ConversationApplicationError) as captured:
+        service.purge_expired()
+
+    assert captured.value.code is (
+        ConversationApplicationErrorCode.REPOSITORY_FAILED
+    )
+    assert "runtime-secret-marker" not in str(captured.value)
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+
+
+def test_purge_rejects_oversized_exact_tuple() -> None:
+    durable = CountingRepository()
+    durable.results["purge_expired"] = (
+        "conversation.session.1",
+        "conversation.session.2",
+    )
+    service, _, _, _, _, _ = _service(durable=durable)
+
+    with pytest.raises(ConversationApplicationError) as captured:
+        service.purge_expired(limit=1)
+
+    assert captured.value.code is (
+        ConversationApplicationErrorCode.REPOSITORY_FAILED
+    )
+
+
+def test_marker_bearing_malformed_session_result_is_fixed_and_safe() -> None:
+    volatile = CountingRepository()
+    volatile.results["get_session"] = "runtime-secret-marker"
+    service, _, durable, _, _, _ = _service(volatile=volatile)
+
+    with pytest.raises(ConversationApplicationError) as captured:
+        service.get_session("conversation.session.requested")
+
+    assert captured.value.code is (
+        ConversationApplicationErrorCode.REPOSITORY_FAILED
+    )
+    assert "runtime-secret-marker" not in str(captured.value)
+    assert durable.calls == ["get_session"]
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
