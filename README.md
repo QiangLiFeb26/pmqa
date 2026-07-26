@@ -304,10 +304,23 @@ adds strict immutable summary contracts and a pure deterministic aggregator
 for an explicit bounded session- or run-scoped invocation selection. It keeps
 zero, partial, and unavailable token evidence distinct; separates reported,
 estimated, subscription-included, currency, and pricing-provenance cost
-buckets; and provides deterministic provider/model groups. Task 5C.7 is ready
-for architecture review. These checkpoints add no repository-backed summary,
+buckets; and provides deterministic provider/model groups. Task 5C.7 passed
+architecture review. These checkpoints add no repository-backed summary,
 parser, calculator, CLI summary, optimizer, real provider integration, or
-pricing table. See the
+pricing table.
+
+Task 5D.0 defines the next product and technical architecture: PMQA is a
+local-first, provider-neutral conversational QA workflow platform, not a fixed
+wizard or cost-only dashboard. Arbitrary conversation coexists with explicitly
+registered workflows; reasoning may propose capabilities, artifacts, and
+actions, while PMQA owns authority, deterministic execution, receipts, and
+usage/audit boundaries. The first flagship workflow is
+`ado.story_test_authoring`, with `ado.work_item_summary` documenting a smaller
+future read-only workflow. Task 5D.0 is architecture-only and does not
+implement the Web workbench, ADO/Copilot adapters, conversation runtime,
+authorization, or external writes. See the
+[Conversational Workflow Platform architecture](docs/architecture/conversational-workflow-platform.md),
+the
 [Run Contract architecture](docs/architecture/run-contract.md) and
 [Runner boundary architecture](docs/architecture/runner-boundary.md), plus
 the

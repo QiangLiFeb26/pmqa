@@ -15,7 +15,8 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
 | Task 5A — Product Pack Adoption Foundation | Complete | Task 5A.1–5A.6 establish the experimental manifest, explicit loading, protocol, bounded transport, scaffolding/conformance, and external SauceDemo architecture-validation slice; merged through PR #22. |
-| Task 5C — Local Application and Run Layer | In progress | Task 5C.1–5C.6 passed architecture review; Task 5C.7 adds deterministic usage summary contracts and pure aggregation and is ready for architecture review. |
+| Task 5C — Local Application and Run Layer | In progress | Task 5C.1–5C.7 passed architecture review; the cumulative branch remains unmerged. |
+| Task 5D — Conversational Workflow Platform | In progress | Task 5D.0 defines the local-first conversational product, authority, artifact, ADO, usage, Web, and phased-delivery architecture; no runtime phase has started. |
 | Task 5B — Company-side MDE Read-Only Pilot | Not started | Validate Product Pack assumptions in a company-managed, private, read-only pilot before API v1 stabilization. |
 
 ## Task 4 closure
@@ -160,8 +161,8 @@ MDE.
 
 ## Task 5C — Local Application and Run Layer
 
-**Task 5C.1–5C.6 status: Architecture review passed. Task 5C.7 status: Ready
-for architecture review.** Task 5C exists to establish the local
+**Task 5C.1–5C.7 status: Architecture review passed.** Task 5C exists to
+establish the local
 application/run layer before the company-side Task 5B pilot. Its first
 checkpoint defines the versioned, provider-neutral contracts for requests,
 workflow metadata, safe run correlation, structured results, logical artifact
@@ -224,12 +225,49 @@ evidence remains non-monetary. Provider/model groups and all buckets have
 input-order-independent canonical ordering. The aggregator neither reads the
 repository nor claims the selection is complete.
 
-Task 5C remains in progress and unmerged. No automatic discovery, retry or
+Task 5C remains unmerged. No automatic discovery, retry or
 fallback creation, approval execution, real provider adapter, subprocess
 runner, provider/CLI usage parser, cost calculator, pricing table,
 repository-backed selection/completeness, CLI summary, outcome-metric join,
 optimizer, UI, or Azure DevOps integration has been added.
+Status wording retained inside the individual Task 5C checkpoint architecture
+documents records the review stage at which each checkpoint document was
+published; this roadmap is authoritative for the current cumulative status.
 Task 5B remains Not started; Task 6 and Task 7 remain Not started.
+
+## Task 5D — Conversational Workflow Platform
+
+**Task 5D.0 status: Ready for architecture review. No implementation phase has
+started.**
+
+Task 5D.0 defines PMQA as a local-first, provider-neutral conversational QA
+workflow platform rather than a fixed wizard or cost-only dashboard.
+Arbitrary natural-language QA conversation coexists with explicit registered
+workflows. The first flagship workflow is `ado.story_test_authoring`; the
+smaller future `ado.work_item_summary` workflow proves the workbench is not
+hard-coded to authoring.
+
+The architecture keeps reasoning, capability requests, human authorization,
+deterministic external execution, receipts, artifacts, runs, and usage as
+separate correlated records. It reuses Task 4 orchestration, Task 5 verified
+handoff patterns, Task 5A Product Pack boundaries, and Task 5C Run,
+Application, and Usage contracts without turning LangGraph `WorkflowState`
+into a universal state object.
+
+The planned implementation sequence is:
+
+1. 5D.1 — Local Web Foundation and Session State;
+2. 5D.2 — Conversational ADO Read / Story Acquisition;
+3. 5D.3 — Reasoning, Structured Artifacts, and Scenario Review;
+4. 5D.4 — Test Inventory and Authoring Plan;
+5. 5D.5 — Version-Bound Authorization and Deterministic ADO Write; and
+6. 5D.6 — Usage, Audit, Security, Packaging, and End-to-End Hardening.
+
+Task 5D.0 implements none of these phases. It adds no Web dependency, CLI,
+conversation runtime, capability gateway, ADO or Copilot adapter,
+authorization service, or external write. See the
+[Conversational Workflow Platform architecture](architecture/conversational-workflow-platform.md).
+Task 5B, Task 6, and Task 7 remain Not started.
 
 ## Task 5B — Company-side MDE Read-Only Pilot
 

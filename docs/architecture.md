@@ -268,9 +268,49 @@ See the [Run Contract architecture](architecture/run-contract.md) and
 [Runner boundary architecture](architecture/runner-boundary.md), plus the
 [Application Service architecture](architecture/application-service.md) and
 [Usage and cost contracts](architecture/usage-cost-contracts.md). Task
-5C.1–5C.6 passed architecture review; Task 5C.7 is ready for architecture
-review, and Task 5C remains in progress and unmerged.
+5C.1–5C.7 passed architecture review, and Task 5C remains unmerged.
 Task 5B, Task 6, and Task 7 remain not started.
+
+### Conversational Workflow Platform
+
+Task 5D.0 defines the future local-first browser workbench and provider-neutral
+conversation architecture without implementing it. PMQA accepts arbitrary QA
+conversation and may select or suggest an explicitly registered workflow; it
+does not force all questions through one global wizard. The flagship
+`ado.story_test_authoring` workflow is a reusable registered workflow rather
+than the UI architecture, and `ado.work_item_summary` documents a smaller
+future read-only workflow.
+
+The planned Conversation Application Service sits above the existing
+Workflow and Runner Registries, Run Contract, and Application Service. It
+coordinates a Workflow Catalog, explicit Capability Registry/Gateway,
+versioned Structured Artifact Store, Approval/Authorization Service,
+Deterministic Action Executor, Connection Context, and Usage/Audit views.
+Reasoning providers may propose calls, artifacts, workflows, and actions, but
+PMQA owns capability policy, external authority, deterministic execution, and
+receipts.
+
+Conversation sessions, workflow runs, reasoning invocations, capability
+invocations, artifact revisions, authorizations, external operations,
+receipts, and provider-session usage observations remain separate correlated
+records. None belongs in LangGraph `WorkflowState`, reasoning traces, or Task
+5C usage records. Existing contracts are reused where their semantics fit;
+new contracts are reserved for the genuine conversation, artifact-revision,
+authorization, capability, receipt, and provider-session observation gaps.
+
+The recommended future UI is React with strict TypeScript and Vite, served as
+packaged assets by a loopback-only FastAPI/Uvicorn application. A versioned
+REST/JSON boundary and server-sent progress events keep the browser independent
+from Python, LangGraph, provider, and repository internals. This is a
+recommendation only; Task 5D.0 adds no dependency, server, frontend, CLI,
+connector, or runtime behavior.
+
+The full authority model, ADO acquisition/write and recovery boundaries,
+local-Web security, untrusted-content policy, usage integration, company
+validation stop points, and independently reviewable 5D.1–5D.6 plan are in the
+[Conversational Workflow Platform architecture](architecture/conversational-workflow-platform.md).
+Task 5D.0 is ready for architecture review; no Task 5D implementation phase,
+Task 5B pilot, Task 6, or Task 7 has started.
 
 ### Memory
 
