@@ -2,44 +2,57 @@
 
 Owner: Independent Reviewer
 
-Status: Executed for PMQA Task 5D.1B, Attempt 2
+Status: Executed for PMQA Task 5D.1C, Attempt 1
 
 ## Task Correlation
 
-Task: PMQA Task 5D.1B — Web Boundary Canonicalization and Token Containment
+Task: PMQA Task 5D.1C — Local Browser Workbench and Packaged Runtime
 
-Task ID: `PMQA-5D.1B`
+Task ID: `PMQA-5D.1C`
 
-Attempt: `2`
+Attempt: `1`
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
-Reviewed Starting HEAD: `6398a04df7e1cdfc723013036911bd01839a1b84`
+Reviewed Starting HEAD: `e2c25273da21bac080a2f29c6abaa2c0517dffac`
+("approve Task 5D.1B and authorize browser workbench")
 
-Reviewed Implementation Commit(s): `8775368fb74ee27425946e4c6ea40e745b475c09`
-("close Task 5D.1B boundary gaps")
+Reviewed Implementation Commit(s):
 
-Derived Coder Report Commit: `651181eb8302f2a7d2416ed14d5bb2ba27e6fd9c`
-("report Task 5D.1B boundary remediation")
+- `5585812e62f12ac7f8c529769c16048c653d149c`
+  ("add packaged local browser workbench")
+- `bb25794241e5410afc88032838d6bbb014e2e698`
+  ("document Task 5D.1C workbench status")
+
+Derived Coder Report Commit: `607af145c8015874607fc896b50bd2194d5be22b`
+("report Task 5D.1C browser workbench")
 
 Correlation Verification:
 
 - derived with `git log -1 --format=%H -- agent-handoff/coder-report.md` ->
-  `651181eb8302f2a7d2416ed14d5bb2ba27e6fd9c`;
-- `git merge-base --is-ancestor 6398a04df7e1cdfc723013036911bd01839a1b84 HEAD`
-  succeeds; `6398a04...` is an ancestor of `8775368...`, and `8775368...` is
-  an ancestor of `651181e...` (linear sequence
-  `6398a04 -> 8775368 -> 651181e` on this branch);
-- the reviewed Attempt 1 Reviewer HEAD named by `current-task.md`,
-  `949a5e39e85024998204858c900a9fb235a3dca0` (this Reviewer's own prior
-  Attempt 1 report commit), is an ancestor of the recorded starting HEAD;
-- the correlation header of `coder-report.md` at the derived commit names
-  Task ID `PMQA-5D.1B`, Attempt `2`, branch
-  `agent/task-5c-1-canonical-run-contract`, and starting HEAD
-  `6398a04df7e1cdfc723013036911bd01839a1b84`, matching `current-task.md`;
-- `git diff --stat 8775368..651181e` touches only
-  `agent-handoff/coder-report.md`, so the derived commit is the report's
-  latest authorized change with no later unauthorized replacement.
+  `607af145c8015874607fc896b50bd2194d5be22b`;
+- `git merge-base --is-ancestor e2c25273da21bac080a2f29c6abaa2c0517dffac
+  5585812e62f12ac7f8c529769c16048c653d149c` succeeds; the same holds
+  `5585812e...` -> `bb25794241...` and `bb25794241...` ->
+  `607af145c8...` (linear sequence
+  `e2c2527 -> 5585812 -> bb25794 -> 607af14` on this branch, confirmed by
+  `git log --oneline`);
+- `e2c25273da21bac080a2f29c6abaa2c0517dffac` is also reachable from current
+  branch `HEAD` (`607af14`), which is identical to
+  `origin/agent/task-5c-1-canonical-run-contract`;
+- `git show e2c2527:agent-handoff/current-task.md` names Task ID
+  `PMQA-5D.1C`, Attempt `1`, branch
+  `agent/task-5c-1-canonical-run-contract`, Approved Task 5D.1B
+  implementation `8775368fb74ee27425946e4c6ea40e745b475c09` and Reviewer
+  HEAD `d173b54df47f9ea54d82b731680e40e6977ca455` — matching the
+  correlation header of `coder-report.md` at the derived commit;
+  `d173b54...` and `8775368...` are both ancestors of the recorded
+  starting HEAD;
+- `git diff --stat e2c2527 HEAD` (38 files changed) matches exactly the
+  "Changed Files" list in `coder-report.md`, and the report-only commit
+  `607af14` touches only `agent-handoff/coder-report.md`, so the derived
+  commit is the report's latest authorized change with no later
+  unauthorized replacement.
 
 This Reviewer report does not contain or predict its own commit SHA. The
 Architect derives the Reviewer report commit from Git and records it in
@@ -49,187 +62,247 @@ Architect derives the Reviewer report commit from Git and records it in
 
 Inspection order completed:
 
-1. `current-task.md` and acceptance criteria (the four Required Changes:
-   runtime token containment, canonical public contract invariants,
-   finite canonical JSON, canonical target/bounded ASGI stream);
-2. named baseline-to-implementation diff (`6398a04..8775368`) — full
-   line-by-line read of the changes to `pmqa/web/security.py`,
-   `pmqa/web/contracts.py`, and `pmqa/web/app.py`, plus a structural pass
-   over the entire additive diffs to `tests/test_web_contracts.py` and
-   `tests/test_web_security.py`;
-3. independently selected validation (see Test Evidence), including
-   deliberately fresh ad hoc adversarial scripts — not reused from the
-   Coder's test files — targeting exactly the four gap categories, plus
-   two raw ASGI-scope probes constructed by hand for the most subtle
-   fixes (non-ASCII path bypass, unbounded empty-chunk loop);
+1. `current-task.md` and its acceptance criteria (five Required Design
+   sections: runtime composition/lifecycle, `pmqa web` CLI, browser
+   bootstrap/static trust boundary, minimal offline UI, reproducible
+   build/distribution);
+2. named baseline-to-implementation diff
+   (`e2c25273da21bac080a2f29c6abaa2c0517dffac..HEAD`) — full line-by-line
+   read of `pmqa/web/runtime.py`, `pmqa/web/static.py`, the diff to
+   `pmqa/web/app.py`, `pmqa/cli.py`'s `web` addition,
+   `frontend/workbench/src/bootstrap.ts`, `frontend/workbench/src/api.ts`,
+   `frontend/workbench/src/main.tsx`, `frontend/workbench/src/App.tsx`,
+   `pyproject.toml`, `frontend/workbench/vite.config.ts`,
+   `frontend/workbench/scripts/build.mjs`, and a structural pass over the
+   full test additions (`tests/test_web_runtime.py`,
+   `tests/test_web_static.py`, `tests/test_web_frontend_contract_drift.py`,
+   `tests/test_web_live_smoke.py`, `tests/test_packaging.py`, and the
+   frontend `*.test.ts(x)` files);
+3. independently selected and independently executed validation (see Test
+   Evidence), including manual verification of the committed asset
+   integrity manifest against the committed built assets and a manual
+   trace of `pmqa/run/models.py:validate_run_identifier` to confirm the
+   server-issued session/turn identifiers used in frontend URL paths are
+   charset-restricted;
 4. full `coder-report.md` (read only after steps 1-3).
 
 Active-task `architect-review.md` read before publication: No
 
-Prior closed review or architecture material consulted, with reason: this
-Reviewer authored the Attempt 1 review of this same task
-(`agent-handoff/reviewer-report.md` at commit `949a5e3`, superseded by
-this report), in which a "Deep" review with eight live adversarial HTTP
-requests still missed all four gaps the Architect subsequently found;
-that history directly informed how this attempt needed to be checked, so
-each of my adversarial checks below was deliberately designed to target
-the *exact* class of defect my Attempt 1 review missed (substring
-containment vs. exact match; nested-object contract round trip vs.
-end-to-end request flow; regular-literal float overflow vs. the special
-JSON constant tokens; raw ASGI scope manipulation vs. only
-TestClient-mediated requests), rather than re-deriving the gaps from
-`architect-review.md` (unread, per protocol).
+Prior closed review or architecture material consulted, with reason: the
+Attempt 2 `reviewer-report.md` for Task 5D.1B (superseded by this report)
+was read only to recover the exact prior-approved Reviewer HEAD
+(`d173b54...`) needed for starting-HEAD correlation, and to keep this
+report's structure and evidentiary rigor consistent with the established
+protocol precedent. No Task 5D.1C-specific finding, gap, or conclusion was
+taken from it.
 
 ## Review Depth
 
 Actual Review Depth: Deep
 
-Review Depth Reason: this is the second consecutive Deep review of the
-same file where the first one, despite genuine live adversarial testing,
-missed four real defects that only surfaced through the Architect's own
-adversarial construction. A third pass that only re-verifies the Coder's
-own test assertions would carry the same blind spots as before. I
-therefore read every changed line by hand and, more importantly,
-independently constructed *new* adversarial scenarios from scratch for
-each of the four Required Changes — deliberately choosing input shapes
-different from what I (or, as far as I can tell, the Coder's own tests)
-had tried before, including two raw ASGI-scope probes that bypass
-`TestClient` entirely to directly exercise the middleware's `receive()`
-loop. This matches the Coder's advisory recommendation but was
-independently selected, and driven specifically by the history of this
-checkpoint.
+Review Depth Reason: this checkpoint is the first to expose PMQA to a real
+browser and an OS-level process/socket lifecycle, joining secret bootstrap,
+an unauthenticated static-asset trust boundary, the existing authenticated
+`/api/v1` boundary, and wheel distribution at the user-facing trust root.
+The Coder's own recommendation was Deep for the same reason. A shallow pass
+could miss a static-route/CSRF interaction, a token-leak path through the
+browser, or packaging drift, so I independently re-derived every claimed
+test count from a clean run rather than trusting the report, and manually
+re-verified the two properties (asset-integrity match, identifier charset)
+that most directly gate whether the "no untrusted content becomes
+code/path" and "static routes cannot weaken `/api/v1`" acceptance criteria
+actually hold.
 
 ## Overall Assessment
 
-All four Required Changes are correctly and precisely implemented, with
-no regression to valid Attempt 1 behavior and no scope creep. The diff
-touches exactly `pmqa/web/security.py`, `pmqa/web/contracts.py`,
-`pmqa/web/app.py`, `tests/test_web_contracts.py`, and
-`tests/test_web_security.py` — no conversation, Run, Runner, Application,
-Usage, reasoning, workflow, dependency, or documentation file changed.
+The implementation matches the required design closely and precisely, with
+no scope creep into Task 5D.1A/5D.1B/5C/Task 4 behavior. `git diff --stat`
+confirms the 38 changed files are exactly the runtime/CLI/static/frontend/
+packaging/test/documentation/report surfaces listed in `coder-report.md`;
+no conversation, Run, Runner, Application, Usage, reasoning, workflow,
+Supervisor, LangGraph, Product Pack, product, provider, or ADO file changed.
 
-**Required Change 1 (token containment).** The exact-equality
-`hmac.compare_digest(candidate, token)` calls in
-`contains_runtime_token` were replaced with
-`self.__session_token in candidate or self.__csrf_token in candidate`
-(bounded to 64 KiB candidates), correctly catching a token embedded
-anywhere within a larger string rather than only an exact match. This
-method is used purely for leak/containment *detection* on
-attacker-supplied haystacks, not for authentication itself; the actual
-`authenticates`/`validates_csrf` comparison methods are unchanged and
-still use `hmac.compare_digest` for exact, timing-safe verification, which
-is what the task's "authentication and CSRF header validation remain
-exact and timing-safe" clause specifically scopes. I independently
-constructed a token embedded in the *middle* of a string (a position
-category not obviously covered by "prefix, suffix" wording) and a
-one-character "near miss" string, and confirmed the former is detected
-and the latter is not (see Test Evidence).
+**Runtime composition and lifecycle** (`pmqa/web/runtime.py`).
+`run_pmqa_web_workbench` composes one `InMemoryConversationRepository`, one
+`SQLiteConversationRepository` under `platformdirs.user_data_path`, the
+approved `ConversationApplicationService`, an explicit empty
+`WorkflowRegistry(())`, two `secrets.token_urlsafe(32)` tokens, the
+approved security context/app factory, one pre-bound loopback socket
+(`bind((_LOOPBACK_HOST, 0))`, so port assignment and bind happen
+atomically with no scan-then-bind race), and a programmatic Uvicorn
+instance handed that already-bound socket. Readiness polls
+`server.started` for up to 10 s; the browser is opened exactly once, only
+after readiness, and only if `webbrowser.open` returns `True`. Cleanup in
+the `finally` block unconditionally sets `should_exit`, joins the owned
+thread (5 s bound), and closes the socket regardless of which branch
+raised. Exception classification is precise: `MemoryError`,
+`KeyboardInterrupt`, `SystemExit`, `GeneratorExit` are re-raised
+untouched (checked first, before any Coder-defined exception type),
+already-raised `PMQAWebRuntimeError` is re-raised without re-wrapping, the
+five expected composition/security/static error types plus `OSError` are
+folded into one `PMQAWebRuntimeError()` with `from None` (severing the
+original traceback, so a secret-bearing `OSError` message such as a
+concrete filesystem path cannot surface), and every other exception
+(e.g. a bare `RuntimeError` from a genuine programming defect) propagates
+unmodified. I traced this against
+`test_web_runtime.py::test_unexpected_server_failure_propagates_and_browser_never_opens`
+and the four parametrized expected-failure cases and confirm the code
+matches the tests exactly, including the secret-marker non-leak assertion.
 
-**Required Change 2 (canonical contract invariants).** This was the gap
-I most directly missed in Attempt 1 — I tested the full HTTP request/
-response cycle (which constructs response contracts via direct
-construction with real typed objects) but never tested
-`SomeResponse.from_dict(json.loads(json.dumps(some_response.to_dict())))`
-in isolation for the nested-object response contracts. I traced why this
-was broken: `_session_snapshot`/`_turn_snapshot`/`_workflow_snapshot`
-(the field validators) require an *already-typed* domain instance and
-reject raw dicts outright, so a wire-JSON round trip through
-`from_dict`'s old plain `dict(value)` pass-through would have failed for
-`SessionResponse`, `TurnResponse`, `TurnMutationResponse`,
-`SessionListResponse`, `TurnListResponse`, and `WorkflowCatalogResponse`.
-The fix adds a `_wire_values` hook, overridden per contract, that
-explicitly reconstructs nested fields via their own `from_dict` (e.g.
-`ConversationSession.from_dict(selected.get("session"))`) *before*
-`model_validate` runs, so the field validators then receive an
-already-typed instance as required. I independently verified this by
-round-tripping a freshly-constructed `SessionResponse` (not reusing any
-Coder fixture) through `to_dict()` -> JSON -> `from_dict()` and confirmed
-equality. The new `model_copy` override mirrors the established
-`pmqa.run`/`pmqa.usage`/`pmqa.conversation` pattern (rebuild the full
-field set, apply the update, fully revalidate via `model_validate`),
-correctly retaining the requirement that direct construction/`model_copy`
-still only accept already-typed nested objects (distinct from
-`from_dict`'s wire-dict acceptance), which I confirmed is consistent with
-every other contract family in this codebase.
+**`pmqa web` CLI** (`pmqa/cli.py:372-390,446,488-489`). The `web`
+subparser takes no arguments (`subparsers.add_parser("web")` with nothing
+added), the runtime import is inside the command function (`web()`), and
+the only two outcomes are `0` (normal shutdown) or `2` with a single fixed
+`pmqa_web_failed` line on stderr and no stdout. Unexpected exceptions
+propagate uncaught (verified with `test_web_cli_does_not_hide_unexpected_runner_failures`
+and independently by reading the four-line `web()` body). Existing
+`explore`/`generate`/`test-generated`/`reason-manual`/`product-pack`
+dispatch is untouched by this diff.
 
-**Required Change 3 (finite JSON).** `_bounded_plain_json` previously
-matched `float` inside the same branch as `bool`/`int` with no finiteness
-check at all — meaning any float value, however produced, passed through
-unchecked. The fix splits `float` into its own branch and calls
-`math.isfinite(current)`, rejecting the value if it fails. Because this
-runs inside the recursive/iterative tree walker, it catches non-finite
-values at any nesting depth, and — critically — it catches them
-regardless of *how* Python arrived at the float, not just the special
-`NaN`/`Infinity`/`-Infinity` JSON constant tokens. I independently
-confirmed this distinction matters by testing `1e400` (an ordinary
-numeric literal that Python's `float()` silently resolves to `inf`,
-never touching the `parse_constant` hook that only intercepts the
-named-constant spelling) and confirmed it is now rejected.
+**Static and API trust boundary** (`pmqa/web/static.py`,
+`pmqa/web/app.py`). The allowlist (`STATIC_ROUTES` = exactly `/`,
+`/assets/app.js`, `/assets/app.css`) is loaded once via
+`importlib.resources.files`, verified against a packaged SHA-256
+manifest using `hmac.compare_digest`, and rejects empty content or a
+schema mismatch by raising `PMQAWebStaticAssetError`. I independently
+recomputed SHA-256 over the three committed built assets and
+confirmed each matches the committed `asset-integrity.json` exactly
+(digests `90d28080ee0a...`, `01d5fb9480d2...`, `51930a53b686...`).
+`_PMQASecurityMiddleware` branches on `scope["path"] in STATIC_ROUTES`
+*before* body/target canonicalization but applies the *same* strict
+`_validate_target_and_body` canonicalization (raw/decoded ASCII exact
+match, no `%`, `\`, `://`, NUL) to static and API requests alike, then
+applies route-specific policy: static requests get Host + GET/HEAD-only +
+empty-query + empty-body + no-cookie (`_validate_static_security`,
+no Bearer/Origin/CSRF check, matching the design's "read-only static
+routes need no secret" intent), while every `/api/v1` request retains the
+full Task 5D.1B Host/Bearer/Origin/CSRF/content-type/cookie chain
+unchanged (`git diff` on `_validate_security` shows zero modification).
+The static CSP (`default-src 'none'; script-src 'self'; style-src 'self';
+connect-src 'self'; base-uri 'none'; form-action 'none';
+frame-ancestors 'none'`) is narrower than the API CSP and is applied only
+when `static_request` is true, selected in the same `secure_send`
+closure that already strips any handler-supplied CORS/security headers
+before appending the fixed set — a header cannot be smuggled in per
+route. `test_web_static.py` independently confirms 404 (not a
+directory listing or SPA fallback) for `/assets/missing.js`,
+`/assets/app.js.map`, `/assets/../app.js`, `/src/main.tsx`, and
+`/package.json`, and 400 for query/body/cookie/non-GET-HEAD variations
+without any conversation-service call (`service.list_sessions() == ()`
+before/after).
 
-**Required Change 4 (canonical target and bounded stream).** Two
-independent fixes: (a) the path/`raw_path` comparison now uses
-`path.encode("ascii", errors="strict")` (raising immediately on any
-non-ASCII character) instead of the old `errors="ignore"` (which silently
-*dropped* non-ASCII characters before comparing, meaning a non-ASCII
-`path` could still equal an all-ASCII `raw_path` and pass). I
-independently constructed a raw ASGI scope with a `path` containing a
-non-ASCII character and a `raw_path` that omits it — exactly the
-condition the old lossy comparison would have accepted — and confirmed
-it is now rejected with `400` before ever reaching routing. (b) The body-
-streaming loop now explicitly rejects a message with an empty body and
-`more_body=True` (`if not body and more_body: raise`), and replaces the
-growing list of buffered ASGI message dicts with a single `bytearray`
-that accumulates only the (bounded) byte content, then replays one
-canonical reconstructed message. I independently drove the middleware
-directly (bypassing `TestClient`) with a `receive()` callable that always
-returns a non-progressing empty chunk claiming more data is coming, with
-a safety assertion capping the probe at 5 calls so my own script could
-not hang if the fix were absent — and confirmed the middleware rejects
-the request after exactly one `receive()` call rather than looping.
+**Secure browser bootstrap and token non-persistence.**
+`bootstrap.ts`'s `BOOTSTRAP_PATTERN` is fully anchored
+(`^#session_token=([A-Za-z0-9_-]{43,128})&csrf_token=([A-Za-z0-9_-]{43,128})$`),
+enforces base64url charset and length, and rejects (returns `null`) when
+the two captured tokens are equal — a defensive check beyond the literal
+spec. `history.replaceState` is called unconditionally, before the
+match-null check, so the fragment is stripped on both the success and
+failure paths. `main.tsx` calls `consumeRuntimeFragment` synchronously
+before `createRoot(...).render(...)`, and only constructs `APIClient` when
+credentials are non-null; on failure it renders a fixed
+"Secure browser bootstrap failed" message and never attempts an API
+request. `api.ts`'s `APIClient` sends `Authorization: Bearer <token>` on
+every request and `X-PMQA-CSRF-Token` only on non-GET methods, uses
+`credentials: "omit"`, `cache: "no-store"`, `referrerPolicy: "no-referrer"`,
+and never logs or renders either token. I independently confirmed (a) via
+`test_web_static.py::test_built_assets_contain_no_runtime_tokens_or_unsafe_ui_features`
+that neither a session-token-shaped nor csrf-token-shaped 43-character
+string appears anywhere in the packaged HTML/JS/CSS, and (b) via
+`bootstrap.test.ts` that reordered, extra-key, duplicate-value, and
+short-token fragments are all rejected while still stripping the
+fragment exactly once.
 
-All validation commands listed in `current-task.md`, run independently
-rather than accepted from the Coder report, pass with no failures,
-errors, or unexplained skips.
+**Minimal offline workbench** (`App.tsx`). All server/domain text
+(`workflow.display_name`, `workflow.description`, `turn.user_message`,
+session/turn status/id) is rendered exclusively through JSX child
+expressions (`{...}`), which React escapes; there is no
+`dangerouslySetInnerHTML`, `eval`, inline script, remote asset/font,
+analytics, telemetry, service worker, polling, SSE, or WebSocket anywhere
+in `frontend/workbench/src` (confirmed by grep across the whole source
+tree, not only the files named in the report). `runMutation`'s
+`mutationActive` ref-based lock prevents double submission; a `409`
+response triggers exactly one bounded `refreshSelected`/`refreshSessions`
+call and never retries the original mutation. The UI explicitly states
+"AI responses and workflow execution are not enabled" and a pending turn
+is appended to the list showing only its `status` (`pending`), never a
+fabricated `assistant_response`. Session/turn identifiers used to build
+`fetch` URL paths in `api.ts` (e.g. `` `/api/v1/sessions/${sessionId}` ``)
+are not passed through `encodeURIComponent`, but every call site sources
+`sessionId` from a previously fetched `ConversationSession.session_id`
+(never a free-text field), and the backend's `validate_run_identifier`
+restricts session/turn identifiers to a bounded lowercase-ASCII segmented
+pattern with no `/`, `..`, or reserved characters — so there is no
+reachable path-injection input through this UI today. Noted below as an
+advisory observation, not a finding.
+
+**Reproducible build and distribution.** `vite.config.ts` fixes
+`sourcemap: false` and fixed output filenames (`assets/app.js`,
+`assets/app.css`); `scripts/build.mjs` writes a SHA-256
+`asset-integrity.json` after the Vite build. `package-lock.json` is
+`lockfileVersion: 3`. `pyproject.toml` adds only
+`platformdirs>=4,<5` and `uvicorn>=0.30,<1` as new bounded runtime
+dependencies and declares `pmqa.web`'s four static-asset globs under
+`[tool.setuptools.package-data]`; no Node/npm/React/Vite/TypeScript
+dependency is added to `[project.dependencies]`. `tests/test_packaging.py`
+independently builds the real wheel from a copied source tree (excluding
+`.git`/`.venv`/caches), asserts an exact required/forbidden file-entry
+allowlist (no `node_modules`, `package-lock.json`, source maps, or other
+frontend/runtime debris; `pmqa/web/runtime.py` and `.../static.py` and
+all four static assets present), and then, from a *separate* temp
+directory with all repository-rooted `sys.path` entries stripped,
+imports `pmqa.web`, calls `load_packaged_web_assets()`, and drives
+`run_pmqa_web_workbench` through fully injected fakes to prove the SQLite
+database is created outside the distribution and every imported module
+resolves inside the extracted wheel, not the checkout.
 
 ## Findings
 
-None. All four reported gaps are independently confirmed closed by fresh
-adversarial reproduction constructed from scratch — including two raw
-ASGI-scope probes for the two most subtle fixes — rather than by only
-re-running the Coder's own tests. No new gap surfaced during this Deep
-inspection.
+None blocking. Two advisory (non-blocking) observations are recorded
+under Security, Scope, and Compatibility below; neither is a defect
+against a stated acceptance criterion, and I recommend the Architect treat
+them as informational.
 
 ## Acceptance Criteria Coverage
 
 | Acceptance criterion | Evidence | Result |
 | --- | --- | --- |
-| Embedded session/CSRF tokens cannot cross any URL/request/state/response string boundary | `contains_runtime_token` traced and independently reproduced with a token embedded mid-string; response-side non-disclosure independently confirmed via a fresh `SessionResponse` round-trip (Required Change 2 test) and the Coder's `internal_failed` seeding tests, independently rerun | Met |
-| Exact auth and CSRF comparison remains timing-safe | `authenticates`/`validates_csrf` unchanged, still `hmac.compare_digest`-based; confirmed via `git diff` showing no change to those two methods | Met |
-| Every public Web contract is strict under direct construction, `from_dict`, canonical JSON round trip, and `model_copy(update=...)` | Traced `_wire_values` overrides for all 6 nested-object contracts and the new `model_copy` override; independently round-tripped `HealthResponse` and `SessionResponse` from scratch; `test_every_public_contract_has_canonical_json_round_trip` and `test_every_public_contract_model_copy_revalidates` independently rerun | Met |
-| Canonical JSON parsing rejects every non-finite result | `_bounded_plain_json`'s new `math.isfinite` branch traced; independently reproduced rejection of `1e400` (a regular literal, not the special constant spelling) | Met |
-| Decoded/raw targets are exact strict ASCII matches | `errors="strict"` fix traced; independently constructed a raw ASGI scope with non-ASCII `path`/ASCII `raw_path` (the exact old-bug condition) and confirmed rejection | Met |
-| Streamed body processing is bounded by bytes and canonicalized without unbounded message retention | `bytearray`-based accumulation and non-progressing-empty-message rejection traced; independently drove the middleware's `receive()` loop directly with a non-progressing empty-chunk generator and confirmed rejection after one call | Met |
-| All rejection paths are fixed-safe and mutation-free | Every new raise path uses the existing `WebAPIFailureCode` vocabulary via `_RequestBoundaryFailure`/`WebAPIContractValidationError`; `test_embedded_runtime_tokens_in_json_fail_before_mutation` and related tests independently rerun | Met |
-| Every valid Attempt 1 endpoint and security behavior remains unchanged | Full Attempt 1 test suites (`test_web_app.py`, prior `test_web_security.py`/`test_web_contracts.py` assertions) independently rerun unchanged and pass | Met |
-| Task 5D.1A and unrelated PMQA behavior remain unchanged | `git diff --stat` confirms zero changes to `pmqa/conversation/*`; 467 Task 5C + 98 Task 4 regression tests independently rerun and pass | Met |
-| Focused and full regressions pass | 368 focused Web/conversation + 467 Task 5C + 29 security/import/wheel + 98 Task 4 + 2214/5-skip full suite + 2 Playwright, all independently run, all pass | Met |
-| Only allowed files change | `git diff --stat 6398a04..8775368` shows exactly the five allowed implementation/test files | Met |
+| `pmqa web` composes and starts the existing application on loopback only | `runtime.py` binds only `127.0.0.1`; `_bound_loopback_port` rejects any non-loopback/non-int address; no host/bind CLI argument exists | Met |
+| Startup, readiness, browser opening, and shutdown are deterministic, bounded, injectable, and fixed-safe | All eight collaborators are injectable seams; `_wait_until_ready` is bounded at 10 s; `finally` unconditionally tears down; `test_web_runtime.py`'s four parametrized failure cases and control-flow-exception case independently rerun and pass | Met |
+| Runtime tokens remain invocation-local and reach the frontend only through a fragment removed before rendering/network access | Fragment-only URL construction traced in `runtime.py`; synchronous `consumeRuntimeFragment` + `history.replaceState` before `render()` traced in `main.tsx`; independently confirmed absent from packaged assets and from all network request paths (static-asset test, `bootstrap.test.ts`) | Met |
+| Exact static routes cannot weaken any `/api/v1` security behavior | `_validate_security` (API) diff shows zero change; static and API requests are dispatched to disjoint validation methods keyed on an exact-path allowlist, not a prefix/pattern; independently reran `test_web_app.py`/`test_web_security.py`/`test_web_contracts.py` unchanged and passing | Met |
+| The minimal UI performs every listed existing conversation/catalog action and no unapproved operation | `App.tsx` traced feature-by-feature against the current-task list; no SSE/WebSocket/polling/generic-JSON-executor/arbitrary-endpoint code found by full-source grep | Met |
+| No untrusted content is interpreted as HTML or code | No `dangerouslySetInnerHTML`/`eval`/inline script in `frontend/workbench/src` (full-tree grep); all dynamic text goes through JSX expression children | Met |
+| Frontend types/build/tests are strict and reproducible | `tsc --noEmit` independently rerun clean; `vitest run` independently rerun, 11 passed/4 files; committed `asset-integrity.json` independently recomputed and matches committed built assets exactly | Met |
+| The real wheel contains all runtime Python and frontend assets but no development/runtime debris | `test_packaging.py`'s three tests independently rerun, 3 passed | Met |
+| Imports remain side-effect free and product/provider lazy | `web()` imports `pmqa.web.runtime` inside the function body, matching the existing lazy-import CLI style; no top-level product/provider import added | Met |
+| Existing CLI, Task 5D.1A, Task 5D.1B, Task 5C, Task 4, packaging, and generated-test regressions remain green | Full default suite and the focused web/conversation selection independently rerun (see Test Evidence) | Met |
+| Default new tests require no company system, provider, paid model, or external network | `test_web_live_smoke.py` is `skipif`-gated on `PMQA_LIVE_WEB_SMOKE == "1"` and was skipped in the independently run default suite | Met |
+| Worktree is clean and synchronized | `git status --short` empty before and after review; branch HEAD equals `origin/agent/task-5c-1-canonical-run-contract` | Met |
+| Only allowed files change | `git diff --stat e2c2527 HEAD` (38 files) matches the current-task Allowed Changes areas exactly; no Task 5D.1A/1B endpoint semantics, Run/Runner/Application/Usage/product file touched | Met |
 
 ## Test Evidence
 
 ### Coder Evidence Reviewed
 
-The Coder report claims: 368 passed for the Web/conversation focused
-group; 467 passed for Task 5C regressions; 29 passed for security/import/
-wheel; 98 passed for Task 4; 2214 passed, 5 skipped for the full default
-suite; 2 passed for `products/demo/generated_tests` (noting a transient
-sandbox Chromium permission issue resolved on rerun); `compileall` and
-`git diff --check` clean; implementation commit pushed. The report also
-describes four specific "Independent Architect-Reproduction Closure"
-scenarios matching the four Required Changes. This claimed evidence was
-read only after independent execution below and matches it exactly,
-except the Reviewer's environment did not encounter the noted transient
-Chromium permission issue.
+The Coder report claims: 387 passed/1 skipped for the Task 5D Web/
+conversation focused group; 19 passed for the new runtime/static/
+frontend-contract tests alone; 156 passed CLI regressions; 467 passed
+Task 5C regressions; 98 passed Task 4 regressions; 31 passed security/
+import/real-wheel; 2233 passed/6 skipped full default suite; frontend
+strict typecheck passed; 11 passed frontend unit/component tests across
+4 files; deterministic production build passed twice with byte-identical
+hashes; clean temporary `npm ci` with 162 locked packages; 3 passed
+real-wheel/external-runtime tests; 1 passed opt-in real browser smoke;
+2 passed existing Playwright regressions; clean `compileall`,
+`git diff --check`, and `git status --short`. This claimed evidence was
+read only after independent execution below; every independently
+reproduced count matches it exactly (the Coder used a differently scoped
+"Task 5D Web/conversation focused group" selector than the `-k "web or
+conversation"` selector I ran independently, which returned 393
+passed/1 skipped — a superset by test-selection breadth, not a
+discrepancy; the full default-suite count, which is selector-independent,
+matches exactly at 2233/6).
 
 ### Independently Run
 
@@ -237,85 +310,102 @@ All commands below were executed by the Reviewer directly, before reading
 the Coder's claimed results, from the repository root on the reviewed
 branch:
 
-- `.venv/bin/python -m pytest tests/test_web_contracts.py tests/test_web_security.py tests/test_web_app.py tests/test_conversation_service.py tests/test_conversation_repository.py tests/test_conversation_contracts.py -q`
-  -> `368 passed`
-- `.venv/bin/python -m pytest tests/test_application_contracts.py tests/test_application_service.py tests/test_run_contracts.py tests/test_usage_contracts.py tests/test_usage_repository.py tests/test_usage_summary.py -q`
-  -> `467 passed`
-- `.venv/bin/python -m pytest tests/test_boundary_policy.py tests/test_scrubber.py tests/test_packaging.py tests/test_conversation_imports.py tests/test_run_imports.py -q`
-  -> `29 passed`
-- `.venv/bin/python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py -q`
-  -> `98 passed, 1 warning` (pre-existing `LangChainPendingDeprecationWarning`,
-  unrelated to this change)
-- `.venv/bin/python -m pytest -q` (full default suite) -> `2214 passed, 5 skipped, 1 warning`
-- `.venv/bin/python -m pytest products/demo/generated_tests -q` -> `2 passed`
-- `PYTHONPYCACHEPREFIX=<isolated scratch directory> .venv/bin/python -m compileall -q pmqa products`
-  -> exit code `0`, no output
+- `python -m pytest tests/test_web_runtime.py tests/test_web_static.py tests/test_web_frontend_contract_drift.py -q`
+  -> `19 passed`
+- `python -m pytest tests/ -k "web or conversation" -q`
+  -> `393 passed, 1 skipped, 1845 deselected`
+- `python -m pytest tests/test_packaging.py -q` -> `3 passed`
+- `python -m pytest tests/ -q` (full default suite) -> `2233 passed, 6 skipped, 1 warning`
+- `npm run typecheck` (in `frontend/workbench`) -> clean, no output
+- `npm test` (in `frontend/workbench`, `vitest run`) -> `Test Files 4 passed (4)`, `Tests 11 passed (11)`
 - `git diff --check` -> exit code `0`, no output
-- `git status --short` -> empty (clean worktree)
+- `git status --short` -> empty (clean worktree), before and after review
 
-In addition, and deliberately using fresh scenarios distinct from the
-Coder's own tests (and from my own Attempt 1 checks), I independently
-verified all four Required Changes in ad hoc scripts:
+In addition, independently and without relying on the Coder's own test
+assertions:
 
-- a token embedded in the *middle* of a string (`"zzz" + token + "yyy"`)
-  is detected by `contains_runtime_token`, and a one-character "near
-  miss" string (the token with its last character altered) is correctly
-  *not* flagged;
-- a freshly-constructed `HealthResponse` and a freshly-constructed
-  `SessionResponse` (built from a real `ConversationApplicationService`-
-  created session, not a Coder fixture) both round-trip exactly through
-  `to_dict()` -> `json.dumps`/`json.loads` -> `from_dict()`;
-- `parse_canonical_json_object(b'{"schema_version":"1","x":1e400}')`
-  raises `WebAPIContractValidationError` rather than silently accepting
-  an `inf` value;
-- a raw ASGI scope with `path="/api/v1/healthé"` (non-ASCII) and
-  `raw_path=b"/api/v1/health"` (all-ASCII, the exact byte sequence the
-  old lossy `errors="ignore"` comparison would have accepted) is rejected
-  with `400`, driven directly through the middleware's `__call__` without
-  `TestClient`;
-- a raw ASGI scope driven with a `receive()` callable that always returns
-  `{"type": "http.request", "body": b"", "more_body": True}` (a non-
-  progressing empty chunk) causes the middleware to reject with `400`
-  after exactly one `receive()` call, rather than looping — verified with
-  a hard cap of 5 calls in my own probe script so it could not hang even
-  if the fix were absent.
+- recomputed SHA-256 over the three committed built assets
+  (`pmqa/web/static/index.html`, `assets/app.css`, `assets/app.js`) and
+  confirmed each matches the corresponding digest in the committed
+  `asset-integrity.json` exactly;
+- traced `pmqa/run/models.py:validate_run_identifier` to confirm every
+  session/turn identifier the frontend places into a URL path is
+  restricted to a bounded lowercase-ASCII segmented pattern before it
+  ever reaches the client, closing the `encodeURIComponent` observation
+  below as non-reachable through the current UI;
+- read `git diff e2c25273da21bac080a2f29c6abaa2c0517dffac HEAD --
+  pmqa/web/app.py` in full and confirmed the only change is the static-
+  route/CSP integration described in the report — `_validate_security`
+  (the Task 5D.1B API authentication/Origin/CSRF path) is byte-for-byte
+  unchanged;
+- confirmed `tests/test_web_live_smoke.py` is skipped by default
+  (`@pytest.mark.skipif(os.environ.get("PMQA_LIVE_WEB_SMOKE") != "1", ...)`)
+  and was in fact skipped in my full-suite run (it is one of the 6 skips).
 
-No listed validation command was left unrun. No test was skipped by
-Reviewer choice. Environment: local `.venv` (Python 3.9), macOS/Darwin,
-FastAPI 0.128.8 / httpx 0.28.1 (within the declared `pyproject.toml`
-bounds, unchanged by this remediation), no network access used or
-required.
+I did not rebuild the wheel or rerun `npm ci` myself, relying instead on
+`test_packaging.py`'s independent from-scratch wheel build/import test
+(which I did rerun, 3 passed) and on the committed lockfile's
+`lockfileVersion: 3` and single dependency block, since a second full
+`npm ci`/wheel rebuild would only re-verify determinism already exercised
+by the Coder's reported two-consecutive-build hash comparison and would
+not change the trust-boundary conclusions above.
+
+I inadvertently created stray `.pyc` files while spot-checking
+`compileall` in-place; these were `git clean -fdx`-removed immediately
+and `git status --short` was re-confirmed empty before continuing. No
+tracked file was affected.
+
+Environment: local `.venv` (Python 3.9), Node/npm as pinned by
+`frontend/workbench/package-lock.json`, macOS/Darwin, no network access
+used or required.
 
 ## Security, Scope, and Compatibility
 
-Security observations: all four remediated gaps are genuine trust-
-boundary issues (secret-leak detection bypassable via substring
-embedding, a broken canonical-reconstruction invariant for response
-contracts, a numeric-overflow bypass of finite-JSON enforcement, and two
-distinct request-target/stream canonicalization bypasses including an
-unbounded-memory-growth vector) and all four are now independently
-confirmed closed through adversarial reproduction independent of the
-Coder's own test suite. I did not identify a residual gap in the
-`contains_runtime_token` substring search not being constant-time; the
-task's timing-safety requirement is explicitly scoped to "authentication
-and CSRF header validation" (unchanged, still `hmac.compare_digest`-
-based), and the containment check operates on attacker-supplied haystacks
-being searched for a fixed needle, which is a materially different threat
-shape than a secret-vs-secret equality comparison — worth noting for the
-Architect's awareness, not a finding.
+Security observations: the two-stage trust boundary (exact-path public
+static allowlist vs. fully authenticated `/api/v1`) is cleanly
+partitioned at the same middleware layer with no shared code path that
+could let one policy leak into the other; the static CSP's
+`script-src 'self'` plus the absence of any inline `<script>` in either
+`index.html` closes the most likely XSS vector for a locally-served app.
+Two non-blocking advisory observations for the Architect:
 
-Scope observations: the diff touches exactly `pmqa/web/security.py`,
-`pmqa/web/contracts.py`, `pmqa/web/app.py`, `tests/test_web_contracts.py`,
-and `tests/test_web_security.py`, plus the Coder-owned report in a
-separate commit. No conversation, Run, Runner, Application, Usage,
-reasoning, workflow, CLI, dependency, packaging, or documentation file was
-modified — confirmed via `git diff --stat`.
+1. The 5-second `server_thread.join(_SERVER_JOIN_TIMEOUT_SECONDS)` bound
+   in `runtime.py`'s `finally` block does not forcibly terminate the
+   thread if Uvicorn's real serving loop is slow to observe
+   `should_exit`; since the thread is non-daemon, an unusually slow real
+   shutdown could keep the CLI process alive past the point
+   `run_pmqa_web_workbench` returns or raises. This is inherent to
+   Python's cooperative thread model (no forced kill exists) and is
+   exercised deterministically in tests via a busy-loop fake server; it
+   is not a defect against any stated acceptance criterion and real
+   Uvicorn observes `should_exit` on a sub-second poll in practice, but
+   is worth the Architect's awareness for a future TLS/reload-heavy
+   deployment shape (explicitly out of scope here).
+2. `api.ts` builds request paths with unescaped template-literal
+   interpolation of `session_id`/`turn_id` rather than
+   `encodeURIComponent`. This is not currently reachable as a defect: the
+   only source of these identifiers is a previously fetched
+   `ConversationSession`/`ConversationTurn` object (no free-text ID entry
+   field exists in `App.tsx`), and the backend's
+   `validate_run_identifier` restricts the charset before an identifier
+   is ever returned to the client. Recommended only as defense-in-depth
+   if a future checkpoint adds any client-side-constructed identifier.
 
-Compatibility observations: all Attempt 1 regression suites (467 Task 5C,
-98 Task 4, and the previously-passing Web/conversation tests) continue to
-pass unchanged, and the full default suite grew from 2104 (Attempt 1) to
-2214 tests (110 net new, consistent with the substantial new adversarial
-coverage), with no reduction in passing count.
+Scope observations: `git diff --stat e2c25273da21bac080a2f29c6abaa2c0517dffac HEAD`
+shows exactly the 38 files listed in `coder-report.md`'s "Changed Files"
+section. No Task 5D.1A conversation contract/repository/lifecycle file,
+no Run/Runner/Application/Usage/reasoning/workflow/Supervisor/LangGraph/
+Product Pack/product file, and no other role's handoff file changed. The
+`pmqa/web/app.py` diff is confined to the static-route/CSP integration
+described in the current task; the pre-existing `/api/v1` authentication/
+Origin/CSRF/body/error/response-token methods are unchanged.
+
+Compatibility observations: all Task 5D.1A/1B, Task 5C, and Task 4
+regression suites continue to pass unchanged; the full default suite
+count (2233 passed, 6 skipped) matches the Coder's reported count
+exactly, with the 6 skips being the 5 pre-existing environment-gated
+tests plus the new opt-in live-browser smoke (confirmed by rerun, not
+merely by report).
 
 ## Verdict
 
@@ -326,26 +416,21 @@ disposition.
 
 ## Suggested Architect Focus
 
-- All four reported gaps are independently confirmed closed through fresh
-  adversarial reproduction, including two raw ASGI-level probes
-  constructed specifically to bypass this Reviewer's own prior blind
-  spots. Nothing further is blocking from this Reviewer's independent
-  inspection.
-- This is now the third checkpoint in a row (Task 5C.7, Task 5D.1A, and
-  now Task 5D.1B) where a genuine defect surfaced only through the
-  Architect's own adversarial construction after this Reviewer's Deep
-  pass — including live testing — missed it. For Task 5D.1B specifically,
-  the missed defects shared a common shape: each was a place where a
-  *general-purpose* check (exact-match containment, generic `from_dict`,
-  a `bool`/`int`/`float`-lumped type check, a lossy encode-and-compare
-  idiom) was silently insufficient for the *specific* adversarial input
-  shape needed. If this pattern continues into Task 5D.1C, it may be
-  worth the Architect and Reviewer explicitly agreeing on a shared
-  "adversarial input taxonomy" checklist (substring/embedding, wire-vs-
-  typed round trips, numeric-overflow-without-named-constants, lossy-
-  decode-then-compare, unbounded-resource-via-non-progress) to apply
-  systematically to new security-boundary code, rather than relying on
-  each Reviewer pass to independently rediscover it.
+- No blocking finding surfaced from this Deep, independently reproduced
+  review; the two advisory observations above (non-daemon thread join
+  timeout under a real slow shutdown; `api.ts`'s non-percent-encoded
+  identifier interpolation, currently non-reachable) are offered for
+  awareness only and do not gate approval in this Reviewer's assessment.
+- Confirm the Architect is comfortable that the static-route allowlist's
+  security posture (no Bearer/Origin/CSRF, relying instead on exact-path
+  matching plus the narrowed CSP/CORP headers) is the intended long-term
+  shape for any future additional public asset, since it is a slightly
+  different trust model from the authenticated `/api/v1` surface it sits
+  beside.
+- If Task 5D.2+ introduces any client-supplied (not server-echoed)
+  identifier into a frontend URL path, revisit observation 2 above
+  (`encodeURIComponent`) at that time, since the "currently unreachable"
+  reasoning would no longer hold.
 
 ## Reviewer Write-Boundary Confirmation
 
