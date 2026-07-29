@@ -16,7 +16,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
 | Task 5A — Product Pack Adoption Foundation | Complete | Task 5A.1–5A.6 establish the experimental manifest, explicit loading, protocol, bounded transport, scaffolding/conformance, and external SauceDemo architecture-validation slice; merged through PR #22. |
 | Task 5C — Local Application and Run Layer | In progress | Task 5C.1–5C.7 passed architecture review; the cumulative branch remains unmerged. |
-| Task 5D — Conversational Workflow Platform | In progress | Task 5D.0 and 5D.1A passed architecture review; Task 5D.1B implements the secure API-only loopback trust boundary and is ready for architecture review. |
+| Task 5D — Conversational Workflow Platform | In progress | Task 5D.0, 5D.1A, and 5D.1B passed architecture review; Task 5D.1C implements the packaged local browser workbench and is ready for independent architecture review. |
 | Task 5B — Company-side MDE Read-Only Pilot | Not started | Validate Product Pack assumptions in a company-managed, private, read-only pilot before API v1 stabilization. |
 
 ## Task 4 closure
@@ -237,8 +237,8 @@ Task 5B remains Not started; Task 6 and Task 7 remain Not started.
 
 ## Task 5D — Conversational Workflow Platform
 
-**Task 5D.0 and Task 5D.1A status: Architecture review passed. Task 5D.1B
-status: Ready for architecture review.**
+**Task 5D.0, Task 5D.1A, and Task 5D.1B status: Architecture review passed.
+Task 5D.1C status: Ready for independent architecture review.**
 
 Task 5D.0 defines PMQA as a local-first, provider-neutral conversational QA
 workflow platform rather than a fixed wizard or cost-only dashboard.
@@ -271,10 +271,11 @@ Task 5D.1 is split into independently reviewed checkpoints:
   architecture review passed;
 - **5D.1B — Secure Loopback Web/API Boundary:** authenticated, Host/Origin/
   CSRF-protected, body-bounded canonical `/api/v1` contracts over the existing
-  conversation service and workflow catalog; status: ready for architecture
-  review; and
-- **5D.1C — Browser Workbench, `pmqa web`, and Distribution Packaging:** not
-  started.
+  conversation service and workflow catalog; status: architecture review
+  passed; and
+- **5D.1C — Browser Workbench, `pmqa web`, and Distribution Packaging:**
+  packaged loopback runtime, secure fragment bootstrap, and minimal offline
+  React workbench; status: ready for independent architecture review.
 
 The approved retention choices are session-only, 7, 30, or 90 days after last
 authoritative activity; 30 days is the default. Manual deletion is immediately
@@ -282,10 +283,10 @@ available, and indefinite retention is never selected silently. Task 5D.1A
 applies this policy only to conversations. Reasoning traces, usage, and future
 receipts retain separate policies.
 
-Task 5D.1B adds FastAPI and in-process API composition but no Uvicorn startup,
-socket binding, CLI, browser frontend, workflow execution, ADO or Copilot
-adapter, capability gateway, structured QA artifact repository, authorization
-service, or external write.
+Task 5D.1C adds bounded Uvicorn lifecycle, OS-assigned loopback binding,
+`pmqa web`, and packaged frontend assets. It adds no reasoning or workflow
+execution, ADO or Copilot adapter, capability gateway, structured QA artifact
+repository, authorization service, or external write.
 See the
 [Conversational Workflow Platform architecture](architecture/conversational-workflow-platform.md).
 Task 5B, Task 6, and Task 7 remain Not started.

@@ -317,9 +317,9 @@ actions, while PMQA owns authority, deterministic execution, receipts, and
 usage/audit boundaries. The first flagship workflow is
 `ado.story_test_authoring`, with `ado.work_item_summary` documenting a smaller
 future read-only workflow. Task 5D.0 is the approved architecture baseline;
-Task 5D.1A and 5D.1B now implement the conversation foundation and its
-API-only trust boundary without starting the browser workbench, ADO/Copilot
-adapters, authorization, or external writes. See the
+Task 5D.1A and 5D.1B have passed architecture review. Task 5D.1C implements
+the first packaged local browser workbench without starting ADO/Copilot
+adapters, authorization, workflow execution, or external writes. See the
 [Conversational Workflow Platform architecture](docs/architecture/conversational-workflow-platform.md),
 the
 [Run Contract architecture](docs/architecture/run-contract.md) and
@@ -347,10 +347,17 @@ request is bounded and requires the invocation-local Bearer token plus exact
 Host validation; mutations additionally require the exact local Origin and
 CSRF token. Canonical JSON, fixed-safe errors, no-store/security headers, and
 runtime-token non-disclosure are enforced before conversation mutation.
-Swagger/ReDoc/OpenAPI, permissive CORS, Uvicorn startup, socket binding,
-browser launch, static frontend assets, assistant completion, and workflow
-execution remain absent. Task 5D.1B is ready for architecture review; 5D.1C
-has not started.
+Swagger/ReDoc/OpenAPI, permissive CORS, assistant completion, and workflow
+execution remain absent. Task 5D.1B passed architecture review.
+
+Task 5D.1C adds `pmqa web`: explicit in-memory/SQLite composition in the OS
+user-data directory, fresh invocation-local browser tokens, a pre-bound
+loopback socket, bounded Uvicorn readiness and shutdown, and one secure
+fragment bootstrap into packaged React/strict-TypeScript/Vite assets. The
+minimal offline UI exposes only readiness, the workflow catalog, session
+create/list/inspect/close/delete, and pending user turns. It clearly marks AI
+responses and workflow execution unavailable. Task 5D.1C is ready for
+independent architecture review.
 See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)

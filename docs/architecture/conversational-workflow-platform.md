@@ -2,11 +2,12 @@
 
 ## Status and scope
 
-PMQA Task 5D.0 and Task 5D.1A passed architecture review. Task 5D.1B
-implements the API-only secure loopback trust boundary described here and is
-ready for independent architecture review. It does not start a server or
-browser and does not implement a frontend, capability gateway, Azure DevOps
-(ADO) connector, authorization service, external writer, or new workflow.
+PMQA Task 5D.0, Task 5D.1A, and Task 5D.1B passed architecture review. Task
+5D.1C implements the packaged loopback runtime and minimal offline browser
+workbench described here and is ready for independent architecture review. It
+does not implement reasoning, workflow execution, a capability gateway, Azure
+DevOps (ADO) connector, authorization service, external writer, or new
+workflow.
 
 PMQA is:
 
@@ -15,8 +16,8 @@ PMQA is:
 
 The first flagship workflow is `ado.story_test_authoring`, but it is one
 explicitly registered workflow on a reusable platform. General QA questions
-and smaller read-only workflows remain first-class. Task 5D.1C, the
-company-side pilot, Task 6, and Task 7 have not started.
+and smaller read-only workflows remain first-class. The company-side pilot,
+Task 6, and Task 7 have not started.
 
 ## Product definition
 
@@ -669,10 +670,11 @@ This phase is decomposed as follows:
 - **5D.1B — Secure Loopback Web/API Boundary:** strict API v1 contracts,
   invocation-local authentication, Host/Origin/CSRF enforcement, bounded
   canonical JSON, fixed-safe errors/security headers, and an inert FastAPI
-  factory over the approved application APIs. Status: ready for architecture
-  review.
-- **5D.1C — Browser Workbench, `pmqa web`, and Distribution Packaging:** not
-  started.
+  factory over the approved application APIs. Status: architecture review
+  passed.
+- **5D.1C — Browser Workbench, `pmqa web`, and Distribution Packaging:**
+  explicit loopback runtime, secure fragment bootstrap, and minimal packaged
+  offline UI. Status: ready for independent architecture review.
 
 5D.1A rejects malformed or recognizable sensitive text before sampling.
 After static input validation, it samples one clock value for each attempted
@@ -767,6 +769,6 @@ stabilization, budgets/optimization, Task 6, and Task 7.
 redaction, retention, real packaging, and security regression closure determine
 release readiness.
 
-Only the bounded 5D.1A foundation and API-only 5D.1B boundary have begun.
-5D.1B starts no server or browser; 5D.1C and every later Task 5D phase remain
+Only the bounded 5D.1A foundation, API-only 5D.1B boundary, and packaged
+5D.1C offline browser workbench have begun. Every later Task 5D phase remains
 not started.

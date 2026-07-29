@@ -298,10 +298,11 @@ records. None belongs in LangGraph `WorkflowState`, reasoning traces, or Task
 new contracts are reserved for the genuine conversation, artifact-revision,
 authorization, capability, receipt, and provider-session observation gaps.
 
-The recommended future UI is React with strict TypeScript and Vite, served as
-packaged assets by a loopback-only FastAPI/Uvicorn application. Task 5D.1B
-implements only the versioned FastAPI/REST trust boundary; Uvicorn, server
-startup, frontend assets, and progress transport remain future work.
+The local UI uses React with strict TypeScript and Vite, served as packaged
+assets by a loopback-only FastAPI/Uvicorn application. Task 5D.1B implements
+the versioned FastAPI/REST trust boundary. Task 5D.1C composes its runtime,
+secure fragment bootstrap, and minimal offline browser shell; progress
+transport remains future work.
 
 Task 5D.0 passed architecture review. Task 5D.1A implements only the first
 conversation foundation: strict immutable sessions and turns, the approved
@@ -321,8 +322,9 @@ Bearer authentication, exact loopback Host and Origin checks, CSRF protection,
 body/JSON bounds, fixed-safe errors, security headers, and an inert FastAPI app
 factory over the existing service and registry. It adds no frontend, CLI,
 reasoning/workflow execution, ADO/Copilot adapter, capability, artifact,
-authorization, or receipt. Task 5D.1B is ready for architecture review and
-5D.1C has not started.
+authorization, or receipt. Task 5D.1B passed architecture review. Task 5D.1C
+adds only the packaged loopback runtime and offline browser workbench and is
+ready for independent architecture review.
 
 The full authority model, ADO acquisition/write and recovery boundaries,
 local-Web security, untrusted-content policy, usage integration, company
