@@ -2,11 +2,11 @@
 
 Owner: Coder
 
-Task: PMQA Task 5D.1B — Web Boundary Canonicalization and Token Containment
+Task: PMQA Task 5D.1C — Local Browser Workbench and Packaged Runtime
 
-Task ID: `PMQA-5D.1B`
+Task ID: `PMQA-5D.1C`
 
-Attempt: `2`
+Attempt: `1`
 
 Status: Ready for Independent Reviewer
 
@@ -18,230 +18,352 @@ Branch:
 
 Exact Git-derived Coder starting HEAD:
 
-`6398a04df7e1cdfc723013036911bd01839a1b84`
+`e2c25273da21bac080a2f29c6abaa2c0517dffac`
 
-Before implementation, local HEAD and
-`origin/agent/task-5c-1-canonical-run-contract` both equaled that commit and
-the worktree was clean. The starting commit is the latest pushed branch commit
-containing the Architect's Task 5D.1B Attempt 2 remediation publication in
-`agent-handoff/current-task.md`. Its parent chain contains reviewed Attempt 1
-Reviewer HEAD `949a5e39e85024998204858c900a9fb235a3dca0`.
+That commit is the latest pushed branch commit containing the Architect's
+Task 5D.1C publication and Task 5D.1B approval. Before implementation, local
+HEAD and `origin/agent/task-5c-1-canonical-run-contract` both equaled that
+commit and the worktree was clean. It records approved Task 5D.1B
+implementation `8775368fb74ee27425946e4c6ea40e745b475c09` and approved
+Reviewer HEAD `d173b54df47f9ea54d82b731680e40e6977ca455`.
 
-No Attempt 1 or earlier commit was amended, rebased, or replaced.
+No prior Task 5D commit was amended, rebased, or replaced.
 
-## Remediation Implementation Commit
+## Implementation Commits
 
-`8775368fb74ee27425946e4c6ea40e745b475c09`
+`5585812e62f12ac7f8c529769c16048c653d149c`
 
 Commit message:
 
-`close Task 5D.1B boundary gaps`
+`add packaged local browser workbench`
 
-This report is committed separately after the implementation commit. The
+`bb25794241e5410afc88032838d6bbb014e2e698`
+
+Commit message:
+
+`document Task 5D.1C workbench status`
+
+This report is committed separately after both implementation commits. The
 Independent Reviewer derives the report commit from Git; this report does not
 claim its own future commit SHA.
 
 ## Changed Files
 
-Production:
+Runtime, API/static boundary, CLI, and packaging:
 
-- `pmqa/web/security.py`;
-- `pmqa/web/contracts.py`;
-- `pmqa/web/app.py`.
+- `.gitignore`;
+- `pmqa/cli.py`;
+- `pmqa/web/__init__.py`;
+- `pmqa/web/app.py`;
+- `pmqa/web/runtime.py`;
+- `pmqa/web/static.py`;
+- `pyproject.toml`.
 
-Tests:
+Packaged production assets:
 
-- `tests/test_web_contracts.py`;
-- `tests/test_web_security.py`.
+- `pmqa/web/static/index.html`;
+- `pmqa/web/static/assets/app.js`;
+- `pmqa/web/static/assets/app.css`;
+- `pmqa/web/static/asset-integrity.json`.
+
+Frontend source and reproducible tooling:
+
+- `frontend/workbench/index.html`;
+- `frontend/workbench/package.json`;
+- `frontend/workbench/package-lock.json`;
+- `frontend/workbench/tsconfig.json`;
+- `frontend/workbench/vite.config.ts`;
+- `frontend/workbench/scripts/build.mjs`;
+- `frontend/workbench/src/App.tsx`;
+- `frontend/workbench/src/api.ts`;
+- `frontend/workbench/src/bootstrap.ts`;
+- `frontend/workbench/src/main.tsx`;
+- `frontend/workbench/src/styles.css`;
+- `frontend/workbench/src/api-v1.contract.json`;
+- `frontend/workbench/src/test-setup.ts`;
+- `frontend/workbench/src/App.test.tsx`;
+- `frontend/workbench/src/api.test.ts`;
+- `frontend/workbench/src/api-schema.test.ts`;
+- `frontend/workbench/src/bootstrap.test.ts`.
+
+Python tests:
+
+- `tests/test_packaging.py`;
+- `tests/test_web_frontend_contract_drift.py`;
+- `tests/test_web_live_smoke.py`;
+- `tests/test_web_runtime.py`;
+- `tests/test_web_static.py`.
+
+Documentation:
+
+- `README.md`;
+- `docs/Roadmap.md`;
+- `docs/architecture.md`;
+- `docs/architecture/conversational-workflow-platform.md`.
 
 Report-only handoff:
 
 - `agent-handoff/coder-report.md`.
 
 No conversation, Run, Runner, Application, Usage, reasoning, workflow,
-Product Pack, product, CLI, dependency, packaging, documentation, frontend,
-provider, or later Task 5D implementation changed.
+Supervisor, LangGraph, Product Pack, product, provider, ADO, or external-write
+behavior changed.
 
-## Required Change 1 — Runtime Token Containment
+## Runtime Composition and Lifecycle
 
-`PMQAWebSecurityContext.contains_runtime_token` now performs bounded literal
-substring containment for both private invocation tokens. It uses no regular
-expression, exports no token, and retains exact timing-safe
-`hmac.compare_digest` checks for Bearer authentication and CSRF headers.
+`run_pmqa_web_workbench` explicitly composes:
 
-The existing bounded traversal now rejects either token at any position in:
+- one `InMemoryConversationRepository` for session-only conversations;
+- one `SQLiteConversationRepository` at
+  `platformdirs.user_data_path("pmqa", "PMQA")`, outside the package;
+- the approved `ConversationApplicationService`;
+- an explicit empty `WorkflowRegistry`, with no product/pack discovery;
+- two fresh `secrets.token_urlsafe(32)` invocation-local tokens;
+- the approved `PMQAWebSecurityContext` and FastAPI factory;
+- one pre-bound `AF_INET` socket on exact `127.0.0.1` with OS-assigned port;
+  and
+- programmatic Uvicorn with access logging and configured logging disabled.
 
-- decoded/raw-correlated route segments;
-- canonically decoded query keys and values;
-- nested JSON keys and values;
-- valid create-turn user messages;
-- pre-existing session/turn read models; and
-- workflow catalog text.
+Uvicorn receives the already-bound socket, so there is no scan-then-bind
+race. It runs in one owned non-daemon thread. Readiness polls Uvicorn's
+post-startup `started` state for at most ten seconds before browser launch.
+The browser opener is called exactly once after readiness. Normal server
+return and interrupt/failure cleanup set `should_exit`, join the owned thread,
+and close the socket. Tests inject data location, tokens, socket, server,
+browser, monotonic clock, sleep, and thread construction without a live
+socket, browser, wall clock, or entropy.
 
-Tests cover both session and CSRF tokens in prefix, suffix, and middle
-positions for every required boundary, including percent-decoded query
-representations. Unrelated partial token prefixes and suffixes remain safe.
-Incoming cases fail before service clock/ID sampling or repository mutation.
-Outgoing cases return only fixed `internal_failed` and no token bytes.
+Expected storage, composition, binding, readiness, and browser failures expose
+only `PMQAWebRuntimeError("pmqa_web_failed")`. OSError at those owned
+operational boundaries is contained. Unexpected `RuntimeError` and
+`MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit` remain
+authoritative. Runtime returns `None` and exposes no token, path, repository,
+socket, server, or serializable runtime result.
 
-## Required Change 2 — Canonical Public Contract Invariants
+## `pmqa web` CLI
 
-All eleven exported Web contracts now round-trip their own plain-JSON wire
-form through explicit `from_dict`. Wire-only reconstruction hooks convert:
+The new `web` parser has no options. It accepts no provider, ADO, credential,
+executable, host, static path, remote bind, or arbitrary command argument.
+The runtime import remains inside the command function.
 
-- workflow dictionaries to fresh `WorkflowDefinition` snapshots;
-- session dictionaries to fresh `ConversationSession` snapshots;
-- turn dictionaries to fresh `ConversationTurn` snapshots; and
-- canonical JSON arrays to fresh exact tuples.
+Expected `PMQAWebRuntimeError` returns exit code `2` and prints only:
 
-Direct construction remains strict: response contracts accept only exact
-typed domain objects and exact tuples. Wire dictionaries/lists are accepted
-only by `from_dict`. Root or nested subclasses, tuples in wire arrays, model
-objects, bytes, coercive values, missing/unknown fields, and noncanonical
-timestamps are rejected with the fixed contract error. Only
-`CreateSessionRequest` retains its approved default insertion, and its direct
-typed construction now requires the exact retention enum.
+```text
+pmqa_web_failed
+```
 
-The Web contract base overrides Pydantic's unvalidated `model_copy`.
-`model_copy(update=...)` rebuilds the complete field set through strict model
-validation, rejects non-dict updates, extras, and coercive values, and
-re-snapshots nested domain inputs so caller-owned objects are not retained.
-Tests establish canonical JSON round trip, valid update behavior, and invalid
-update rejection across every public contract and distinct nested shape.
+Successful normal shutdown returns `0` without printing runtime details.
+Unexpected runner errors propagate. Existing commands and product-lazy
+dispatch remain unchanged. Editable installation and the installed
+`pmqa web --help` command were verified from `/tmp`.
 
-## Required Change 3 — Finite Canonical JSON
+## Static and API Trust Boundaries
 
-The canonical parser now applies `math.isfinite` to every exact float in its
-bounded iterative tree traversal. Literal `NaN`, `Infinity`, and
-`-Infinity`, positive and negative exponent overflow, and nested exponent
-overflow all produce only `WebAPIContractValidationError`.
+Only these unauthenticated packaged routes exist:
 
-The decoder boundary contains only its approved ordinary decoding failures,
-including `ValueError`, `OverflowError`, and `RecursionError`. Direct tests
-prove `MemoryError`, `KeyboardInterrupt`, `SystemExit`, and `GeneratorExit`
-remain authoritative.
+```text
+GET/HEAD /
+GET/HEAD /assets/app.js
+GET/HEAD /assets/app.css
+```
 
-## Required Change 4 — Canonical Target and Bounded ASGI Stream
+They use an exact in-memory allowlist loaded through `importlib.resources`.
+There is no static-root argument, directory listing, traversal, wildcard,
+SPA fallback, arbitrary lookup, or source-map route. Every asset is nonempty,
+has a fixed content type, and is verified at app composition against the
+packaged SHA-256 integrity manifest.
 
-The middleware bounds both raw and decoded targets, requires strict ASCII
-encode/decode, and requires exact `scope["path"]`/`raw_path` byte equality.
-The prior lossy `errors="ignore"` comparison is removed. Non-ASCII and
-mismatched targets now fail at the request boundary before routing or service
-work.
+The static middleware still requires exact loopback Host, strict canonical
+raw/decoded target, empty query/body, no cookie, and exact GET/HEAD. It adds
+the approved security headers and a static-only CSP:
 
-The request stream now retains one byte-bounded `bytearray`, not a list of
-ASGI message dictionaries. Each input must be an exact dictionary containing
-only the canonical request-message keys, an exact `http.request` type, exact
-bytes body, and exact boolean `more_body`. Empty nonterminal messages and
-non-byte bodies fail fixed-safe. FastAPI receives one immutable canonical
-replay message after the complete body, byte limit, declared/received length,
-and security checks pass.
+```text
+default-src 'none'; script-src 'self'; style-src 'self';
+connect-src 'self'; base-uri 'none'; form-action 'none';
+frame-ancestors 'none'
+```
 
-Content-Length digit representation is bounded before integer conversion.
-Extreme digit strings and values over 64 KiB deterministically return
-`request_too_large`; malformed and dishonest values return `invalid_request`.
-The required oversized-before-authentication ordering is unchanged.
+All `/api/v1` routes retain the complete approved Task 5D.1B Host, Bearer,
+Origin, CSRF, canonical target/body/JSON, fixed-safe error, token-containment,
+and response-header behavior. Existing 5D.1B tests remain green. Static
+failures mutate no conversation state.
 
-## Independent Architect-Reproduction Closure
+## Secure Browser Bootstrap and Token Non-Persistence
 
-The four published reproductions now fail safely:
+The launched URL contains the two runtime tokens only in this exact fragment:
 
-1. A valid create-turn payload containing
-   `prefix<session-token>suffix` returns fixed 400, samples no new clock/ID,
-   persists no turn, and exposes no token. An identifier-shaped route segment
-   containing the token returns fixed 400 rather than reaching routing.
-2. `CloseSessionRequest.model_copy` rejects a string revision plus unknown
-   field, while `SessionResponse.from_dict(json_roundtrip(wire))` reconstructs
-   an equal fresh response.
-3. `parse_canonical_json_object(b'{"value":1e9999}')` and negative/nested
-   counterparts raise the fixed contract error rather than returning
-   infinity.
-4. `/api/v1/healthé` paired with raw `/api/v1/health` returns fixed 400.
-   Empty nonterminal streams, non-byte bodies, dishonest lengths, and extreme
-   Content-Length values return fixed failures with zero mutation; many small
-   valid chunks still create exactly one valid session.
+```text
+#session_token=<base64url>&csrf_token=<base64url>
+```
 
-Focused tests also seed embedded tokens into an existing turn and a registry
-workflow description. Both responses are fixed 500 `internal_failed`, carry
-all six security headers, and contain neither token nor source text.
+The frontend synchronously matches one exact anchored fragment with distinct
+43–128 character base64url values, copies the two strings into private
+module-memory state, and calls `history.replaceState` before React rendering
+or any API request. Invalid, reordered, duplicate, short, or extra fragment
+forms are removed and fail closed without constructing an API client.
 
-## Fixed-Safe and No-Mutation Evidence
+The API client sends exact Bearer authentication on every request and exact
+CSRF on mutations. The browser supplies the same-origin Origin header. Fetch
+uses `credentials: "omit"`, no-referrer, and no-store. No token value exists
+in HTML, assets, CLI output, server logging, request URL, Referer, database,
+cookie, localStorage, sessionStorage, UI text, or console output.
 
-Every new HTTP rejection uses only existing `invalid_request`,
-`request_too_large`, or `internal_failed` codes and existing fixed messages.
-Assertions cover the six required security headers and absence of permissive
-CORS. Responses contain no runtime token, candidate string, path, parser
-detail, exception detail, or underlying cause.
+The opt-in real Uvicorn/Chromium smoke proved:
 
-Route, query, nested JSON, user-message, target mismatch, malformed stream,
-overflow, and declared/received mismatch tests assert unchanged clock counts
-and/or empty repository state. No retry, fallback, repository repair,
-alternate operation, logging, or token serialization was introduced.
-Resource/control-flow exceptions remain authoritative.
+- the fragment was absent before readiness/API rendering completed;
+- all network request URLs contained zero token bytes;
+- localStorage and sessionStorage remained empty;
+- every API request carried exact Bearer authentication;
+- a real create-session POST carried exact automatic same-origin Origin and
+  exact CSRF;
+- no browser console message contained a token; and
+- the runtime shut down cleanly after the browser assertion.
+
+## Minimal Offline Workbench
+
+The React UI supports only:
+
+- readiness;
+- workflow catalog display;
+- bounded session listing;
+- explicit session creation with session-only/7/30/90-day retention;
+- session selection and inspection;
+- bounded turn listing;
+- one pending user turn using the selected session revision;
+- revision-checked session close; and
+- deletion behind explicit browser confirmation.
+
+React renders workflow/domain text through normal text nodes. There is no
+`dangerouslySetInnerHTML`, inline script, eval, remote asset/font, analytics,
+telemetry, service worker, Markdown/HTML renderer, polling, SSE, WebSocket,
+generic JSON executor, or arbitrary endpoint client.
+
+The UI distinguishes loading, empty, closed, conflict, not-found, validation,
+unavailable, and fixed-safe server-error states. A synchronous mutation lock
+prevents duplicate submissions. A revision conflict performs one bounded
+read refresh and never retries the mutation. Labels, semantic headings,
+keyboard-native controls, focus-visible styling, a polite status live region,
+and bounded inputs are present.
+
+The UI explicitly says AI responses and workflow execution are not enabled.
+Pending turns are never imitated or displayed as completed assistant output.
+
+## Frontend Contracts, Build, and Distribution
+
+The frontend uses exact React/Vite/TypeScript/Vitest versions and commits
+lockfile version 3. TypeScript is strict. The deliberately maintained
+`api-v1.contract.json` fixture is checked by Python against the authoritative
+field order of every exported Web v1 contract and by Vitest for the complete
+contract inventory.
+
+The build wrapper runs Vite with fixed production filenames, no source maps,
+and writes the SHA-256 integrity manifest. Two consecutive clean production
+builds produced byte-identical hashes for index, CSS, JavaScript, and
+integrity metadata. A clean `npm ci --ignore-scripts` in a temporary directory
+installed exactly 162 locked packages.
+
+The real wheel includes:
+
+- all prior PMQA/product modules;
+- `pmqa/web/runtime.py` and `pmqa/web/static.py`;
+- index, JavaScript, CSS, and integrity manifest; and
+- console entry point plus bounded `platformdirs>=4,<5` and
+  `uvicorn>=0.30,<1` runtime dependencies.
+
+It excludes frontend source, package/lock files, `node_modules`, source maps,
+reports, caches, browser output, databases, tokens, credentials, and temporary
+runtime files. From an unrelated temporary directory with repository source
+paths removed, the extracted wheel loaded and verified all assets, composed
+the runtime through deterministic fakes, created its SQLite database outside
+the distribution, and resolved every imported module inside the wheel.
+
+Node, npm, React, Vite, TypeScript, and Vitest are build/test dependencies
+only; none is a Python runtime dependency.
 
 ## Validation Results
 
-Final cumulative implementation validation:
+Final validation on the cumulative implementation:
 
-- Web/conversation focused group: `368 passed`.
+- Task 5D Web/conversation focused group: `387 passed, 1 skipped`.
+- New runtime/static/frontend-contract focused tests alone: `19 passed`.
+- Existing CLI regressions: `156 passed`.
 - Task 5C Application/Run/Usage regressions: `467 passed`.
-- Security/import/real-wheel group: `29 passed`.
 - Task 4 runtime/reducer/Supervisor/LangGraph regressions: `98 passed`.
-- Full default suite: `2214 passed, 5 skipped`.
-- Generated SauceDemo Playwright regressions: `2 passed`.
+- Security/import/real-wheel group: `31 passed`.
+- Full default Python suite: `2233 passed, 6 skipped`.
+- Frontend strict typecheck: passed.
+- Frontend unit/component tests: `11 passed` across 4 files.
+- Deterministic production build: passed twice with byte-identical hashes.
+- Clean temporary `npm ci`: passed, 162 locked packages.
+- Real PMQA wheel build/content/external runtime composition: `3 passed`.
+- Opt-in real loopback Uvicorn/Chromium workbench smoke: `1 passed`.
+- Existing generated SauceDemo Playwright regressions: `2 passed`.
+- Editable installation and `pip check`: passed; no broken requirements.
 - Isolated `compileall` for `pmqa` and `products`: passed with bytecode
   outside the repository.
+- Tracked Markdown relative-link validation: all `19` files passed.
 - `git diff --check`: passed.
-- Implementation commit was pushed to the existing remote branch.
+- Both implementation commits were pushed to the existing remote branch.
 
-The generated Playwright command initially could not launch Chromium inside
-the managed sandbox (`MachPortRendezvousServer` permission denied); the exact
-command was rerun with approved local browser permission and passed both
-tests. The only test warnings were the existing LibreSSL warning and LangGraph
-pending-deprecation warning. The five default-suite skips remain existing
-environment-gated tests. All new Web tests are offline and in-process.
+The six default-suite skips are five existing environment-gated tests plus
+the new opt-in real browser smoke. The smoke passed when explicitly enabled.
+The only warnings were the existing local LibreSSL warning, LangGraph
+pending-deprecation warning, and npm's transitive `whatwg-encoding`
+deprecation notice. No default test accessed a company system, paid model, or
+external application.
 
-## Remaining Risks and Scope Confirmation
+## Failures, Remaining Risks, and Scope Confirmation
 
-The token helper deliberately scans only already bounded strings; target,
-query, JSON, conversation, and workflow contract bounds prevent unbounded
-search at the Web boundary. This remediation does not generate tokens, bind a
-socket, start Uvicorn, open a browser, or implement frontend/runtime
-composition; those remain outside Task 5D.1B.
+During development, the first live-smoke header assertion used Playwright's
+restricted `request.headers` view, which omits browser-managed Origin. The
+test was corrected to use `request.all_headers`; the real POST was already
+accepted by the strict server, and the final smoke explicitly proves Origin,
+Bearer, and CSRF.
 
-Task 5D.1C, Task 5D.2+, Task 5B, Task 6, and Task 7 were not started. No
-Uvicorn, CLI, React/TypeScript/Vite/Node, SSE/WebSocket, provider, ADO,
-reasoning, runner/workflow execution, external write, or Product Pack behavior
-was added. No PR was created and nothing was merged.
+The workbench intentionally remains a single-user loopback process that runs
+until normal server termination or interrupt. It has no TLS, logout, token
+rotation within one invocation, multi-user deployment, progress transport, or
+background execution. Those are not claimed by Task 5D.1C.
+
+Assistant completion/failure, reasoning providers, workflow/Runner execution,
+ADO/Azure/Copilot/Skill Repo/MDE integration, capabilities, structured QA
+artifacts, approvals, authorizations, operations, receipts, usage UI, and
+external writes remain absent. Task 5D.2+, Task 5B, Task 6, and Task 7 were
+not started. No PR was created and nothing was merged.
 
 ## Recommended Review Depth
 
 **Deep**
 
-Reason: this remediation closes four trust-boundary defects spanning secret
-containment, immutable public contracts, numeric parsing, and raw ASGI
-canonicalization at PMQA's first HTTP boundary.
+Reason: this checkpoint joins local process lifecycle, browser secret
+bootstrap, unauthenticated packaged assets, authenticated mutation APIs, and
+wheel distribution at PMQA's user-facing trust root.
 
 ## Suggested Reviewer Focus
 
-- Re-run both-token containment attempts in route/query/body/state/catalog
-  strings, including prefix/suffix/middle and percent-decoded variants.
-- Challenge every exported contract with JSON round trips, typed versus wire
-  nested inputs, mutable/subclass inputs, and adversarial `model_copy`
-  updates.
-- Probe exponent overflow and decoder resource/control-flow propagation.
-- Send raw non-ASCII/mismatched targets, malformed ASGI message shapes,
-  nonprogress streams, many small chunks, and extreme Content-Length values.
-- Confirm every rejection is fixed-safe, includes all security headers, and
-  reaches no conversation mutation.
-- Confirm the diff remains restricted to the five authorized implementation
-  and test files plus this report-only handoff.
+- Attempt static-route Host/query/body/cookie/method ambiguity, traversal,
+  wildcard lookup, CSP weakening, and `/api/v1` authentication bypass.
+- Inspect fragment parsing/removal order, browser request/Referer/storage/
+  console behavior, exact Bearer/Origin/CSRF, and invalid-bootstrap fail
+  closure.
+- Challenge pre-bound socket ownership, readiness timeout, browser-once,
+  interrupt/failure shutdown, exception classification, and secret/path/log
+  non-disclosure.
+- Exercise session/turn/close/delete UI flows, duplicate submission and
+  conflict refresh, untrusted text rendering, and explicitly absent
+  capabilities.
+- Rebuild from the lockfile, compare committed assets/integrity metadata, and
+  inspect the real wheel from outside the checkout for included assets and
+  excluded debris.
+- Confirm all prior Task 5D.1A/1B, CLI, import-isolation, Task 5C, and Task 4
+  behavior remains unchanged.
 
 ## Human Summary
 
-PMQA-5D.1B Attempt 2 已完成，Git 派生起点为 `6398a04df7e1cdfc723013036911bd01839a1b84`。
-实现提交为 `8775368fb74ee27425946e4c6ea40e745b475c09`，已推送到 `agent/task-5c-1-canonical-run-contract`。
-四个 blocker 均已聚焦关闭：embedded runtime-token containment、全 Web contract canonical round-trip/validated copy、finite JSON，以及 strict target/bounded ASGI stream。
-验证结果：focused 368、Task 5C 467、security/import/wheel 29、Task 4 98、全量 2214 passed / 5 skipped、Playwright 2 passed。
+PMQA-5D.1C Attempt 1 已完成，Git 派生起点为 `e2c25273da21bac080a2f29c6abaa2c0517dffac`。
+实现提交为 `5585812e62f12ac7f8c529769c16048c653d149c` 与 `bb25794241e5410afc88032838d6bbb014e2e698`，均已推送。
+新增 `pmqa web`、预绑定 loopback/Uvicorn 生命周期、OS user-data SQLite、精确 packaged static allowlist 与 fragment-only token bootstrap。
+React/strict-TypeScript workbench 仅支持现有 catalog/session/pending-turn 能力；AI、workflow execution、ADO、external write 均未加入。
+验证结果：全量 2233 passed / 6 skipped、frontend 11 passed、real browser smoke 1 passed、Playwright 2 passed、wheel/外部目录验证通过。
 Action Needed From Human: 请将下方 Handoff Note 传递给 Independent Reviewer。
-Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 PMQA-5D.1B Attempt 2 review。
+Handoff Note: 请读取 agent-handoff/README.md 与 agent-handoff/current-task.md，从 Git 派生最新 coder-report commit，并按独立审查顺序完成 PMQA-5D.1C Attempt 1 review。
