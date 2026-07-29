@@ -12,5 +12,75 @@
     "TurnListResponse": ["schema_version", "turns"],
     "TurnMutationResponse": ["schema_version", "session", "turn"],
     "DeleteSessionResponse": ["schema_version", "deleted"]
+  },
+  "selected_domain_fields": {
+    "ConversationSession": [
+      "schema_version",
+      "session_id",
+      "revision",
+      "status",
+      "retention_policy",
+      "connection_context_id",
+      "turn_ids",
+      "created_at",
+      "updated_at",
+      "expires_at"
+    ],
+    "ConversationTurn": [
+      "schema_version",
+      "turn_id",
+      "session_id",
+      "sequence_number",
+      "status",
+      "user_message",
+      "assistant_response",
+      "error_code",
+      "error_message",
+      "created_at",
+      "completed_at"
+    ],
+    "WorkflowDefinition": [
+      "schema_version",
+      "workflow_id",
+      "workflow_version",
+      "display_name",
+      "description"
+    ]
+  },
+  "enum_values": {
+    "ConversationRetentionPolicy": [
+      "session_only",
+      "7_days",
+      "30_days",
+      "90_days"
+    ],
+    "ConversationSessionStatus": ["active", "closed"],
+    "ConversationTurnStatus": ["pending", "completed", "failed"]
+  },
+  "operations": {
+    "health": {"method": "GET", "path": "/api/v1/health"},
+    "workflows": {"method": "GET", "path": "/api/v1/workflows"},
+    "sessions": {"method": "GET", "path": "/api/v1/sessions"},
+    "session": {
+      "method": "GET",
+      "path": "/api/v1/sessions/{session_id}"
+    },
+    "turns": {
+      "method": "GET",
+      "path": "/api/v1/sessions/{session_id}/turns"
+    },
+    "createSession": {"method": "POST", "path": "/api/v1/sessions"},
+    "createTurn": {
+      "method": "POST",
+      "path": "/api/v1/sessions/{session_id}/turns"
+    },
+    "closeSession": {
+      "method": "POST",
+      "path": "/api/v1/sessions/{session_id}/close"
+    },
+    "deleteSession": {
+      "method": "DELETE",
+      "path": "/api/v1/sessions/{session_id}"
+    }
   }
 }

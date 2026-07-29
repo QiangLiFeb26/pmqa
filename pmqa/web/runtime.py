@@ -147,7 +147,7 @@ def run_pmqa_web_workbench(
             name="pmqa-web-server",
             daemon=False,
         )
-        server_thread.start()
+        _start_server_thread(server_thread)
         _wait_until_ready(
             server=server,
             server_thread=server_thread,
@@ -161,11 +161,10 @@ def run_pmqa_web_workbench(
                 ("csrf_token", csrf_token),
             )
         )
-        opened = browser_open(
-            f"http://{_LOOPBACK_HOST}:{port}/#{fragment}"
+        _open_browser(
+            browser_open,
+            f"http://{_LOOPBACK_HOST}:{port}/#{fragment}",
         )
-        if opened is not True:
-            raise PMQAWebRuntimeError()
         server_thread.join()
         if server_failures:
             _raise_server_failure(server_failures[0])
@@ -254,6 +253,34 @@ def _create_uvicorn_server(*, app, host: str, port: int):
         log_level="critical",
     )
     return uvicorn.Server(config)
+
+
+def _start_server_thread(server_thread: Any) -> None:
+    start_failed = False
+    try:
+        server_thread.start()
+    except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
+        raise
+    except RuntimeError:
+        start_failed = True
+    if start_failed:
+        raise PMQAWebRuntimeError() from None
+
+
+def _open_browser(
+    browser_open: Callable[[str], Any],
+    url: str,
+) -> None:
+    launch_failed = False
+    opened = None
+    try:
+        opened = browser_open(url)
+    except _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS:
+        raise
+    except webbrowser.Error:
+        launch_failed = True
+    if launch_failed or opened is not True:
+        raise PMQAWebRuntimeError() from None
 
 
 def _wait_until_ready(

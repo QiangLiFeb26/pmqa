@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import webbrowser
 from pathlib import Path
 
 import pytest
@@ -58,6 +59,22 @@ class _Sequence:
         value = self.values[self.calls]
         self.calls += 1
         return value
+
+
+class _FailedStartThread:
+    def __init__(self, marker) -> None:
+        self.marker = marker
+        self.start_calls = 0
+
+    def start(self):
+        self.start_calls += 1
+        raise RuntimeError(self.marker)
+
+    def is_alive(self):
+        return False
+
+    def join(self, timeout=None):
+        _ = timeout
 
 
 def _run_values(tmp_path, *, server=None, browser=None):
@@ -151,6 +168,113 @@ def test_expected_runtime_failures_are_fixed_and_never_leak(
         assert browser_calls == []
     if failure_setup not in {"data", "binding"}:
         assert bound_socket.close_calls == 1
+        assert server.should_exit is True
+
+
+def test_standard_browser_discovery_error_is_fixed_safe_and_cleans_up(
+    tmp_path,
+    capsys,
+) -> None:
+    marker = (
+        f"{SESSION_TOKEN} runtime-command-marker /tmp/private-browser"
+    )
+    server = _FakeServer()
+    browser_calls = []
+
+    def fail_browser(url):
+        browser_calls.append(url)
+        raise webbrowser.Error(marker)
+
+    values, _, bound_socket, _ = _run_values(
+        tmp_path,
+        server=server,
+        browser=fail_browser,
+    )
+
+    with pytest.raises(PMQAWebRuntimeError) as captured:
+        run_pmqa_web_workbench(**values)
+
+    assert str(captured.value) == PMQA_WEB_FAILURE_CODE
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+    assert len(browser_calls) == 1
+    assert marker not in str(captured.value)
+    assert SESSION_TOKEN not in str(captured.value)
+    assert server.should_exit is True
+    assert bound_socket.close_calls == 1
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert output.err == ""
+
+
+def test_operational_thread_start_failure_is_fixed_safe_and_cleans_up(
+    tmp_path,
+) -> None:
+    marker = (
+        f"{SESSION_TOKEN} runtime-thread-marker /tmp/private-thread"
+    )
+    failed_thread = _FailedStartThread(marker)
+    values, server, bound_socket, captures = _run_values(tmp_path)
+    values["_thread_factory"] = lambda **_: failed_thread
+
+    with pytest.raises(PMQAWebRuntimeError) as captured:
+        run_pmqa_web_workbench(**values)
+
+    assert str(captured.value) == PMQA_WEB_FAILURE_CODE
+    assert captured.value.__cause__ is None
+    assert captured.value.__context__ is None
+    assert marker not in str(captured.value)
+    assert failed_thread.start_calls == 1
+    assert "url" not in captures
+    assert server.run_calls == 0
+    assert server.should_exit is True
+    assert bound_socket.close_calls == 1
+
+
+def test_thread_construction_programming_failure_propagates(
+    tmp_path,
+) -> None:
+    failure = ValueError("thread construction defect")
+    values, server, bound_socket, captures = _run_values(tmp_path)
+
+    def fail_construction(**kwargs):
+        _ = kwargs
+        raise failure
+
+    values["_thread_factory"] = fail_construction
+
+    with pytest.raises(ValueError) as captured:
+        run_pmqa_web_workbench(**values)
+
+    assert captured.value is failure
+    assert "url" not in captures
+    assert server.run_calls == 0
+    assert server.should_exit is True
+    assert bound_socket.close_calls == 1
+
+
+def test_unexpected_browser_programming_failure_propagates(
+    tmp_path,
+) -> None:
+    failure = RuntimeError("browser programming defect")
+    server = _FakeServer()
+
+    def fail_browser(url):
+        _ = url
+        raise failure
+
+    values, _, bound_socket, _ = _run_values(
+        tmp_path,
+        server=server,
+        browser=fail_browser,
+    )
+
+    with pytest.raises(RuntimeError) as captured:
+        run_pmqa_web_workbench(**values)
+
+    assert captured.value is failure
+    assert server.should_exit is True
+    assert bound_socket.close_calls == 1
 
 
 def test_unexpected_server_failure_propagates_and_browser_never_opens(
