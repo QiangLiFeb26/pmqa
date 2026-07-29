@@ -39,7 +39,15 @@ REQUIRED_WEB_MODULES = {
     "pmqa/web/app.py",
     "pmqa/web/contracts.py",
     "pmqa/web/errors.py",
+    "pmqa/web/runtime.py",
     "pmqa/web/security.py",
+    "pmqa/web/static.py",
+}
+REQUIRED_WEB_ASSETS = {
+    "pmqa/web/static/asset-integrity.json",
+    "pmqa/web/static/index.html",
+    "pmqa/web/static/assets/app.js",
+    "pmqa/web/static/assets/app.css",
 }
 FORBIDDEN_EXACT_ENTRIES = {
     "products/demo/artifacts/knowledge.json",
@@ -147,6 +155,7 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         assert "pmqa/conversation/repository.py" in names
         assert "pmqa/conversation/service.py" in names
         assert REQUIRED_WEB_MODULES <= names
+        assert REQUIRED_WEB_ASSETS <= names
         assert "pmqa/security/sensitive_text.py" in names
         assert "pmqa/usage/__init__.py" in names
         assert "pmqa/usage/contracts.py" in names
@@ -172,7 +181,9 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         metadata_text = archive.read(metadata_file).decode("utf-8")
         assert "Requires-Dist: packaging" in metadata_text
         assert "Requires-Dist: fastapi" in metadata_text
+        assert "Requires-Dist: platformdirs" in metadata_text
         assert "Requires-Dist: tomli" in metadata_text
+        assert "Requires-Dist: uvicorn" in metadata_text
 
 
 def test_actual_wheel_excludes_runtime_outputs_and_unrelated_files(
@@ -200,8 +211,11 @@ def test_actual_wheel_excludes_runtime_outputs_and_unrelated_files(
         assert path.name != ".env" and not path.name.startswith(".env.")
         assert "credential" not in path.name.casefold()
         if root == "pmqa":
-            assert path.suffix == ".py" or name == (
-                "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json"
+            assert (
+                path.suffix == ".py"
+                or name
+                == "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json"
+                or name in REQUIRED_WEB_ASSETS
             )
         elif root == "products":
             assert name in REQUIRED_PRODUCT_MODULES | {
@@ -260,6 +274,8 @@ import pmqa.usage
 import pmqa.web
 import products.demo
 import products.demo.application
+from pmqa.web.static import load_packaged_web_assets
+from pmqa.web.runtime import run_pmqa_web_workbench
 from products.demo.config import load_config, validate_config
 
 assert pmqa.product_pack.ProductPackManifest
@@ -292,6 +308,47 @@ assert pmqa.usage.UsageAggregator
 assert pmqa.usage.DefaultUsageAggregator
 assert pmqa.web.PMQAWebSecurityContext
 assert pmqa.web.create_pmqa_web_app
+assets = load_packaged_web_assets()
+assert set(assets) == {"/", "/assets/app.js", "/assets/app.css"}
+assert all(content for content, _ in assets.values())
+
+class FakeSocket:
+    def getsockname(self):
+        return ("127.0.0.1", 43123)
+    def close(self):
+        pass
+
+class FakeServer:
+    started = False
+    should_exit = False
+    def run(self, *, sockets):
+        assert len(sockets) == 1
+        self.started = True
+        while not self.should_exit:
+            pass
+
+server = FakeServer()
+tokens = iter(("a" * 43, "b" * 43))
+browser_urls = []
+def open_browser(url):
+    browser_urls.append(url)
+    server.should_exit = True
+    return True
+
+runtime_data = Path.cwd() / "runtime-data"
+run_pmqa_web_workbench(
+    _data_directory_resolver=lambda: runtime_data,
+    _token_factory=lambda: next(tokens),
+    _socket_factory=FakeSocket,
+    _server_factory=lambda **_: server,
+    _browser_open=open_browser,
+)
+assert (runtime_data / "conversations.sqlite3").exists()
+assert browser_urls == [
+    "http://127.0.0.1:43123/"
+    + "#session_token=" + ("a" * 43)
+    + "&csrf_token=" + ("b" * 43)
+]
 modules = (
     pmqa,
     pmqa.product_pack,

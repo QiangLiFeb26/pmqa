@@ -7,7 +7,7 @@ from urllib.parse import parse_qsl
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from pmqa.application import WorkflowRegistry
@@ -47,6 +47,7 @@ from pmqa.web.errors import (
     web_error_message,
 )
 from pmqa.web.security import PMQAWebSecurityContext
+from pmqa.web.static import STATIC_ROUTES, load_packaged_web_assets
 
 
 _RESOURCE_AND_CONTROL_FLOW_EXCEPTIONS = (
@@ -66,6 +67,21 @@ _SECURITY_HEADERS = (
     (
         b"content-security-policy",
         b"default-src 'none'; frame-ancestors 'none'",
+    ),
+    (b"x-content-type-options", b"nosniff"),
+    (b"referrer-policy", b"no-referrer"),
+    (b"x-frame-options", b"DENY"),
+    (b"cross-origin-resource-policy", b"same-origin"),
+)
+_STATIC_SECURITY_HEADERS = (
+    (b"cache-control", b"no-store"),
+    (
+        b"content-security-policy",
+        (
+            b"default-src 'none'; script-src 'self'; style-src 'self'; "
+            b"connect-src 'self'; base-uri 'none'; form-action 'none'; "
+            b"frame-ancestors 'none'"
+        ),
     ),
     (b"x-content-type-options", b"nosniff"),
     (b"referrer-policy", b"no-referrer"),
@@ -101,6 +117,7 @@ class _PMQASecurityMiddleware:
             return
 
         response_started = False
+        static_request = scope.get("path") in STATIC_ROUTES
 
         async def secure_send(message):
             nonlocal response_started
@@ -114,7 +131,11 @@ class _PMQASecurityMiddleware:
                     and name.lower()
                     != b"access-control-allow-credentials"
                 ]
-                headers.extend(_SECURITY_HEADERS)
+                headers.extend(
+                    _STATIC_SECURITY_HEADERS
+                    if static_request
+                    else _SECURITY_HEADERS
+                )
                 message = dict(message)
                 message["headers"] = headers
             await send(message)
@@ -161,7 +182,10 @@ class _PMQASecurityMiddleware:
                     WebAPIFailureCode.INVALID_REQUEST,
                     400,
                 )
-            self._validate_security(scope)
+            if static_request:
+                self._validate_static_security(scope, received)
+            else:
+                self._validate_security(scope)
             replayed = False
             canonical_message = {
                 "type": "http.request",
@@ -198,6 +222,28 @@ class _PMQASecurityMiddleware:
                 secure_send,
                 WebAPIFailureCode.INTERNAL_FAILED,
                 500,
+            )
+
+    def _validate_static_security(self, scope, received: int) -> None:
+        headers = tuple(scope.get("headers", ()))
+        host_values = _header_values(headers, b"host")
+        if (
+            len(host_values) != 1
+            or _ascii_header(host_values[0]) != self.security.host_authority
+        ):
+            raise _RequestBoundaryFailure(
+                WebAPIFailureCode.HOST_FAILED,
+                400,
+            )
+        if (
+            scope.get("method") not in {"GET", "HEAD"}
+            or scope.get("query_string", b"") != b""
+            or received != 0
+            or _header_values(headers, b"cookie")
+        ):
+            raise _RequestBoundaryFailure(
+                WebAPIFailureCode.INVALID_REQUEST,
+                400,
             )
 
     def _validate_target_and_body(self, scope) -> Optional[int]:
@@ -338,6 +384,7 @@ def create_pmqa_web_app(
     ):
         raise PMQAWebConfigurationError() from None
 
+    packaged_assets = load_packaged_web_assets()
     app = FastAPI(
         title="PMQA Local API",
         docs_url=None,
@@ -345,6 +392,25 @@ def create_pmqa_web_app(
         openapi_url=None,
     )
     app.add_middleware(_PMQASecurityMiddleware, security=security)
+
+    async def static_asset(request: Request):
+        content, media_type = packaged_assets[request.url.path]
+        return Response(
+            content=b"" if request.method == "HEAD" else content,
+            media_type=None,
+            headers={
+                "Content-Type": media_type,
+                "X-PMQA-Asset": "packaged",
+            },
+        )
+
+    for static_route in tuple(sorted(STATIC_ROUTES)):
+        app.add_api_route(
+            static_route,
+            static_asset,
+            methods=["GET", "HEAD"],
+            include_in_schema=False,
+        )
 
     @app.exception_handler(WebAPIError)
     async def handle_web_error(request: Request, error: WebAPIError):

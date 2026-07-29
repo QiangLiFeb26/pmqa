@@ -1,0 +1,16 @@
+{
+  "schema_version": "1",
+  "contracts": {
+    "HealthResponse": ["schema_version", "api_version", "readiness"],
+    "WorkflowCatalogResponse": ["schema_version", "workflows"],
+    "CreateSessionRequest": ["schema_version", "retention_policy", "connection_context_id"],
+    "CloseSessionRequest": ["schema_version", "session_id", "expected_revision"],
+    "CreateTurnRequest": ["schema_version", "session_id", "expected_revision", "user_message"],
+    "SessionResponse": ["schema_version", "session"],
+    "SessionListResponse": ["schema_version", "sessions"],
+    "TurnResponse": ["schema_version", "turn"],
+    "TurnListResponse": ["schema_version", "turns"],
+    "TurnMutationResponse": ["schema_version", "session", "turn"],
+    "DeleteSessionResponse": ["schema_version", "deleted"]
+  }
+}

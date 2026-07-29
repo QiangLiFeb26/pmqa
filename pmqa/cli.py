@@ -32,6 +32,7 @@ _TASK5_DEMO_FAILURE_CODE = "task5_demo_failed"
 _PRODUCT_PACK_COMMAND_FAILURE_CODE = "product_pack_command_failed"
 _PRODUCT_PACK_SCAFFOLD_SUCCESS = "product_pack_scaffold_created"
 _PRODUCT_PACK_SOURCE_VALID = "product_pack_source_valid"
+_PMQA_WEB_FAILURE_CODE = "pmqa_web_failed"
 LEGACY_SAUCEDEMO_CLI_RETIREMENT_MESSAGE = (
     "legacy explore and generate commands are retired; run: "
     "pmqa task5-demo --product demo"
@@ -368,6 +369,27 @@ def product_pack_validate_source(*, source_directory: str) -> int:
     return 0
 
 
+def web(*, _runtime_runner=None) -> int:
+    """Run the packaged loopback-only PMQA browser workbench."""
+
+    from pmqa.web.runtime import (
+        PMQAWebRuntimeError,
+        run_pmqa_web_workbench,
+    )
+
+    runtime_runner = (
+        run_pmqa_web_workbench
+        if _runtime_runner is None
+        else _runtime_runner
+    )
+    try:
+        runtime_runner()
+    except PMQAWebRuntimeError:
+        print(_PMQA_WEB_FAILURE_CODE, file=sys.stderr)
+        return 2
+    return 0
+
+
 def main(argv: Sequence[str] = ()) -> int:
     """Parse and execute one PMQA command."""
 
@@ -421,6 +443,7 @@ def main(argv: Sequence[str] = ()) -> int:
         "validate-source"
     )
     validate_source_parser.add_argument("--source", required=True)
+    subparsers.add_parser("web")
     args = parser.parse_args(list(argv) if argv else None)
     if args.command in {"explore", "generate"}:
         retired_command = explore if args.command == "explore" else generate
@@ -462,6 +485,8 @@ def main(argv: Sequence[str] = ()) -> int:
                 capabilities=args.capability,
             )
         return product_pack_validate_source(source_directory=args.source)
+    if args.command == "web":
+        return web()
     return reason_copilot_cli(
         args.product,
         args.copilot_executable,

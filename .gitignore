@@ -12,5 +12,7 @@ blob-report/
 traces/
 screenshots/
 .cache/
+node_modules/
+frontend/workbench/coverage/
 *.sqlite3
 /artifacts/usage/

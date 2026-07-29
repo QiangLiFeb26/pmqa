@@ -29,6 +29,11 @@ from pmqa.web.security import (
     PMQAWebSecurityConfigurationError,
     PMQAWebSecurityContext,
 )
+from pmqa.web.runtime import (
+    PMQA_WEB_FAILURE_CODE,
+    PMQAWebRuntimeError,
+    run_pmqa_web_workbench,
+)
 
 __all__ = [
     "CloseSessionRequest",
@@ -40,6 +45,8 @@ __all__ = [
     "PMQAWebConfigurationError",
     "PMQAWebSecurityConfigurationError",
     "PMQAWebSecurityContext",
+    "PMQAWebRuntimeError",
+    "PMQA_WEB_FAILURE_CODE",
     "SessionListResponse",
     "SessionResponse",
     "TurnListResponse",
@@ -52,4 +59,5 @@ __all__ = [
     "WorkflowCatalogResponse",
     "create_pmqa_web_app",
     "parse_canonical_json_object",
+    "run_pmqa_web_workbench",
 ]
