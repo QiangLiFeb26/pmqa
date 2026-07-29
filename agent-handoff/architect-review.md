@@ -2,152 +2,294 @@
 
 Owner: Architect
 
-Task: PMQA Task 5D.1B — Web Boundary Canonicalization and Token Containment
+Task: PMQA Task 5D.1C — Local Browser Workbench and Packaged Runtime
 
-Task ID: `PMQA-5D.1B`
+Task ID: `PMQA-5D.1C`
 
-Attempt: `2`
+Attempt: `1`
 
-Status: Approved
+Status: Needs Revision
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
 Reviewed Starting HEAD:
-`6398a04df7e1cdfc723013036911bd01839a1b84`
+`e2c25273da21bac080a2f29c6abaa2c0517dffac`
 
-Reviewed Implementation Commit:
-`8775368fb74ee27425946e4c6ea40e745b475c09`
+Reviewed Implementation Commits:
+
+- `5585812e62f12ac7f8c529769c16048c653d149c`;
+- `bb25794241e5410afc88032838d6bbb014e2e698`.
 
 Derived Coder Report Commit:
-`651181eb8302f2a7d2416ed14d5bb2ba27e6fd9c`
+`607af145c8015874607fc896b50bd2194d5be22b`
 
 Derived Reviewer Report Commit:
-`d173b54df47f9ea54d82b731680e40e6977ca455`
+`4a0b0fff32475852374c54e297ee4b22a16bfa62`
 
-The report commits were derived from the path-specific Git history. This
-review does not predict the SHA of its own containing commit.
+The Coder and Reviewer report commits were derived from Git path history.
+This review does not predict the SHA of its own containing commit.
 
 ## Correlation and Ownership Verification
 
-- the active local branch and its upstream are
+- the active branch and upstream are
   `agent/task-5c-1-canonical-run-contract`;
-- the worktree was clean and local HEAD equaled the pushed upstream Reviewer
-  report commit before this disposition;
-- Attempt 2 starting HEAD `6398a04...` is the direct parent of implementation
-  commit `8775368...`;
-- implementation commit `8775368...` is the direct parent of Coder report
-  commit `651181e...`;
-- Coder report commit `651181e...` is the direct parent of Reviewer report
-  commit `d173b54...`;
-- the Coder and Reviewer reports identify Task `PMQA-5D.1B`, Attempt `2`,
-  the same branch, starting HEAD, and implementation commit;
-- the implementation commit changes only the three allowed Web modules and
-  two allowed focused test files;
-- the Coder report commit changes only `agent-handoff/coder-report.md`;
-- the Reviewer report commit changes only
-  `agent-handoff/reviewer-report.md`.
+- the worktree was clean and local/upstream HEAD both equaled the derived
+  Reviewer report commit before this disposition;
+- starting HEAD `e2c2527...` is the parent of implementation commit
+  `5585812...`;
+- implementation commits are linear:
+  `5585812... -> bb25794...`;
+- documentation commit `bb25794...` is the parent of Coder report commit
+  `607af14...`;
+- Coder report commit `607af14...` is the parent of Reviewer report commit
+  `4a0b0ff...`;
+- all reports identify Task `PMQA-5D.1C`, Attempt `1`, the same branch,
+  starting HEAD, and implementation commits;
+- implementation/documentation changes remain inside the broad areas
+  authorized by `current-task.md`;
+- Coder and Reviewer report commits each change only their owner-controlled
+  report.
 
 ## Review Depth
 
 Deep
 
-The Coder recommended Deep review and the Reviewer independently performed a
-Deep review. The Architect also selected Deep review because this remediation
-changes PMQA's first network trust boundary and closes four previously
-reproduced security and canonicalization defects.
+The Coder recommended Deep review and the Reviewer independently selected
+Deep. The Architect also selected Deep because this checkpoint combines the
+first real local server lifecycle, public static-resource boundary, browser
+secret bootstrap, authenticated mutation API, frontend contracts, and wheel
+distribution.
 
 ## Independent Reviewer Result
 
 Reviewer verdict: `Pass`
 
-Reviewer findings: none.
+Reviewer blocking findings: none.
 
-The Reviewer read every changed production line, independently reproduced all
-four remediated defect classes, directly exercised raw ASGI scopes for target
-and stream behavior, and reran the complete required validation set. The
-Architect accepts the Reviewer evidence and independently verified the
-critical implementation paths and repository scope.
+Reviewer advisory observations:
+
+1. a non-daemon Uvicorn thread may remain alive beyond the five-second join if
+   it does not observe cooperative shutdown promptly;
+2. frontend path interpolation does not use `encodeURIComponent`, although
+   all currently reachable identifiers are server-issued and satisfy the
+   strict run-identifier policy.
+
+The Reviewer performed a legitimate Deep review and independently ran the
+major Python/frontend suites. The Architect accepts that evidence for the
+paths it covers but overrides the advisory verdict because final review found
+one concrete runtime failure-classification defect and one incomplete
+contract-drift boundary.
 
 ## Overall Assessment
 
-Task 5D.1B Attempt 2 closes every blocking Attempt 1 finding without weakening
-the accepted Web architecture:
+The implementation is strong and preserves the intended architecture:
 
-- runtime session and CSRF tokens are rejected by bounded literal substring
-  containment in relevant request, domain, catalog, and response strings;
-- authentication and CSRF header verification remain exact and use
-  `hmac.compare_digest`;
-- every exported Web contract has explicit canonical wire reconstruction and
-  revalidated `model_copy(update=...)` behavior while direct typed
-  construction remains strict;
-- canonical JSON rejects named non-finite values and ordinary exponent
-  overflow at every bounded nesting level;
-- decoded and raw request paths must be exact strict-ASCII equivalents;
-- request streaming retains only one byte-bounded buffer, rejects
-  non-progressing messages, and replays one canonical ASGI request message;
-- Content-Length representation is bounded before integer conversion;
-- failures retain the existing fixed-safe error vocabulary, security headers,
-  no-mutation behavior, and resource/control-flow propagation;
-- no endpoint, dependency, CLI, frontend, workflow execution, provider, ADO,
-  Product Pack, or later Task 5D behavior was introduced.
+- exact loopback binding with one pre-bound OS-assigned socket;
+- explicit in-memory and user-data SQLite repositories;
+- runtime-only cryptographic tokens;
+- programmatic Uvicorn with access logs disabled;
+- exact public static-route allowlist separated from authenticated
+  `/api/v1`;
+- fragment-only browser bootstrap removed before rendering or API access;
+- module-memory credentials with no cookie or browser-storage persistence;
+- a minimal React/strict-TypeScript conversation shell;
+- no AI, workflow execution, ADO, Copilot, authorization, receipt, usage UI,
+  or external write;
+- reproducible frontend assets with packaged digest verification;
+- real-wheel and real-browser evidence.
 
-The Architect found no residual blocker or scope violation.
+However, a standard-library browser-discovery failure is not contained by the
+expected runtime boundary. In addition, the claimed Python-to-TypeScript
+contract drift check covers only the outer Web wrapper fields and cannot
+detect drift in the nested domain contracts the UI actually reads.
+
+Both findings are local and can be remediated without changing the approved
+runtime, API, static-route, bootstrap, or UI architecture.
 
 ## Findings
 
-None.
+### F1 — Normal browser-launch failure escapes the fixed-safe runtime boundary
+
+Severity: Blocking
+
+Locations:
+
+- `pmqa/web/runtime.py`;
+- `run_pmqa_web_workbench`;
+- `pmqa/cli.py`;
+- `tests/test_web_runtime.py`.
+
+The task requires expected browser-launch failures to return exit code `2`
+with only `pmqa_web_failed`. The implementation handles a browser opener that
+returns `False` and catches `OSError`, but Python's standard
+`webbrowser.open()` can raise `webbrowser.Error` when no runnable browser is
+available. `webbrowser.Error` inherits directly from `Exception`, not
+`OSError`.
+
+The Architect independently injected the real standard-library exception
+type after successful readiness:
+
+```text
+browser_open -> webbrowser.Error("secret-path-marker")
+```
+
+Observed:
+
+```text
+exception type: webbrowser.Error
+public message: secret-path-marker
+server.should_exit: true
+socket close calls: 1
+```
+
+Cleanup ran, but the raw expected operational error crossed
+`run_pmqa_web_workbench` and would cross `pmqa web` as a traceback instead of
+the fixed failure code. A browser executable/path or environment detail can
+therefore be disclosed.
+
+Contain only the standard browser-discovery/launch exception at the exact
+browser-open boundary. Do not broadly catch every `RuntimeError` or arbitrary
+programming exception. Resource/control-flow exceptions remain authoritative.
+
+The same focused audit must classify a normal thread-start resource failure
+separately from a programming failure raised inside `server.run`. A production
+`threading.Thread.start()` can raise the operational
+`RuntimeError("can't start new thread")`; it should not expose a traceback as
+a normal startup failure. Thread-construction/programming errors and a
+`RuntimeError` emitted by the server body must continue to propagate.
+
+### F2 — Frontend drift guard omits the nested contracts consumed by the UI
+
+Severity: Blocking
+
+Locations:
+
+- `frontend/workbench/src/api-v1.contract.json`;
+- `frontend/workbench/src/api.ts`;
+- `tests/test_web_frontend_contract_drift.py`;
+- `frontend/workbench/src/api-schema.test.ts`.
+
+The current fixture and Python test compare only the field names of the eleven
+outer Web contracts. For example:
+
+```json
+"SessionResponse": ["schema_version", "session"]
+```
+
+They do not describe or compare:
+
+- `ConversationSession`;
+- `ConversationTurn`;
+- the `WorkflowDefinition` fields consumed by the UI;
+- retention/status enum values; or
+- the endpoint method/path mapping used by `APIClient`.
+
+The TypeScript `WorkflowDefinition` intentionally models only a subset of the
+server object. That is acceptable for rendering, but the current drift test
+would still pass if a nested field used by the UI were renamed, removed, or
+changed incompatibly. The outer wrapper would remain
+`{"schema_version", "session"}`.
+
+Expand the canonical fixture and drift tests to cover every nested field and
+enum value the frontend depends upon, plus the exact method/path inventory.
+The implementation need not introduce OpenAPI or a new code-generation
+dependency. A small deliberately maintained canonical fixture is sufficient
+if both Python and TypeScript verify its complete selected surface.
+
+### F3 — Declared UI operations lack focused behavioral regression coverage
+
+Severity: Required test follow-up
+
+Locations:
+
+- `frontend/workbench/src/App.test.tsx`;
+- `frontend/workbench/src/api.test.ts`;
+- `tests/test_web_live_smoke.py`.
+
+Production code contains the required turn, close, delete, and conflict
+refresh paths, and the Architect found no direct implementation defect in
+them. But the frontend tests cover only escaped catalog text, duplicate
+session submission, one authenticated read, and create-session headers. The
+live smoke creates only a session.
+
+No focused test currently locks:
+
+- exact API method/path/body/headers for create-turn, close, and delete;
+- session selection and turn display;
+- successful pending-turn creation without fake assistant output;
+- close behavior;
+- confirmed deletion and cancelled deletion;
+- one bounded refresh without mutation retry on revision conflict; or
+- representative not-found/server/unavailable rendering.
+
+Add bounded fixture-based coverage for these already-declared capabilities.
+This does not authorize new UI behavior or broaden the live smoke.
 
 ## Acceptance Criteria Disposition
 
-| Acceptance criterion | Architect evidence | Result |
-| --- | --- | --- |
-| Embedded runtime tokens cannot cross URL/request/state/response string boundaries | Traced bounded substring containment and all request/response traversal call sites; independently reran the complete Web security suite | Met |
-| Exact authentication and CSRF verification remain timing-safe | `authenticates` and `validates_csrf` remain exact `hmac.compare_digest` checks | Met |
-| Public Web contracts remain canonical and fully revalidated | Inspected every `_wire_values` reconstruction shape and the revalidating `model_copy`; contract tests pass | Met |
-| Canonical JSON rejects every non-finite result | Inspected the exact-float `math.isfinite` traversal and decoder containment; overflow tests pass | Met |
-| Decoded/raw targets are exact strict-ASCII matches | Inspected strict encode/decode and byte equality before routing | Met |
-| Body processing is bounded and canonical | Inspected single `bytearray` accumulation, exact ASGI message validation, non-progress rejection, and canonical replay | Met |
-| Rejections remain fixed-safe and mutation-free | Web/conversation focused group passes and no new error vocabulary or alternate operation exists | Met |
-| Attempt 1 API behavior remains unchanged | Existing Web/conversation regressions pass | Met |
-| Task 5D.1A and unrelated PMQA behavior remain unchanged | Diff scope is exact; full default suite passes | Met |
-| Only allowed files changed | Git name-status matches the five allowed implementation/test files | Met |
+| Acceptance criterion | Result |
+| --- | --- |
+| Loopback-only packaged runtime composition | Met |
+| Deterministic/fixed-safe startup and browser launch | Not met |
+| Fragment-only token bootstrap and non-persistence | Met |
+| Static routes preserve `/api/v1` security | Met |
+| Minimal UI implements only approved capabilities | Met by inspection |
+| Untrusted content renders only as text | Met |
+| Strict frontend build and complete API drift protection | Partially met |
+| Real wheel contains exact runtime assets and excludes debris | Met |
+| Import/product/provider isolation | Met |
+| Existing Python/frontend/browser regressions | Met |
+| Focused tests lock every declared UI action | Not met |
+| Scope and ownership | Met |
 
 ## Architect Validation
 
 Independently executed:
 
-- Web/conversation focused group: `368 passed`;
-- full default suite: `2214 passed, 5 skipped, 1` existing LangGraph warning;
-- generated SauceDemo Playwright regressions: initial managed-sandbox browser
-  launch failed with the known Chromium permission error; the identical
-  command was rerun with approved local browser permission and passed
-  `2 passed`;
-- isolated `compileall`: passed;
-- `git diff --check`: passed.
+- Task 5D Web/conversation focused group: `387 passed`;
+- full default suite: first run had one environment-only wheel-build failure
+  because the current review mount prohibited an existing egg-info timestamp
+  update; the identical suite under normal repository permissions passed
+  `2233 passed, 6 skipped, 1` existing LangGraph warning;
+- frontend typecheck: passed;
+- frontend unit/component tests: `11 passed` across four files after allowing
+  Vitest its temporary Vite cache;
+- opt-in real loopback Uvicorn/Chromium smoke: `1 passed`;
+- existing generated SauceDemo Playwright regressions: `2 passed`;
+- Git correlation and diff scope: passed;
+- browser `webbrowser.Error` reproduction: failed the required fixed-safe
+  invariant.
 
-The five full-suite skips are existing environment-gated tests. No new test
-was skipped by Architect choice.
+The six default skips are five existing environment-gated tests and the
+opt-in workbench smoke, which passed separately.
 
 ## Required Changes
 
-None.
+Complete one narrow Task 5D.1C Attempt 2 remediation:
+
+1. contain normal browser-discovery/launch and thread-start operational
+   failures as `PMQAWebRuntimeError` with no cause, context, token, URL, path,
+   or underlying detail;
+2. preserve propagation of resource/control-flow and genuine server-body
+   programming exceptions;
+3. extend the frontend contract fixture/drift checks across all nested fields,
+   enums, and endpoint method/path shapes used by the UI;
+4. add focused API-client and component tests for every already-implemented
+   UI operation and conflict behavior;
+5. preserve exact runtime, static/API, bootstrap, package, and scope behavior.
+
+Do not start Task 5D.2 or add any new capability.
 
 ## Final Disposition
 
-**Approved**
+**Needs Revision**
 
-Task 5D.1B is complete at implementation commit
-`8775368fb74ee27425946e4c6ea40e745b475c09`.
-
-This approval does not authorize a PR, merge, Task 5D.2, company integration,
-ADO access, Copilot integration, or external writes.
+Task 5D.1C is not approved at implementation commits
+`5585812e62f12ac7f8c529769c16048c653d149c` and
+`bb25794241e5410afc88032838d6bbb014e2e698`.
 
 ## Next Recommended Task
 
-Proceed to Task 5D.1C — Local Browser Workbench, `pmqa web`, and Distribution
-Packaging.
-
-The next checkpoint should expose only the already-approved Task 5D.1B
-conversation and workflow-catalog APIs through a minimal local browser
-workbench. It must not add reasoning, workflow execution, ADO, Copilot,
-capability execution, authorization, receipts, or usage UI.
+Complete Task 5D.1C Attempt 2 — Browser Failure Containment, Complete Contract
+Drift, and UI Action Regression Coverage, as defined in
+`agent-handoff/current-task.md`.
