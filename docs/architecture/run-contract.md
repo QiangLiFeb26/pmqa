@@ -2,11 +2,13 @@
 
 ## Status
 
-Task 5C.1 and Task 5C.2 have **passed architecture review**. Task 5C.3 is
-**Ready for architecture review** and adds the explicit single-attempt
-Application Service. Together they establish the local application/run layer
-before the company-side Task 5B read-only pilot. They do not start Task 5B,
-Task 6, or Task 7.
+Task 5C.1–5C.7 have passed checkpoint-level architecture review and cumulative
+closure verification. The isolated Task-5C-only branch is ready for
+independent cumulative review and a later final PR, but Task 5C remains
+unmerged and is not yet Complete on `main`. Task 5D is excluded from this
+release branch. Together the checkpoints establish the local application/run
+layer before the company-side Task 5B read-only pilot. They do not start Task
+5B, Task 6, or Task 7.
 
 ## Boundary
 
