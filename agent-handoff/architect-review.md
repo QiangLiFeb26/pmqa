@@ -2,27 +2,27 @@
 
 Owner: Architect
 
-Task: PMQA Task 5C.7 — Retry/Fallback Aggregate Exclusivity
+Task: PMQA Task 5C Cumulative Release-Boundary Closure
 
-Task ID: `PMQA-5C.7`
+Task ID: `PMQA-5C-CLOSURE`
 
-Attempt: `3`
+Attempt: `1`
 
 Status: Approved
 
-Branch: `agent/task-5c-1-canonical-run-contract`
+Branch: `agent/task-5c-cumulative-closure`
 
 Reviewed Starting HEAD:
-`e18ffd74a5cf1a6d97de3709177af86ac073de46`
+`7f5cdfe5b5fd986b44bcb637c33c9f7abe6c5833`
 
-Reviewed Implementation Commit:
-`2540acf98be7a1645c252de595be6930c63ab717`
+Reviewed Documentation Commit:
+`e4cceed2c25953a168453670c0a408ba233fe388`
 
 Derived Coder Report Commit:
-`5678d20f239ed40fc8a0cc6749bf98ae1f5e7949`
+`13e8518394ca0640d92f9ad9ef73979e56e50c9b`
 
 Derived Reviewer Report Commit:
-`9d28c1361111d75e642292ec87a9a8f1f406cdc7`
+`2432cd1a256fac6bea9e5cd47195bab21133289f`
 
 The Reviewer report commit was derived with:
 
@@ -31,185 +31,127 @@ git log -1 --format=%H -- agent-handoff/reviewer-report.md
 ```
 
 This review does not claim the SHA of its own containing commit. The next
-Coder derives and records the publication commit containing this disposition
-and Task 5D.0.
+Coder must derive the publication commit containing this disposition and the
+next task from Git.
 
 ## Correlation and Ownership Verification
 
-- the active branch and upstream are
-  `agent/task-5c-1-canonical-run-contract`;
-- starting HEAD
-  `e18ffd74a5cf1a6d97de3709177af86ac073de46` is an ancestor of implementation
-  commit `2540acf98be7a1645c252de595be6930c63ab717`;
-- the implementation commit is an ancestor of Coder report commit
-  `5678d20f239ed40fc8a0cc6749bf98ae1f5e7949`;
-- the Coder report commit is an ancestor of Reviewer report commit
-  `9d28c1361111d75e642292ec87a9a8f1f406cdc7`;
-- Coder and Reviewer reports identify the same Task, Attempt, branch,
-  starting HEAD, and implementation commit;
-- the implementation changed only `pmqa/usage/summary.py` and
-  `tests/test_usage_summary.py`;
-- the Coder and Reviewer report commits changed only their exclusively owned
-  handoff files;
-- all role ownership and Git-correlation rules were followed.
+- the active branch and upstream are exactly
+  `agent/task-5c-cumulative-closure`;
+- `7f5cdfe5...` is an ancestor of the documentation commit
+  `e4cceed2...`, which is an ancestor of Coder report commit `13e8518...`,
+  which is an ancestor of Reviewer report commit `2432cd1...`;
+- the Coder and Reviewer reports identify the same task, attempt, branch,
+  starting HEAD and documentation commit;
+- the documentation commit changes exactly the seven allowed Task 5C
+  documentation files;
+- the Coder report commit changes only `agent-handoff/coder-report.md`;
+- the Reviewer report commit changes only
+  `agent-handoff/reviewer-report.md`; and
+- local HEAD and upstream matched the derived Reviewer report commit before
+  this disposition was written.
 
 ## Review Depth Selected
 
 Deep
 
-The Architect independently selected Deep review despite the two-line
-production change because this was the third attempt on a public aggregate
-contract. Review included the assigned predecessor invariant and a final
-pairwise audit of lifecycle, predecessor, token-coverage, cost-bucket, and
-cross-level interactions.
+This is the release-boundary certification for 53 Task 5C commits across the
+Run, Runner, Application and Usage trust boundaries. The Architect accepted
+the Coder's and Reviewer's Deep recommendation, independently re-derived the
+Git boundary and reran the focused contract and real-wheel packaging suites.
 
 ## Overall Assessment
 
-Task 5C.7 is approved.
+PMQA-5C-CLOSURE Attempt 1 is approved.
 
-The shared metrics validator now correctly requires:
+The closure branch is a clean linear descendant of main base
+`d0186f2f8d37e3b52029a8c3195226e4432a6b43`. Its approved implementation
+boundary is `9d2ba638c9692eb542bb6d1c023388d959573316`. The 53-commit Task 5C range
+changes 47 files and contains the reviewed Task 5C.1–5C.7 Run, Runner,
+Application and Usage foundations plus the Markdown-only AI-team protocol.
+No Task 5D Web, conversation, frontend or TypeScript implementation is in
+the release branch.
 
-```text
-retry_invocation_count + fallback_invocation_count
-    <= invocation_count
-```
+The documentation closure is minimal and truthful for its publication
+stage: it records checkpoint and cumulative closure verification, preserves
+the distinction between an unmerged branch and a completed mainline task,
+does not overstate live provider, pricing, CLI or UI capabilities, and keeps
+Task 5D outside this release boundary.
 
-without unsafe addition, duplication, or equality overconstraint. It applies
-to top-level `UsageSummary` and every `UsageProviderModelSummary`.
-
-The completed Task 5C.7 contract now enforces:
-
-- strict immutable canonical summaries;
-- empty, observed-zero, partial, and unavailable token distinction;
-- exact status and mutually exclusive predecessor coverage;
-- bounded duration and token arithmetic;
-- provider-reported, estimated, subscription-included, and unavailable cost
-  separation;
-- currency and complete pricing-provenance separation;
-- exact Decimal aggregation independent of caller ambient precision;
-- deterministic provider/model grouping and ordering;
-- complete top-level/group lifecycle, predecessor, duration, token, and cost
-  reconciliation;
-- fixed safe public reconstruction failures;
-- provider, storage, pricing, workflow, CLI, and UI isolation.
-
-No remaining Task 5C.7 blocker or required follow-up exists.
-
-## Independent Reviewer Result
-
-Reviewer verdict: `Pass`
-
-Reviewer blocking findings: None
-
-The Reviewer independently hand-traced the invariant, reproduced the exact
-prior contradiction, ran every required validation command, and deliberately
-selected Deep review rather than accepting the Coder's Standard
-recommendation.
-
-The Architect accepts the advisory verdict.
+The Independent Reviewer selected Deep review, reproduced all required test
+counts in a fresh worktree-local environment, independently checked the Git
+and file inventory, and returned `Pass` with no blocking or advisory
+findings. The Architect accepts that verdict.
 
 ## Architect Findings
 
-None.
+None blocking and none requiring remediation of the reviewed closure.
 
-## Closed Finding
-
-### Retry/fallback aggregate exclusivity
-
-Closed.
-
-The validator first confirms each count does not exceed invocation count,
-then safely compares:
-
-```text
-retry <= invocation_count - fallback
-```
-
-The subtraction cannot become negative because of short-circuit ordering.
-Attempt-one invocations may contribute to neither category. Different
-invocations may legitimately produce one retry and one fallback.
-
-Independent reproduction confirms:
-
-- `invocation=1, retry=1, fallback=1` is rejected through fixed
-  `UsageSummaryValidationError`;
-- `invocation=2, retry=1, fallback=1` is accepted and canonical round-trips.
-
-## Final Task 5C.7 Adversarial Disposition
-
-The Architect performed one final interaction audit because earlier attempts
-found individually valid nested views that were collectively impossible.
-
-Confirmed:
-
-- status categories sum exactly to invocation count;
-- retry and fallback are individually and collectively bounded;
-- every token field has exact observed/unavailable coverage;
-- `None` and observed numeric zero remain distinct;
-- cost buckets cover every invocation exactly once;
-- duplicate cost identities are rejected;
-- group-derived cost identities/counts/amounts equal top-level buckets;
-- provider/model group lifecycle, predecessor, duration, token, and cost
-  roll-ups equal the top-level view;
-- all public construction and reconstruction paths execute the invariant.
-
-No further contradictory canonical state was found.
+One normal lifecycle update remains: after this approval, the seven product
+documents still describe the branch as awaiting independent cumulative
+review. That wording was accurate when the Coder published the closure and
+is not a defect in the reviewed commit. It must be advanced to
+"cumulative architecture review passed; ready for final PR" before the PR is
+presented for merge. This is assigned as the next bounded task rather than
+changed by the Architect, because product documentation is Coder-owned.
 
 ## Acceptance Criteria Coverage
 
 | Acceptance criterion | Result |
 | --- | --- |
-| One invocation cannot be both retry and fallback | Met |
-| Valid mixed retry/fallback across different invocations remains accepted | Met |
-| Top-level and provider/model summaries share one policy | Met |
-| Direct construction, copy, and `from_dict()` enforce it | Met |
-| Fixed safe error behavior remains intact | Met |
-| Valid aggregation and canonical serialization remain unchanged | Met |
-| Existing regressions remain green | Met |
-| Only authorized files changed | Met |
+| Exact main base and approved Task 5C boundary | Met |
+| Task 5C.1–5C.7 and AI-team history inventoried | Met |
+| No Task 5D implementation enters the release branch | Met |
+| Cumulative contracts, isolation and packaging remain coherent | Met |
+| Documentation is accurate for the pre-review closure stage | Met |
+| No live usage/provider capability is overstated | Met |
+| Focused, packaging, full and generated regressions pass | Met |
+| Markdown links and `git diff --check` pass | Met |
+| Role write boundaries and commit correlation are correct | Met |
+| No PR or merge occurred during closure | Met |
 
 ## Validation Evidence
 
 Independent Reviewer evidence:
 
-- focused usage suite: `279 passed`;
-- Run/Runner/Application/boundary/packaging regressions: `332 passed`;
-- Task 4 regressions: `98 passed`;
+- Task 5C focused tests: `685 passed`;
+- real-wheel packaging tests: `3 passed`;
 - full default suite: `1840 passed, 5 skipped`;
 - generated Playwright regressions: `2 passed`;
-- isolated compileall and `git diff --check`: passed.
+- isolated compileall, Markdown links and `git diff --check`: passed;
+- no network, browser, provider login, paid model or company system used.
 
 Architect evidence:
 
-- complete Reviewer and Coder reports read;
-- complete production diff and shared validator inspected;
-- ancestry, role ownership, and report correlation verified;
-- focused usage suite independently run: `279 passed`;
-- invalid predecessor overlap independently rejected;
-- valid two-invocation retry/fallback selection independently accepted and
-  canonical round-tripped;
-- Architect full-suite run produced `1839 passed, 5 skipped` plus one
-  sandbox-permission failure in the existing external-example wheel build;
-- that exact failed test was rerun with normal build permissions and passed;
-- `git diff --check` passed and the worktree remained clean.
+- complete current task, Coder report and Reviewer report read;
+- complete seven-file documentation diff and cumulative 47-file inventory
+  inspected;
+- Git ancestry, report correlation, role ownership and absence of merge
+  commits independently verified;
+- current range count verified as 58 commits: 53 Task 5C commits plus five
+  closure/task/report publications through the Reviewer report;
+- Task 5C focused tests independently rerun: `685 passed`;
+- real-wheel packaging tests independently rerun: `3 passed`;
+- worktree remained clean before this Architect publication.
 
-The full-suite discrepancy was environmental, not behavioral: the restricted
-Architect sandbox prevented updating external-example build metadata. The
-Reviewer completed the same full suite successfully, and the isolated failed
-test passed immediately when granted its expected build permission.
+The Python environment emitted an existing LibreSSL compatibility warning
+from `urllib3`; it did not affect either test result and is unrelated to this
+documentation-only closure.
 
 ## Required Changes
 
-None.
+None for PMQA-5C-CLOSURE Attempt 1.
 
 ## Decision
 
 Approved
 
-PMQA Task 5C.7 is approved at implementation commit
-`2540acf98be7a1645c252de595be6930c63ab717`.
+PMQA Task 5C cumulative release-boundary closure is technically approved at
+documentation commit `e4cceed2c25953a168453670c0a408ba233fe388`.
 
 ## Next Recommended Task
 
-Proceed to PMQA Task 5D.0 — Conversational Workflow Platform Architecture,
-defined in `agent-handoff/current-task.md`.
+Proceed to `PMQA-5C-PR` Attempt 1, defined in
+`agent-handoff/current-task.md`: advance the seven Task 5C documents to the
+post-review/PR-ready state, publish the branch, and create—but do not merge—a
+single bounded PR to `main` for independent final verification.

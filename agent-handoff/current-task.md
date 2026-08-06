@@ -2,9 +2,9 @@
 
 Owner: Architect
 
-Task: PMQA Task 5C Cumulative Release-Boundary Closure
+Task: PMQA Task 5C Final PR Preparation
 
-Task ID: `PMQA-5C-CLOSURE`
+Task ID: `PMQA-5C-PR`
 
 Attempt: `1`
 
@@ -15,13 +15,14 @@ Branch: `agent/task-5c-cumulative-closure`
 Main base:
 `d0186f2f8d37e3b52029a8c3195226e4432a6b43`
 
-Approved Task 5C boundary:
+Approved Task 5C implementation boundary:
 `9d2ba638c9692eb542bb6d1c023388d959573316`
 
-The first Task 5D implementation/documentation commit is not part of this
-branch. The complete approved Task 5D.0–5D.1C history remains preserved on
-`agent/task-5c-1-canonical-run-contract` at Architect disposition
-`9d40cff034190b096a51d1b4deeeac2961205462`.
+Approved cumulative closure documentation commit:
+`e4cceed2c25953a168453670c0a408ba233fe388`
+
+Independent Reviewer report commit:
+`2432cd1a256fac6bea9e5cd47195bab21133289f`
 
 Coder starting HEAD: derive and record the latest pushed branch commit that
 contains this task publication before changing any authorized file.
@@ -31,190 +32,112 @@ informational only.
 
 ## Task Objective
 
-Perform one cumulative release-boundary audit of Task 5C.1–5C.7, close stale
-documentation, and leave a coherent Task-5C-only branch ready for independent
-review and a later bounded PR into `main`.
+Advance the already approved Task 5C release documentation from the
+pre-review state to the post-review state, publish the exact Task-5C-only
+branch, and create one non-draft PR to `main` for independent final
+verification and Human-controlled merge.
 
-This is a release-closure and evidence task, not a new implementation task.
-Do not redesign or extend the Run, Runner, Application, Usage, AI-team, Task 4,
-Task 5, or Product Pack architecture. Do not create a PR or merge.
+This is a documentation/status and PR-publication task. The Task 5C runtime,
+contracts, tests, schemas, packaging and historical commits are already
+approved and must not change.
 
 ## Background
 
-Task 5C established, in reviewed checkpoints:
+PMQA-5C-CLOSURE Attempt 1 passed Deep Independent Reviewer and Architect
+review. The closure documentation correctly said "ready for independent
+cumulative review" when it was written. That review is now complete, so the
+status language must move forward exactly once before the final PR.
 
-- the canonical provider-neutral PMQA Run Contract;
-- the synchronous Runner boundary and deterministic MockRunner;
-- explicit Workflow and Runner registries plus the single-attempt Application
-  Service;
-- provider-neutral AI usage and cost evidence contracts;
-- the exactly-once invocation collector;
-- the append-only local Usage Repository; and
-- deterministic usage summaries that preserve reported, estimated,
-  subscription-included, unavailable and zero semantics.
+The Human previously approved the two-PR release strategy: Task 5C enters
+`main` first; Task 5D remains on its separate preserved branch and must not
+enter this PR.
 
-The approved AI-team handoff protocol was introduced during the same branch
-history as repository-process infrastructure. It is intentionally included
-in this Task 5C PR boundary, but it is not a runtime capability and must remain
-provider-neutral and Markdown-only.
+Work only in the isolated worktree for
+`agent/task-5c-cumulative-closure`. Do not switch or modify the primary PMQA
+checkout that preserves Task 5D work.
 
-Task 5C has passed checkpoint-level architecture review but has never entered
-`main`. Task 5D work must not enter this branch or this future PR.
+## Required Work
 
-Perform this task in an isolated Git worktree checked out at
-`agent/task-5c-cumulative-closure`. The primary PMQA checkout contains the
-later Task 5D frontend and must remain on
-`agent/task-5c-1-canonical-run-contract`. Do not switch the primary checkout
-to this historical branch, and do not delete, move, ignore or commit files
-that appear untracked only because they belong to the later Task 5D branch.
-The worktree's machine-local absolute path is operational context and must not
-be written into repository documentation or reports.
-
-## Required Audit 1 — Exact Git and Scope Boundary
-
-Derive and report, from Git rather than prose:
-
-- `main` base `d0186f2...`;
-- Task 5C release boundary `9d2ba63...`;
-- the ordered Task 5C.1–5C.7 implementation, remediation, Coder report,
-  Reviewer report and Architect disposition commits;
-- the AI-team protocol commits included within that history;
-- changed-file inventory grouped by Run, Runner, Application, Usage,
-  security/import/packaging, tests, documentation and handoff protocol; and
-- proof that no Task 5D production, Web, conversation or frontend file is
-  present in `main..HEAD` on this closure branch.
-
-Do not rebase, squash, amend, cherry-pick or rewrite any historical commit.
-Do not merge the long-running 5D branch into this branch.
-
-If the branch contains any Task 5D implementation or any unexplained file,
-stop and report it as a blocker instead of deleting or rewriting history.
-
-## Required Audit 2 — Cumulative Architecture Coherence
-
-Confirm from source and tests that the combined Task 5C surface remains
-coherent:
-
-- `pmqa.run` owns application-level request, definition, context, result,
-  artifact, error, invocation, run-record and outcome-metric contracts;
-- `pmqa.runners` owns the provider-neutral execution boundary, canonical
-  request/response correlation and runtime-only cancellation;
-- `pmqa.application` owns explicit local Workflow/Runner registration,
-  workflow-specific validation and one deterministic attempt;
-- `pmqa.usage` remains a separate trust/retention boundary for model/provider
-  invocation evidence, pricing evidence, collection, persistence and pure
-  summary aggregation;
-- Run records do not absorb prompts, provider SDK objects, usage records,
-  pricing tables, conversation state, workflow checkpoints or credentials;
-- Usage records do not claim workflow success, external effects, complete
-  provider-session totals or invented token/cost values;
-- reported, CLI-parsed, estimated, subscription-included and unavailable
-  evidence remain distinguishable;
-- zero remains different from unavailable;
-- registries remain explicit and bounded, with no discovery or path scanning;
-- generic imports remain product-, provider-, Playwright-, LangGraph-,
-  repository- and process-lazy as documented; and
-- Task 4/5/Product Pack behavior remains compatible.
-
-This task must not reopen already settled checkpoint design choices merely to
-prefer another style. A concrete cumulative defect is a blocker: document it
-in the Coder report and stop for Architect direction rather than repairing it
-inside this closure task.
-
-## Required Audit 3 — Documentation Closure
-
-Review all current Task 5C status claims and make only the minimum necessary
-documentation updates so they consistently state:
-
-- Task 5C.1–5C.7 passed checkpoint-level and cumulative closure verification;
-- the branch is ready for independent cumulative review and a later final PR;
-- Task 5C is not yet merged and therefore is not yet `Complete` on `main`;
-- exact main base and approved Task 5C boundary SHAs;
-- Task 5D is excluded from this release branch;
-- Usage/Cost remains a foundation, not a live Copilot/Azure/OpenAI adapter,
-  parser, calculator, optimizer, CLI summary or UI; and
-- Task 5B, Task 6 and Task 7 remain not started.
-
-Likely documentation surfaces are `README.md`, `docs/Roadmap.md`,
-`docs/architecture.md`, and the existing Task 5C architecture documents.
-Change only files with genuinely stale or incomplete cumulative status. Do
-not rewrite historical checkpoint wording when it is clearly labeled as
-historical context.
-
-Do not describe Task 5D work as merged, included or delivered by this branch.
-
-## Required Audit 4 — Release and Packaging Evidence
-
-Verify the real PMQA wheel and source tree expose the intended Task 5C Python
-packages and exclude tests, build debris, runtime artifacts, usage records,
-credentials and unrelated files according to the existing packaging policy.
-
-Confirm all default tests remain offline and no new validation requires a
-company system, paid model, provider login, browser or external network.
+1. Derive the exact Architect publication commit from Git and verify the
+   active branch, upstream, clean worktree and ancestry.
+2. Update only the seven already-authorized Task 5C product documents so
+   they consistently state:
+   - Task 5C.1–5C.7 passed checkpoint, cumulative closure, independent and
+     final architecture review;
+   - the Task-5C-only branch is ready for its final PR;
+   - Task 5C remains unmerged and is not yet `Complete` on `main`;
+   - the exact main base and approved Task 5C boundary remain unchanged;
+   - Task 5D is excluded from this branch and PR; and
+   - Usage/Cost remains a foundation, not a live provider adapter, parser,
+     pricing calculator, optimizer, CLI summary or UI.
+3. Commit that documentation-only status transition without amending prior
+   commits.
+4. Run the bounded validation below and push the branch.
+5. Create one non-draft GitHub PR from
+   `agent/task-5c-cumulative-closure` to `main` with a concise title and
+   description that identify Task 5C.1–5C.7, the approved boundary, tests,
+   Task 5D exclusion and known zero-checks status if GitHub has no checks.
+6. Do not merge the PR and do not delete either branch.
+7. Replace `agent-handoff/coder-report.md`, commit it separately and push it.
+   Report the PR URL, exact base/head SHAs, mergeability/conflicts/checks, all
+   validation evidence and the recommended independent review depth.
 
 ## Allowed Changes
-
-Only when needed to close cumulative status wording:
 
 - `README.md`;
 - `docs/Roadmap.md`;
 - `docs/architecture.md`;
-- existing Task 5C architecture Markdown under `docs/architecture/`;
+- `docs/architecture/application-service.md`;
+- `docs/architecture/run-contract.md`;
+- `docs/architecture/runner-boundary.md`;
+- `docs/architecture/usage-cost-contracts.md`;
 - `agent-handoff/coder-report.md`.
 
-Do not modify:
-
-- production Python or TypeScript;
-- tests, fixtures or schemas;
-- dependency or packaging configuration;
-- generated or packaged assets;
-- Product Pack or product code;
-- another role's handoff file.
-
-If a production, test, schema or packaging change appears necessary, stop and
-report the exact blocker. The Architect will define a separate remediation
-attempt if warranted.
-
-Use one minimal documentation closure commit and one separate report-only
-Coder handoff commit. Do not amend prior commits.
+GitHub-side creation of one PR is authorized. No merge, review dismissal,
+branch deletion, label/milestone mutation or unrelated GitHub write is
+authorized.
 
 ## Out of Scope
 
 Do not:
 
-- add or change runtime behavior;
-- start Task 5D.2 or any Skill Repo/ADO/Copilot integration;
-- add a real runner, provider adapter, CLI parser, cost calculator, pricing
-  table, optimizer, usage CLI or usage UI;
-- modify conversation, Web, frontend or Task 5D files;
-- create, update or merge a PR;
-- merge `main` or another branch;
-- rebase, squash, cherry-pick or rewrite history;
-- start Task 5B, Task 6 or Task 7.
+- modify production code, tests, fixtures, schemas, packaging, dependencies,
+  scripts, generated assets, Product Packs or product code;
+- modify another role's handoff file;
+- alter, rebase, squash, amend, cherry-pick or merge historical commits;
+- merge `main`, the Task 5D branch or any other branch into this branch;
+- include Task 5D Web, conversation, frontend or TypeScript files;
+- start Task 5D.2, Skill Repo/ADO/Copilot integration, Task 5B, Task 6 or
+  Task 7;
+- merge the PR.
+
+If the PR diff includes any unexplained file, any Task 5D file, or the base is
+not the exact main commit above, stop and report a blocker without repairing
+history.
 
 ## Acceptance Criteria
 
-- branch history is exactly based on `d0186f2...` and stops at the approved
-  Task 5C boundary plus this closure work;
-- no Task 5D production/Web/conversation/frontend change appears in the
-  cumulative diff;
-- all Task 5C.1–5C.7 checkpoint surfaces and the AI-team protocol are
-  inventoried and explained;
-- no cumulative contract, correlation, security, import-isolation or
-  packaging defect is found, or any genuine defect is reported without an
-  unauthorized repair;
-- documentation consistently says Task 5C is cumulative-review/PR-ready but
-  unmerged;
-- no live usage/provider capability is overstated;
+- only the seven allowed product documents change in the status-transition
+  commit;
+- all seven documents say cumulative architecture review passed and final PR
+  ready, while still unmerged and not Complete on main;
+- no stale "ready for independent cumulative review" status remains in the
+  active Task 5C documentation;
+- exact Task 5C boundaries and capability limitations remain accurate;
+- the PR targets exact `main` base `d0186f2...` and contains no Task 5D file;
+- the cumulative PR diff remains the known 47-file Task 5C inventory plus
+  authorized handoff history, with no runtime change after the approved
+  boundary;
 - focused, packaging, full and generated-test regressions pass;
 - Markdown links and `git diff --check` pass;
-- only allowed documentation/report files change;
-- local and remote branch heads agree and the worktree is clean;
-- no PR is created and nothing is merged.
+- local, upstream and GitHub branch heads agree;
+- one non-draft PR exists and is not merged;
+- the worktree is clean.
 
 ## Validation Commands
 
-Run and report at minimum:
+Use this worktree's dedicated `.venv`; do not reuse the primary Task 5D
+checkout's editable environment.
 
 ```bash
 .venv/bin/python -m pytest \
@@ -235,38 +158,38 @@ git diff --check
 git status --short
 ```
 
-Use an isolated bytecode cache for `compileall`. Validate tracked Markdown
-relative links with the existing repository method or an equivalent read-only
-check. Do not access a company system, provider, paid model, browser or
-external network during tests.
+Use an isolated bytecode cache for compileall. Validate all tracked Markdown
+relative links. Do not use company systems, provider logins, paid models,
+browsers or external runtime services during tests.
 
 ## Expected Deliverables
 
-- a Git-derived cumulative Task 5C checkpoint and changed-file inventory;
-- a cumulative architecture, isolation, packaging and regression audit;
-- minimal accurate Task 5C status documentation;
-- one documentation-only closure commit;
-- one separate report-only Coder handoff commit;
-- a clean synchronized `agent/task-5c-cumulative-closure` branch;
-- no PR, merge or Task 5D work.
+- one minimal seven-file documentation status-transition commit;
+- one open non-draft Task 5C PR to exact `main`;
+- exact PR base/head, mergeability, conflict and checks evidence;
+- one separate Coder report commit;
+- a clean synchronized branch;
+- no merge and no Task 5D change.
 
 ## Required Coder Handoff
 
 Replace `agent-handoff/coder-report.md` with a complete report containing:
 
-- Task ID, Attempt and exact branch;
-- Git-derived starting HEAD;
-- documentation closure implementation commit;
-- exact Task 5C boundary and cumulative commit/file inventory;
-- changed files and status wording before/after;
-- cumulative architecture findings;
-- focused, packaging, full, generated-test, compileall, Markdown-link and Git
-  validation results;
-- remaining risks or open items;
-- explicit scope confirmation;
+- Task ID `PMQA-5C-PR`, Attempt `1`, exact branch and Git-derived starting
+  HEAD;
+- documentation status-transition commit;
+- changed files and exact wording transition;
+- PR URL/title/base/head/state, mergeability/conflicts/checks;
+- proof the PR contains no Task 5D file or post-boundary runtime change;
+- every required validation result;
+- remaining risks/open items;
+- scope confirmation;
 - Recommended Review Depth: `Light`, `Standard`, or `Deep`;
 - Review Recommendation Reason; and
 - Suggested Review Focus.
 
-End the report with the mandatory 5–10 line Human Summary and one-sentence
-Handoff Note defined by `agent-handoff/README.md`.
+Do not record the future Coder report commit SHA inside the report. The
+Independent Reviewer derives it from Git.
+
+After committing and pushing the report, send the Human a 5–10 line Human
+Summary and this exact style of one-sentence Handoff Note.
