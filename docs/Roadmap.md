@@ -15,7 +15,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
 | Task 5A — Product Pack Adoption Foundation | Complete | Task 5A.1–5A.6 establish the experimental manifest, explicit loading, protocol, bounded transport, scaffolding/conformance, and external SauceDemo architecture-validation slice; merged through PR #22. |
-| Task 5C — Local Application and Run Layer | Cumulative review ready | Task 5C.1–5C.7 passed checkpoint-level architecture review and cumulative closure verification; the isolated Task-5C-only branch is ready for independent review and a later final PR, but remains unmerged. |
+| Task 5C — Local Application and Run Layer | Final PR ready | Task 5C.1–5C.7 passed checkpoint-level, cumulative closure, independent, and final architecture review; the isolated Task-5C-only branch is ready for its final PR, but remains unmerged. |
 | Task 5B — Company-side MDE Read-Only Pilot | Not started | Validate Product Pack assumptions in a company-managed, private, read-only pilot before API v1 stabilization. |
 
 ## Task 4 closure
@@ -160,12 +160,12 @@ MDE.
 
 ## Task 5C — Local Application and Run Layer
 
-**Task 5C.1–5C.7 status: checkpoint-level architecture review and cumulative
-closure verification passed.** The Task-5C-only release branch is based on
+**Task 5C.1–5C.7 status: checkpoint-level, cumulative closure, independent,
+and final architecture review passed.** The Task-5C-only release branch is based on
 main commit `d0186f2f8d37e3b52029a8c3195226e4432a6b43` and contains the
 approved Task 5C boundary through
-`9d2ba638c9692eb542bb6d1c023388d959573316`. It is ready for independent
-cumulative review and a later final PR, but Task 5C remains unmerged and is
+`9d2ba638c9692eb542bb6d1c023388d959573316`. It is ready for its final PR,
+but Task 5C remains unmerged and is
 not yet Complete on `main`. Task 5D is excluded from this release branch.
 
 Task 5C exists to establish the local

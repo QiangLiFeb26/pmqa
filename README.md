@@ -272,12 +272,13 @@ follows only after SauceDemo and MDE evidence. Task 5B implementation, Task 6,
 and Task 7 have not started.
 
 Task 5C establishes the local application/run layer before that company-side
-pilot. Task 5C.1–5C.7 passed checkpoint-level architecture review and
-cumulative closure verification on the isolated release branch. That branch
+pilot. Task 5C.1–5C.7 passed checkpoint-level, cumulative closure,
+independent, and final architecture review on the isolated release branch.
+That branch
 is based on main commit `d0186f2f8d37e3b52029a8c3195226e4432a6b43`,
 contains the approved Task 5C boundary through
-`9d2ba638c9692eb542bb6d1c023388d959573316`, and is ready for independent
-cumulative review and a later final PR. Task 5C remains unmerged and is not
+`9d2ba638c9692eb542bb6d1c023388d959573316`, and is ready for its final PR.
+Task 5C remains unmerged and is not
 yet Complete on `main`; Task 5D is excluded from this release branch.
 
 Task 5C.1 passed architecture review and adds the provider-neutral,
