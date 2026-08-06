@@ -8,7 +8,7 @@ Task ID: `PMQA-5C-PR`
 
 Attempt: `1`
 
-Status: Ready for Coder
+Status: Approved — Awaiting Human Merge Authorization
 
 Branch: `agent/task-5c-cumulative-closure`
 
@@ -21,7 +21,7 @@ Approved Task 5C implementation boundary:
 Approved cumulative closure documentation commit:
 `e4cceed2c25953a168453670c0a408ba233fe388`
 
-Independent Reviewer report commit:
+Prior cumulative-closure Independent Reviewer report commit:
 `2432cd1a256fac6bea9e5cd47195bab21133289f`
 
 Coder starting HEAD: derive and record the latest pushed branch commit that
@@ -29,6 +29,16 @@ contains this task publication before changing any authorized file.
 
 Repository Markdown and Git history are authoritative. Chat summaries are
 informational only.
+
+Architect final disposition: PMQA-5C-PR Attempt 1 and PR #24 passed Deep
+Independent Reviewer and Architect review. No Coder implementation work
+remains in this attempt. The Human must explicitly authorize or defer merge.
+If authorized, the merge operator must verify the live PR head is a linear
+descendant of Reviewer report `05b73e52a87e996c2ca1e4150c0f05e17ca9d9c3`,
+the base remains `d0186f2f8d37e3b52029a8c3195226e4432a6b43`, the PR
+remains mergeable/clean with the same 47-file Task-5C-only scope, and then use
+a merge commit without deleting the preserved Task 5D branch. Do not start a
+post-merge task until the actual merge commit is known.
 
 ## Task Objective
 
