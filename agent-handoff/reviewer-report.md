@@ -2,44 +2,52 @@
 
 Owner: Independent Reviewer
 
-Status: Executed for PMQA Task 5C.7, Attempt 3
+Status: Executed for PMQA Task 5C Cumulative Release-Boundary Closure,
+Attempt 1
 
 ## Task Correlation
 
-Task: PMQA Task 5C.7 — Retry/Fallback Aggregate Exclusivity
+Task: PMQA Task 5C Cumulative Release-Boundary Closure
 
-Task ID: `PMQA-5C.7`
+Task ID: `PMQA-5C-CLOSURE`
 
-Attempt: `3`
+Attempt: `1`
 
-Branch: `agent/task-5c-1-canonical-run-contract`
+Branch: `agent/task-5c-cumulative-closure`
 
-Reviewed Starting HEAD: `e18ffd74a5cf1a6d97de3709177af86ac073de46`
+Reviewed Starting HEAD: `7f5cdfe5b5fd986b44bcb637c33c9f7abe6c5833`
+("isolate Task 5C release worktree" — the Architect's `current-task.md`
+publication commit)
 
-Reviewed Implementation Commit(s): `2540acf98be7a1645c252de595be6930c63ab717`
-("enforce Task 5C.7 predecessor exclusivity")
+Reviewed Implementation Commit: `e4cceed2c25953a168453670c0a408ba233fe388`
+("close Task 5C cumulative release boundary")
 
-Derived Coder Report Commit: `5678d20f239ed40fc8a0cc6749bf98ae1f5e7949`
-("report Task 5C.7 predecessor remediation")
+Derived Coder Report Commit: `13e8518394ca0640d92f9ad9ef73979e56e50c9b`
+("report Task 5C cumulative release closure")
 
 Correlation Verification:
 
 - derived with `git log -1 --format=%H -- agent-handoff/coder-report.md` ->
-  `5678d20f239ed40fc8a0cc6749bf98ae1f5e7949`;
-- `git merge-base --is-ancestor e18ffd74a5cf1a6d97de3709177af86ac073de46 HEAD`
-  succeeds; `e18ffd7...` is an ancestor of `2540acf...`, and `2540acf...` is
-  an ancestor of `5678d20...` (linear sequence
-  `e18ffd7 -> 2540acf -> 5678d20` on this branch);
-- the reviewed Attempt 2 Reviewer HEAD named by `current-task.md`,
-  `d6b1acd1572bf55de8cb85ed303059b832daa55d` (this Reviewer's own prior
-  Attempt 2 report commit), is an ancestor of the recorded starting HEAD;
-- the correlation header of `coder-report.md` at the derived commit names
-  Task ID `PMQA-5C.7`, Attempt `3`, branch
-  `agent/task-5c-1-canonical-run-contract`, and starting HEAD
-  `e18ffd74a5cf1a6d97de3709177af86ac073de46`, matching `current-task.md`;
-- `git diff --stat 2540acf..5678d20` touches only
-  `agent-handoff/coder-report.md`, so the derived commit is the report's
-  latest authorized change with no later unauthorized replacement.
+  `13e8518394ca0640d92f9ad9ef73979e56e50c9b`;
+- `git log -1 --format=%H -- agent-handoff/current-task.md` ->
+  `7f5cdfe5b5fd986b44bcb637c33c9f7abe6c5833`, matching the Coder's recorded
+  starting HEAD exactly;
+- `git merge-base --is-ancestor 7f5cdfe5... e4cceed2...` succeeds and
+  `git merge-base --is-ancestor e4cceed2... 13e85183...` succeeds; `git log
+  --oneline 7f5cdfe5..13e85183` shows the exact linear sequence
+  `7f5cdfe -> e4cceed -> 13e8518`, and `HEAD` equals
+  `origin/agent/task-5c-cumulative-closure`;
+- `git show 7f5cdfe5...:agent-handoff/current-task.md` names Task ID
+  `PMQA-5C-CLOSURE`, Attempt `1`, branch
+  `agent/task-5c-cumulative-closure`, main base
+  `d0186f2f8d37e3b52029a8c3195226e4432a6b43`, and approved Task 5C boundary
+  `9d2ba638c9692eb542bb6d1c023388d959573316` — matching the correlation
+  header of `coder-report.md` at the derived commit exactly;
+- the implementation commit `e4cceed2...` alone touches exactly the 7 files
+  named in the current task's `Allowed Changes` documentation set; the
+  report-only commit `13e8518...` touches only `agent-handoff/coder-report.md`,
+  so the derived commit is the report's latest authorized change with no
+  later unauthorized replacement.
 
 This Reviewer report does not contain or predict its own commit SHA. The
 Architect derives the Reviewer report commit from Git and records it in
@@ -47,198 +55,271 @@ Architect derives the Reviewer report commit from Git and records it in
 
 ## Independent Review Method
 
-Inspection order completed:
+This review was performed in the isolated Git worktree at the branch's own
+checkout (not the primary Task 5D checkout), with a dedicated, freshly
+created Python virtual environment installed from this worktree's own
+`pyproject.toml` — the primary checkout's shared `.venv` has an editable
+`pmqa` install that resolves to the *other* (Task 5D) branch, so reusing it
+would have silently validated the wrong tree. This dedicated environment
+was necessary before any of steps 2–4 below could produce trustworthy
+independent evidence.
 
-1. `current-task.md` and acceptance criteria (the Architect's reproduced
-   `invocation=1, retry=1, fallback=1` impossible payload and the required
-   valid/rejection case lists);
-2. named baseline-to-implementation diff (`e18ffd7..2540acf`) — full read of
-   the two-line `pmqa/usage/summary.py` change and the entire added section
-   of `tests/test_usage_summary.py`;
-3. independently selected validation (see Test Evidence), including hand-
-   tracing every boundary case of the new inequality and independently
-   reproducing the Architect's exact reported scenario against the
-   remediated code, both independent of the Coder's own tests;
-4. full `coder-report.md` (read only after steps 1-3).
+Inspection order:
 
-Active-task `architect-review.md` read before publication: No
+1. `current-task.md` and its acceptance criteria (four Required Audits: Git/
+   scope boundary, cumulative architecture coherence, documentation closure,
+   release/packaging evidence);
+2. the named baseline-to-implementation diff
+   (`7f5cdfe5...e4cceed2`, the full one-commit documentation closure) and
+   the named cumulative range (`d0186f2f...HEAD`) — full line-by-line read
+   of all 7 changed Markdown files, `git diff --stat` of the full cumulative
+   range against the Coder's claimed 47-file inventory, and targeted source
+   reads of `pmqa/run/models.py` (`RunRecord`), `pmqa/usage/contracts.py`
+   (unavailable/zero evidence), and every top-level import in
+   `pmqa/run`, `pmqa/runners`, `pmqa/application`, `pmqa/usage`;
+3. independently selected and independently executed validation (see Test
+   Evidence), including a from-scratch relative-Markdown-link check and
+   independent Git ancestry/commit-count/commit-existence spot checks not
+   copied from the report;
+4. full `coder-report.md`.
+
+Active-task `architect-review.md` read before publication: No.
 
 Prior closed review or architecture material consulted, with reason: this
-Reviewer authored the Attempt 1 and Attempt 2 reviews of this same task
-(`agent-handoff/reviewer-report.md` at commits `569c519` and `d6b1acd`,
-superseded by this report), neither of which caught this specific
-retry/fallback-exclusivity gap; that history is directly relevant to how
-carefully this attempt needed to be checked, so I compared the Attempt 2
-code (via `git diff e18ffd7..2540acf`) directly against my own recollection
-of what Attempt 2 validated, rather than re-deriving the gap from
-`architect-review.md` (unread, per protocol).
+Reviewer's own prior report at this file's path (Task 5C.7 Attempt 3, commit
+`d6b1acd...`, superseded by this report — read via the file's committed
+state) was read only to recover the fact that this worktree's `main` branch
+was previously reviewed checkpoint-by-checkpoint on
+`agent/task-5c-1-canonical-run-contract`, and to keep this report's
+structure consistent with established protocol precedent. No
+closure-specific finding, gap, or conclusion was taken from it; this
+closure task explicitly instructs not reopening settled per-checkpoint
+design choices, so individual Task 5C.1–5C.7 contract details already
+reviewed at their own checkpoints were spot-checked rather than
+re-litigated in full.
 
 ## Review Depth
 
 Actual Review Depth: Deep
 
-Review Depth Reason: although the diff is minimal (a two-line boolean
-condition plus tests), this is the third consecutive attempt on Task 5C.7
-where a prior attempt's own passing test suite still admitted a real
-contradiction the Architect found by direct adversarial construction — the
-Coder's own tests are necessarily a weaker signal here than for a typical
-checkpoint. I hand-traced the new inequality against every boundary case
-(zero, single-category, combined, and over-limit predecessor counts) rather
-than only running the provided tests, and independently reproduced the
-Architect's exact reported scenario. This is a stricter depth than the
-Coder's own "Standard" recommendation, chosen because of this task's
-specific track record, not because the diff itself is large or complex.
+Review Depth Reason: this is a release-boundary certification covering a
+53-commit cumulative diff across four provider-neutral trust boundaries
+(`pmqa.run`, `pmqa.runners`, `pmqa.application`, `pmqa.usage`), persistence,
+aggregation, packaging, and the handoff protocol itself — a defect here
+(an overstated documentation claim, a Task 5D file leaking onto this
+branch, or a broken cumulative invariant) would misrepresent what is safe
+to carry into a future PR against `main`. The Coder's own recommendation
+was Deep for the same reason. I independently re-derived every claimed
+commit count and file count from Git rather than trusting the report,
+built a dedicated environment to avoid silently validating the wrong
+branch, independently re-checked all 18 tracked Markdown files' relative
+links from scratch, and spot-verified (rather than re-litigated in full)
+four cross-boundary architecture invariants directly against source.
 
 ## Overall Assessment
 
-The remediation is correct, minimal, and precisely scoped. The entire
-production change is:
+The remediation is documentation-only, correctly scoped, and accurately
+closes the cumulative Task 5C status. `git diff --stat 7f5cdfe5..e4cceed2`
+confirms the change touches exactly 7 files
+(`README.md`, `docs/Roadmap.md`, `docs/architecture.md`, and the four
+existing Task 5C architecture documents) — precisely the current task's
+`Allowed Changes` set, with no production, test, fixture, schema,
+packaging, generated-asset, or handoff-file change.
 
-```python
-if (
-    retry_invocation_count > invocation_count
-    or fallback_invocation_count > invocation_count
-    or retry_invocation_count
-    > invocation_count - fallback_invocation_count
-):
-    raise ValueError("predecessor counts cannot exceed invocation count")
-```
+**Git and scope boundary** (Required Audit 1). I independently reproduced
+every cited SHA and count without relying on the report: `git rev-list
+--count d0186f2f...9d2ba638...` returns exactly `53`, matching the claimed
+main-base-to-approved-boundary commit count; `git rev-list --count
+d0186f2f...HEAD` returns `57` (the 53 plus the 4 closure-task publications:
+`a9d0ae1` define, `7f5cdfe` isolate, `e4cceed` close, `13e8518` report);
+`git merge-base d0186f2f... HEAD` returns exactly `d0186f2f...` itself,
+proving this branch is a clean linear descendant of `main` with no rebase,
+squash, or history rewrite. `git diff --stat d0186f2f...HEAD` returns
+exactly 47 changed files, matching the Coder's inventory file-for-file (Run,
+Runner, Application, Usage, `pmqa/security/boundary_policy.py`,
+`.gitignore`, the 16 listed test files, 7 documentation files, and 5
+`agent-handoff/*.md` protocol files) — no `pmqa/web`, no `frontend/`, no
+conversation/Web/TypeScript file, and no unexplained file appears anywhere
+in that diff. I spot-checked 4 of the named commit-inventory SHAs
+(`7051a51f...` Task 5C.1, `838ed1de...` AI-team protocol,
+`2252c147...` Task 5C.4, and the boundary `9d2ba638...` itself) with `git
+cat-file -t` and `git rev-list`, confirming each exists as a real commit and
+the three within-range SHAs are genuinely inside
+`d0186f2f...9d2ba638...`. `git log --merges d0186f2f...HEAD` is empty,
+confirming no merge occurred and Task 5D history was not merged into this
+branch — consistent with this worktree's own `pyproject.toml` lacking the
+`platformdirs`/`uvicorn`/`fastapi` dependencies the Task 5D Web checkpoint
+added on the other branch, an independent structural confirmation that this
+branch genuinely predates and excludes that later work.
 
-added to the existing shared `_validate_metrics` function, which — as I
-confirmed by re-reading its two call sites — is already invoked by both
-`UsageSummary.validate_group_coverage` and
-`UsageProviderModelSummary.validate_group`, so this single change applies
-the invariant at both the top level and every provider/model group without
-introducing a second, duplicated policy (matching "the invariant must apply
-to both top-level `UsageSummary` and every `UsageProviderModelSummary`").
+**Cumulative architecture coherence** (Required Audit 2). I did not
+re-litigate individual Task 5C.1–5C.7 checkpoint design choices already
+settled at their own reviews, per the task's explicit instruction, but
+independently spot-verified four claims the cumulative audit rests on
+directly against source rather than accepting the report's prose: (1) `grep`
+across every top-level `import`/`from` line in `pmqa/run/__init__.py`,
+`pmqa/run/models.py`, `pmqa/runners/*.py`, `pmqa/application/*.py`, and
+`pmqa/usage/*.py` for `playwright`, `langgraph`, `product`, or `provider`
+returned no matches, confirming generic import laziness; (2)
+`pmqa/run/models.py:626-648`'s `RunRecord` fields
+(`run_id`, `request_id`, `session_id`, `workflow_id`, `workflow_version`,
+`runner_id`, `status`, `references`, timestamps, `result`, `artifacts`,
+`errors`, `runner_invocation_ids`, `outcome_metrics`) contain no prompt,
+provider-SDK object, usage record, pricing table, conversation state,
+workflow checkpoint, or credential field — `runner_invocation_ids` is a
+bounded tuple of correlation strings only, not an embedded usage payload;
+(3) `pmqa/usage/contracts.py` defines an explicit `UNAVAILABLE` evidence
+source distinct from a reported zero, with `unavailable_fields` validators
+that reject token counts when the source is `UNAVAILABLE`, confirming zero
+remains distinguishable from unavailable; (4) the full default suite
+(`1840 passed, 5 skipped`, see Test Evidence) exercises Task 4/5/Product
+Pack compatibility, and none of those tests were touched by this closure's
+one documentation commit. No cumulative contract, correlation, security,
+import-isolation, or packaging defect was found in this spot-check pass.
 
-I hand-traced the third condition's safety: because Python's `or` short-
-circuits left-to-right, `retry_invocation_count > invocation_count -
-fallback_invocation_count` is only ever evaluated once both preceding
-conditions (`retry > invocation_count`, `fallback > invocation_count`) have
-already been confirmed `False` — meaning `fallback_invocation_count <=
-invocation_count` is guaranteed at the point the subtraction runs, so
-`invocation_count - fallback_invocation_count` can never go negative and
-there is no underflow/wrap risk. Since `retry_invocation_count`,
-`fallback_invocation_count`, and `invocation_count` are already
-Pydantic-bounded to `[0, MAX_USAGE_SUMMARY_RECORDS]` by their own field
-definitions before this model-level validator ever runs, and Python
-integers are arbitrary-precision (no wraparound), the comparison is safe
-under every reachable input. I independently verified every boundary the
-task's Required Valid/Rejection Cases list names by hand-evaluating the
-three-way `or` expression: `(0,0,0)`, `(1,0,0)`, `(1,1,0)`, `(1,0,1)`, and
-`(2,1,1)` (invocation, retry, fallback) all evaluate to `False` (accepted);
-`(1,1,1)`, `(2,2,1)`, and `(3,2,2)` all evaluate to `True` (rejected) —
-matching every case the task and the Coder's tests enumerate.
+**Documentation closure** (Required Audit 3). I read the full diff of all 7
+changed files line-by-line: every edit consistently states Task 5C.1–5C.7
+passed checkpoint-level and cumulative closure verification, names the
+exact main base and approved boundary SHAs, states the branch is ready for
+independent cumulative review and a later final PR while explicitly
+remaining unmerged and not yet `Complete` on `main`, and states Task 5D is
+excluded from this release branch. I then independently `grep`-searched the
+*entire* `README.md` and `docs/` tree (not only the 7 changed files) for
+`"ready for architecture review"` and `"in progress and unmerged"` and found
+zero remaining matches, and searched for every file mentioning "Task 5C" at
+all (`README.md`, `agent-handoff/README.md`, and the same 7 changed docs) —
+confirming no stale status claim was left unaddressed anywhere in the
+tracked documentation tree, and that no file outside the allowed set needed
+a change. The "Usage/Cost remains a foundation, not a live adapter" language
+required by the task was already present and accurate in the surrounding
+unchanged text (e.g. "These checkpoints add no repository-backed summary,
+parser, calculator, CLI summary, optimizer, real provider integration, or
+pricing table"), correctly left untouched per the task's "change only
+genuinely stale" instruction.
 
-I independently reproduced the Architect's exact reported scenario — a
-`UsageSummary.from_dict()` wire payload with `invocation_count=1,
-retry_invocation_count=1, fallback_invocation_count=1` applied
-simultaneously at both the top level and the sole `provider_model_groups`
-entry, so that Attempt 2's cross-level roll-up reconciliation (added to fix
-the prior finding) would have found the two levels "consistent" with each
-other despite both being individually impossible — directly against the
-remediated code, independent of the Coder's own tests, and confirmed it now
-raises `UsageSummaryValidationError` rather than being silently accepted.
-
-The diff is correctly scoped to exactly the two allowed files
-(`pmqa/usage/summary.py`, `tests/test_usage_summary.py`); no public field,
-enum, schema version, error code, cross-level reconciliation rule, ordering,
-canonical serialization, or aggregation output changed — confirmed both by
-reading the two-line production diff and by every pre-existing test (from
-Attempt 1 and Attempt 2, none modified) continuing to pass unchanged.
-
-All validation commands listed in `current-task.md`, run independently
-rather than accepted from the Coder report, pass with no failures, errors,
-or unexplained skips.
+**Release and packaging evidence** (Required Audit 4). `tests/test_packaging.py`
+(independently rerun, `3 passed`, from this worktree's own dedicated
+environment) builds the real wheel from a copied source tree excluding
+`.git`/`.venv`/caches and asserts required Run/Runner/Application/Usage
+modules and forbidden test/artifact/cache entries. The full default suite
+and the generated-test suite were independently rerun and stayed offline
+with no company system, provider, paid model, browser, or external network
+access.
 
 ## Findings
 
-None. The predecessor-exclusivity gap the Architect reported is
-independently confirmed closed by direct reproduction and by hand-tracing
-the boundary logic, and no new gap surfaced during this Deep inspection.
+None blocking, and none advisory. No defect against any stated acceptance
+criterion was found in this closure task's own scope, and the targeted
+cumulative-architecture spot checks above did not surface a contradiction.
 
 ## Acceptance Criteria Coverage
 
 | Acceptance criterion | Evidence | Result |
 | --- | --- | --- |
-| No canonical top-level or provider/model summary can count one invocation in both retry and fallback categories | Hand-traced the new inequality's short-circuit safety and boundary cases; independently reproduced the exact Architect-reported `(1,1,1)` payload at both levels simultaneously and confirmed rejection | Met |
-| Valid combinations, including one retry plus one fallback across two invocations, remain accepted | Hand-evaluated `(2,1,1)` against the inequality (`False`, accepted); `test_valid_predecessor_aggregate_combinations_remain_canonical` independently rerun across all 7 required valid cases | Met |
-| All public contract entry points enforce the invariant | `_validate_metrics` runs inside a `model_validator(mode="after")`, which Pydantic invokes for direct construction, `from_dict`'s `model_validate`, and `model_copy`'s `model_validate`, at both `UsageSummary` and `UsageProviderModelSummary`; `test_top_level_retry_fallback_overlap_is_rejected` and `test_provider_group_retry_fallback_overlap_is_rejected` (each exercising all three entry points) independently rerun | Met |
-| Fixed safe errors and exact resource/control-flow behavior remain intact | Reconciled overlap raises plain `ValueError` inside the validator, which the existing `_SummaryContract.from_dict`/`_RunContract.from_dict` chain converts to the fixed `UsageSummaryValidationError`; `test_reconciled_top_and_group_predecessor_overlap_is_rejected_safely` (marker/cause/context checks) independently rerun | Met |
-| Valid aggregator output and canonical serialization remain unchanged | No change to `DefaultUsageAggregator`, cross-level reconciliation, ordering, or serialization code; every Attempt 1/2 test (canonical round-trips, input-order independence, maximum-cardinality) is untouched in the diff and independently rerun unchanged | Met |
-| Existing Task 5C.4-5C.7 and full regressions remain green | 279 focused + 332 regression + 98 Task 4 + 1840/5-skip full suite + 2 Playwright, all independently run, all pass | Met |
-| Only allowed files changed | `git diff --stat e18ffd7..2540acf` shows exactly `pmqa/usage/summary.py` and `tests/test_usage_summary.py`; no documentation, import, or packaging file touched, consistent with the task's explicit "no documentation, import, or packaging change is expected" | Met |
+| Branch history is exactly based on `d0186f2...` and stops at the approved boundary plus this closure work | `git merge-base d0186f2f... HEAD` == `d0186f2f...`; `git rev-list --count` confirms 53 + 4 = 57 commits; no merge commit in range | Met |
+| No Task 5D production/Web/conversation/frontend change appears in the cumulative diff | `git diff --stat d0186f2f...HEAD` (47 files) independently enumerated, file-for-file matches the Coder's inventory with no `pmqa/web`/`frontend`/conversation file; this worktree's own `pyproject.toml` lacks the Task 5D Web dependencies | Met |
+| All Task 5C.1–5C.7 checkpoint surfaces and the AI-team protocol are inventoried and explained | Commit inventory spot-checked (4 SHAs independently confirmed to exist and fall in-range); changed-file inventory matches Run/Runner/Application/Usage/security/tests/docs/handoff groupings exactly | Met |
+| No cumulative contract, correlation, security, import-isolation or packaging defect is found, or any genuine defect is reported without an unauthorized repair | Four targeted architecture spot checks (import laziness, `RunRecord` field isolation, zero-vs-unavailable, full-suite compatibility) independently confirmed; no defect found or repaired | Met |
+| Documentation consistently says Task 5C is cumulative-review/PR-ready but unmerged | Full line-by-line read of all 7 changed files plus a whole-tree grep for stale wording (zero remaining matches) | Met |
+| No live usage/provider capability is overstated | Existing "no repository-backed summary, parser, calculator ... or pricing table" language confirmed present and correctly left unchanged | Met |
+| Focused, packaging, full and generated-test regressions pass | `685 passed` focused; `3 passed` packaging; `1840 passed, 5 skipped` full; `2 passed` generated — all independently rerun from a dedicated environment and matching the Coder's claims exactly | Met |
+| Markdown links and `git diff --check` pass | Independent from-scratch relative-link check across all 18 tracked `.md` files (link count and file count matched the Coder's claim); `git diff --check` independently rerun, exit `0` | Met |
+| Only allowed documentation/report files change | `git diff --stat 7f5cdfe5..e4cceed2` shows exactly the 7 allowed files; `git diff --stat e4cceed2..13e8518` shows only `agent-handoff/coder-report.md` | Met |
+| Local and remote branch heads agree and the worktree is clean | `git status --short` empty before and after review; `HEAD` equals `origin/agent/task-5c-cumulative-closure` | Met |
+| No PR is created and nothing is merged | `git log --merges d0186f2f...HEAD` empty; no local evidence of a merge into `main` | Met |
 
 ## Test Evidence
 
 ### Coder Evidence Reviewed
 
-The Coder report claims: 64 summary-only focused tests; 279 passed for
-summary + repository + collector + Task 5C.4 usage/pricing + import tests;
-332 passed for the Run/Runner/Application/boundary/packaging regression set;
-98 passed for the Task 4 orchestration set (one pre-existing LangGraph
-deprecation warning); 1840 passed, 5 skipped for the full default suite; 2
-passed for `products/demo/generated_tests`; `compileall` and
-`git diff --check` clean; clean worktree. This claimed evidence was read
-only after independent execution below and matches it exactly.
+The Coder report claims: `685 passed` for the Task 5C focused Run/Runner/
+Application/Usage/security group; `3 passed` real-wheel packaging; `1840
+passed, 5 skipped` full default offline suite; `2 passed` generated
+SauceDemo Playwright regressions; clean isolated `compileall`; all `18`
+tracked Markdown files passing relative-link validation; clean `git diff
+--check`. This claimed evidence was read only after independent execution
+below (see Independent Review Method); every independently reproduced count
+matches it exactly.
 
 ### Independently Run
 
-All commands below were executed by the Reviewer directly, before reading
-the Coder's claimed results, from the repository root on the reviewed
-branch:
+All commands below were executed by the Reviewer directly, from this
+worktree's own dedicated `.venv` (created fresh for this review — the
+shared `.venv` on the primary checkout resolves `pmqa` to the other Task 5D
+branch and would not have validated this branch's actual code):
 
-- `.venv/bin/python -m pytest tests/test_usage_summary.py tests/test_usage_repository.py tests/test_usage_collector.py tests/test_usage_contracts.py tests/test_usage_pricing.py tests/test_usage_imports.py -q`
-  -> `279 passed`
-- `.venv/bin/python -m pytest tests/test_run_contracts.py tests/test_runner_contracts.py tests/test_application_contracts.py tests/test_application_service.py tests/test_boundary_policy.py tests/test_packaging.py -q`
-  -> `332 passed`
-- `.venv/bin/python -m pytest tests/test_workflow_runtime.py tests/test_workflow_reducer.py tests/test_supervisor_policy.py tests/test_langgraph_workflow.py -q`
-  -> `98 passed, 1 warning` (pre-existing `LangChainPendingDeprecationWarning`,
-  unrelated to this change)
-- `.venv/bin/python -m pytest -q` (full default suite) -> `1840 passed, 5 skipped, 1 warning`
-- `.venv/bin/python -m pytest products/demo/generated_tests -q` -> `2 passed`
-- `PYTHONPYCACHEPREFIX=<isolated scratch directory> .venv/bin/python -m compileall -q pmqa products`
-  -> exit code `0`, no output
-- `git diff --check` -> exit code `0`, no output
-- `git status --short` -> empty (clean worktree)
+- `.venv/bin/python -m pytest tests/test_run_contracts.py
+  tests/test_run_imports.py tests/test_runner_contracts.py
+  tests/test_runner_imports.py tests/test_mock_runner.py
+  tests/test_application_contracts.py tests/test_application_imports.py
+  tests/test_application_registry.py tests/test_application_service.py
+  tests/test_usage_contracts.py tests/test_usage_imports.py
+  tests/test_usage_pricing.py tests/test_usage_collector.py
+  tests/test_usage_repository.py tests/test_usage_summary.py
+  tests/test_boundary_policy.py -q` -> `685 passed`
+- `.venv/bin/python -m pytest tests/test_packaging.py -q` -> `3 passed`
+- `.venv/bin/python -m pytest -q` (full default suite) -> `1840 passed,
+  5 skipped, 1 warning` (the one warning is the pre-existing
+  `LangChainPendingDeprecationWarning`, unrelated to this closure)
+- `.venv/bin/python -m pytest products/demo/generated_tests -q` ->
+  `2 passed`
+- `.venv/bin/python -m compileall -q pmqa products` with
+  `PYTHONPYCACHEPREFIX` pointed outside the worktree -> exit `0`, no
+  tracked bytecode written (`git status --short` remained empty)
+- `git diff --check` -> exit `0`, no output
+- `git status --short` -> empty (clean worktree), before and after review
 
-In addition, and independent of the Coder's own tests, I directly
-reproduced the Architect's exact reported scenario against the remediated
-code in an ad hoc script: constructed a summary via the real aggregator,
-then set `retry_invocation_count=1` and `fallback_invocation_count=1` on
-both the top-level wire and its sole `provider_model_groups` entry
-(`invocation_count=1` throughout, so the individual per-category bounds and
-Attempt 2's cross-level roll-up both "pass" while the aggregate is still
-impossible), and confirmed `UsageSummary.from_dict(wire)` now raises
-`UsageSummaryValidationError` rather than succeeding.
+In addition, independently and without relying on the Coder's own claims:
 
-No listed validation command was left unrun. No test was skipped by
-Reviewer choice. Environment: local `.venv` (Python 3.9), macOS/Darwin, no
-network access used or required.
+- wrote and ran a from-scratch Python script that enumerates `git ls-files
+  '*.md'` (18 files, matching the Coder's count), extracts every
+  `[text](target)` relative link, and resolves it against the linking
+  file's own directory: all links in all 18 files resolved successfully;
+- `git rev-list --count d0186f2f...9d2ba638...` -> `53`; `git rev-list
+  --count d0186f2f...HEAD` -> `57`; `git merge-base d0186f2f... HEAD` ->
+  `d0186f2f...` itself;
+- `git diff --stat d0186f2f...HEAD` -> 47 files, independently enumerated
+  and compared name-for-name against the Coder's inventory;
+- `git cat-file -t` and `git rev-list` spot checks on 4 named commit SHAs
+  from the inventory, confirming existence and correct range membership;
+- `git log --merges d0186f2f...HEAD` -> empty;
+- targeted `grep` of every top-level import in `pmqa/run`, `pmqa/runners`,
+  `pmqa/application`, `pmqa/usage` for `playwright`/`langgraph`/`product`/
+  `provider` -> no matches;
+- read `pmqa/run/models.py:626-648` (`RunRecord`) and confirmed no prompt,
+  usage, pricing, conversation, checkpoint, or credential field is present;
+- read the `UNAVAILABLE`/zero-distinction logic in `pmqa/usage/contracts.py`;
+- whole-tree `grep` of `README.md` and `docs/` for stale "ready for
+  architecture review" / "in progress and unmerged" wording -> zero
+  remaining matches.
+
+Environment: a dedicated `.venv` (Python 3.9) created fresh in this
+worktree from its own `pyproject.toml[dev]`, macOS/Darwin, no network
+access used or required. I did not rebuild the wheel a second time myself,
+relying on `test_packaging.py`'s independent from-scratch wheel build/import
+test (which I did rerun, `3 passed`), since a second manual rebuild would
+only re-verify determinism already exercised by that test.
 
 ## Security, Scope, and Compatibility
 
-Security observations: the new invariant fails through the same fixed,
-marker-safe path as every other Task 5C.7 contract failure — a plain
-`ValueError` inside the shared `model_validator`, converted by the existing
-`_SummaryContract.from_dict` chain into the fixed `UsageSummaryValidationError`
-with no cause, context, count, identifier, provider/model, or marker leaked.
-No new error code, public field, or prohibited-key surface was introduced.
+Security observations: none specific to this closure — it is a
+documentation-only change with no runtime, contract, or handoff-boundary
+modification. The four spot-checked cumulative invariants (import laziness,
+`RunRecord` field isolation, zero-vs-unavailable evidence, and the absence
+of any merge bringing in Task 5D code) remain intact.
 
-Scope observations: the diff touches only `pmqa/usage/summary.py` and
-`tests/test_usage_summary.py`, plus the Coder-owned report in a separate
-commit. No documentation, import-isolation, or packaging file changed,
-matching the task's explicit expectation that none would be needed.
+Scope observations: `git diff --stat 7f5cdfe5...e4cceed2` shows exactly the
+7 files the current task's `Allowed Changes` lists; no production Python or
+TypeScript, test, fixture, schema, packaging configuration, generated
+asset, Product Pack, product code, or another role's handoff file changed.
+The report-only commit `e4cceed2...13e8518` touches only
+`agent-handoff/coder-report.md`.
 
-Compatibility observations: every Attempt 1 and Attempt 2 test not directly
-touching predecessor-count boundaries continues to pass unmodified,
-confirming legitimate `DefaultUsageAggregator` output (which by construction
-never produces an invocation double-counted as both retry and fallback,
-since each `AIInvocationRecord`'s own `attempt_number`/predecessor
-invariants already enforce at-most-one predecessor per invocation) continues
-to satisfy the new, stricter validator without any behavioral change to
-normal aggregation.
+Compatibility observations: the full default suite (`1840 passed, 5
+skipped`) and the focused Task 5C group (`685 passed`) both independently
+reproduced exactly, confirming this closure introduced no regression to
+Task 4, Task 5, Product Pack, or any Task 5C.1–5C.7 checkpoint behavior —
+consistent with the change being documentation-only.
 
 ## Verdict
 
@@ -249,24 +330,23 @@ disposition.
 
 ## Suggested Architect Focus
 
-- The reported gap is independently confirmed closed by direct reproduction
-  and by hand-tracing the boundary logic, not just by re-running the
-  Coder's own tests. Nothing further is blocking from this Reviewer's
-  independent inspection.
-- This is the third consecutive attempt on Task 5C.7 where a genuine
-  cross-field or cross-level contract gap was caught only by the
-  Architect's own adversarial construction, not by the Coder's or this
-  Reviewer's own testing at the prior attempt. I flagged this pattern in
-  the Attempt 2 report as well; repeating it here because the underlying
-  cause seems consistent across all three instances: each attempt's tests
-  verified the fields being changed, but not the *interaction* between a
-  new/existing invariant and a sibling invariant already present elsewhere
-  in the same contract (Attempt 1: per-field aggregate bounds without
-  cross-level rollup; Attempt 2: cross-level rollup without predecessor
-  mutual exclusivity). If Task 5C.7 is now feature-complete, it may be
-  worth a short final adversarial pass enumerating *pairs* of already-
-  individually-valid nested contradictions before moving to the next
-  checkpoint, rather than continuing to find them one at a time.
+- No blocking finding surfaced from this Deep, independently reproduced
+  review. The Git/scope boundary, cumulative architecture spot checks,
+  documentation closure, and release/packaging evidence all independently
+  confirm the Coder's claims.
+- This review deliberately did not re-litigate individual Task 5C.1–5C.7
+  checkpoint design choices already settled at their own reviews, per the
+  task's explicit instruction; it instead independently re-derived the
+  Git/file-count evidence for the boundary claim itself and spot-checked
+  four cross-boundary invariants directly against source. If the Architect
+  wants full-depth re-verification of every individual checkpoint's
+  contract as part of final `main` PR disposition, that would be a
+  separate, larger review than this closure task's own scope calls for.
+- Confirm the Architect is comfortable relying on this worktree's own
+  freshly created `.venv` (rather than a shared one) as the basis for
+  future validation of this branch, since the primary checkout's shared
+  environment resolves to the other, unrelated Task 5D branch and would
+  silently produce misleading results if reused here.
 
 ## Reviewer Write-Boundary Confirmation
 
@@ -276,3 +356,6 @@ Repository files changed by Reviewer:
 
 Confirmation: I changed no production code, tests, configuration, schemas,
 packaging, scripts, product documentation, or another role's handoff file.
+The `.venv` created for independent validation is untracked (matches this
+repository's existing `.venv/` gitignore entry) and is not a repository
+file change.
