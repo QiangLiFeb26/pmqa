@@ -61,6 +61,15 @@ provider-neutral and Markdown-only.
 Task 5C has passed checkpoint-level architecture review but has never entered
 `main`. Task 5D work must not enter this branch or this future PR.
 
+Perform this task in an isolated Git worktree checked out at
+`agent/task-5c-cumulative-closure`. The primary PMQA checkout contains the
+later Task 5D frontend and must remain on
+`agent/task-5c-1-canonical-run-contract`. Do not switch the primary checkout
+to this historical branch, and do not delete, move, ignore or commit files
+that appear untracked only because they belong to the later Task 5D branch.
+The worktree's machine-local absolute path is operational context and must not
+be written into repository documentation or reports.
+
 ## Required Audit 1 — Exact Git and Scope Boundary
 
 Derive and report, from Git rather than prose:
