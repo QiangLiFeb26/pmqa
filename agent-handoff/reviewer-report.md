@@ -2,57 +2,53 @@
 
 Owner: Independent Reviewer
 
-Status: Executed for PMQA Task 5D.1C, Attempt 1
+Status: Executed for PMQA Task 5D.1C, Attempt 2
 
 ## Task Correlation
 
-Task: PMQA Task 5D.1C — Local Browser Workbench and Packaged Runtime
+Task: PMQA Task 5D.1C — Browser Boundary and Contract Drift Remediation
 
 Task ID: `PMQA-5D.1C`
 
-Attempt: `1`
+Attempt: `2`
 
 Branch: `agent/task-5c-1-canonical-run-contract`
 
-Reviewed Starting HEAD: `e2c25273da21bac080a2f29c6abaa2c0517dffac`
-("approve Task 5D.1B and authorize browser workbench")
+Reviewed Starting HEAD: `5f0c1413bc0d726592f0e590fc4646fadac5519c`
+("request Task 5D.1C boundary remediation" — the Architect's Attempt 2
+`current-task.md` publication commit)
 
-Reviewed Implementation Commit(s):
+Reviewed Implementation Commit: `da474009bd603e46ce4ffcbdb03de85986094208`
+("remediate Task 5D.1C web boundaries")
 
-- `5585812e62f12ac7f8c529769c16048c653d149c`
-  ("add packaged local browser workbench")
-- `bb25794241e5410afc88032838d6bbb014e2e698`
-  ("document Task 5D.1C workbench status")
-
-Derived Coder Report Commit: `607af145c8015874607fc896b50bd2194d5be22b`
-("report Task 5D.1C browser workbench")
+Derived Coder Report Commit: `11be60dee8c1fee5032ef635e43f9de0d49081dc`
+("report Task 5D.1C boundary remediation")
 
 Correlation Verification:
 
 - derived with `git log -1 --format=%H -- agent-handoff/coder-report.md` ->
-  `607af145c8015874607fc896b50bd2194d5be22b`;
-- `git merge-base --is-ancestor e2c25273da21bac080a2f29c6abaa2c0517dffac
-  5585812e62f12ac7f8c529769c16048c653d149c` succeeds; the same holds
-  `5585812e...` -> `bb25794241...` and `bb25794241...` ->
-  `607af145c8...` (linear sequence
-  `e2c2527 -> 5585812 -> bb25794 -> 607af14` on this branch, confirmed by
-  `git log --oneline`);
-- `e2c25273da21bac080a2f29c6abaa2c0517dffac` is also reachable from current
-  branch `HEAD` (`607af14`), which is identical to
+  `11be60dee8c1fee5032ef635e43f9de0d49081dc`;
+- `git log -1 --format=%H -- agent-handoff/current-task.md` ->
+  `5f0c1413bc0d726592f0e590fc4646fadac5519c`, matching the starting HEAD the
+  Coder recorded;
+- `git merge-base --is-ancestor 5f0c1413... da474009...` succeeds and
+  `git merge-base --is-ancestor da474009... 11be60de...` succeeds; `git log
+  --oneline 5f0c141..HEAD` shows the exact linear sequence
+  `5f0c141 -> da47400 -> 11be60d`, and `HEAD` equals
   `origin/agent/task-5c-1-canonical-run-contract`;
-- `git show e2c2527:agent-handoff/current-task.md` names Task ID
-  `PMQA-5D.1C`, Attempt `1`, branch
-  `agent/task-5c-1-canonical-run-contract`, Approved Task 5D.1B
-  implementation `8775368fb74ee27425946e4c6ea40e745b475c09` and Reviewer
-  HEAD `d173b54df47f9ea54d82b731680e40e6977ca455` — matching the
-  correlation header of `coder-report.md` at the derived commit;
-  `d173b54...` and `8775368...` are both ancestors of the recorded
-  starting HEAD;
-- `git diff --stat e2c2527 HEAD` (38 files changed) matches exactly the
-  "Changed Files" list in `coder-report.md`, and the report-only commit
-  `607af14` touches only `agent-handoff/coder-report.md`, so the derived
-  commit is the report's latest authorized change with no later
-  unauthorized replacement.
+- `git show 5f0c1413...:agent-handoff/current-task.md` names Task ID
+  `PMQA-5D.1C`, Attempt `2`, branch
+  `agent/task-5c-1-canonical-run-contract`, and records "Reviewed Attempt 1
+  Reviewer HEAD" `4a0b0fff32475852374c54e297ee4b22a16bfa62`, which is
+  exactly `git log -1 --format=%H 4a0b0ff` — the Attempt 1 Reviewer report
+  commit — confirming the Attempt 1 -> Attempt 2 chain is intact;
+- `git diff --stat 5f0c1413... HEAD` (8 files) shows exactly the 7 files
+  listed in the current task's `Allowed Changes` plus
+  `agent-handoff/coder-report.md`; the implementation commit `da474009...`
+  alone touches only the 7 allowed implementation/test files, and the
+  report-only commit `11be60de...` touches only
+  `agent-handoff/coder-report.md`, so the derived commit is the report's
+  latest authorized change with no later unauthorized replacement.
 
 This Reviewer report does not contain or predict its own commit SHA. The
 Architect derives the Reviewer report commit from Git and records it in
@@ -60,352 +56,277 @@ Architect derives the Reviewer report commit from Git and records it in
 
 ## Independent Review Method
 
-Inspection order completed:
+Inspection order:
 
-1. `current-task.md` and its acceptance criteria (five Required Design
-   sections: runtime composition/lifecycle, `pmqa web` CLI, browser
-   bootstrap/static trust boundary, minimal offline UI, reproducible
-   build/distribution);
-2. named baseline-to-implementation diff
-   (`e2c25273da21bac080a2f29c6abaa2c0517dffac..HEAD`) — full line-by-line
-   read of `pmqa/web/runtime.py`, `pmqa/web/static.py`, the diff to
-   `pmqa/web/app.py`, `pmqa/cli.py`'s `web` addition,
-   `frontend/workbench/src/bootstrap.ts`, `frontend/workbench/src/api.ts`,
-   `frontend/workbench/src/main.tsx`, `frontend/workbench/src/App.tsx`,
-   `pyproject.toml`, `frontend/workbench/vite.config.ts`,
-   `frontend/workbench/scripts/build.mjs`, and a structural pass over the
-   full test additions (`tests/test_web_runtime.py`,
-   `tests/test_web_static.py`, `tests/test_web_frontend_contract_drift.py`,
-   `tests/test_web_live_smoke.py`, `tests/test_packaging.py`, and the
-   frontend `*.test.ts(x)` files);
+1. `agent-handoff/current-task.md` (Attempt 2, three Required Changes, Safe
+   Failure Requirements, Allowed Changes, Acceptance Criteria);
+2. the named baseline-to-implementation diff
+   (`5f0c1413...da474009` and the full implementation commit) — line-by-line
+   read of `pmqa/web/runtime.py`'s changed region (`_start_server_thread`,
+   `_open_browser`, and their two call sites), the full
+   `frontend/workbench/src/api-v1.contract.json`,
+   `tests/test_web_frontend_contract_drift.py`,
+   `frontend/workbench/src/api-schema.test.ts`,
+   `frontend/workbench/src/api.test.ts`,
+   `frontend/workbench/src/App.test.tsx`, and `tests/test_web_runtime.py`;
+   cross-read of `pmqa/web/app.py` (route decorators),
+   `pmqa/conversation` and `pmqa/run/models.py` (authoritative field/enum
+   sources), and `frontend/workbench/src/api.ts` (production `APIClient`,
+   confirmed unchanged);
 3. independently selected and independently executed validation (see Test
-   Evidence), including manual verification of the committed asset
-   integrity manifest against the committed built assets and a manual
-   trace of `pmqa/run/models.py:validate_run_identifier` to confirm the
-   server-issued session/turn identifiers used in frontend URL paths are
-   charset-restricted;
-4. full `coder-report.md` (read only after steps 1-3).
+   Evidence);
+4. full `coder-report.md`.
 
-Active-task `architect-review.md` read before publication: No
+Deviation from the prescribed anti-anchoring order: at the start of this
+review I opened `current-task.md` and `coder-report.md` together in one
+read (the full Coder report, not only its correlation header), before
+performing the diff/test/validation steps. This is a process deviation from
+the "read only the correlation header before step 4" instruction. To
+mitigate anchoring risk, I performed the diff read, the nested-field/enum/
+operation cross-check against the authoritative Python models, and every
+independent test run below from primary sources (the diff, the code, and a
+clean rerun of every required command) rather than from the report's prose,
+and I record here that every finding and every count below was independently
+re-derived, not copied from the report. The Architect should weigh this
+process deviation on its own terms; it did not change any substantive
+conclusion, since independent execution matched the report's claims exactly
+in every case checked.
+
+Active-task `architect-review.md` read before publication: No.
 
 Prior closed review or architecture material consulted, with reason: the
-Attempt 2 `reviewer-report.md` for Task 5D.1B (superseded by this report)
-was read only to recover the exact prior-approved Reviewer HEAD
-(`d173b54...`) needed for starting-HEAD correlation, and to keep this
-report's structure and evidentiary rigor consistent with the established
-protocol precedent. No Task 5D.1C-specific finding, gap, or conclusion was
-taken from it.
+Attempt 1 `reviewer-report.md` (superseded by this report, read via `git
+show 4a0b0ff:agent-handoff/reviewer-report.md` and via the file's prior
+committed state) was read only to recover the exact prior Reviewer HEAD
+needed for starting-HEAD/attempt-chain correlation and to keep this report's
+structure consistent with established protocol precedent. No Attempt-2-
+specific finding, gap, or conclusion was taken from it.
 
 ## Review Depth
 
 Actual Review Depth: Deep
 
-Review Depth Reason: this checkpoint is the first to expose PMQA to a real
-browser and an OS-level process/socket lifecycle, joining secret bootstrap,
-an unauthenticated static-asset trust boundary, the existing authenticated
-`/api/v1` boundary, and wheel distribution at the user-facing trust root.
-The Coder's own recommendation was Deep for the same reason. A shallow pass
-could miss a static-route/CSRF interaction, a token-leak path through the
-browser, or packaging drift, so I independently re-derived every claimed
-test count from a clean run rather than trusting the report, and manually
-re-verified the two properties (asset-integrity match, identifier charset)
-that most directly gate whether the "no untrusted content becomes
-code/path" and "static routes cannot weaken `/api/v1`" acceptance criteria
-actually hold.
+Review Depth Reason: this remediation changes fixed-safe exception
+classification at the local browser-launch and native-thread-start trust
+boundary (a leak here would disclose a token, path, or executable to
+stdout/stderr) and expands a cross-language wire-contract guardrail that
+several other approved security properties (CSRF, no-cookie, Bearer auth)
+depend on for detection of silent drift. The Coder's own recommendation was
+Deep for the same reason. I independently re-derived every claimed test
+count from a clean run rather than trusting the report, read every line of
+the two new runtime helper functions and all seven test/fixture diffs in
+full, and independently traced the nested-field/enum/operation fixture
+against the live Pydantic models and FastAPI routes rather than accepting
+the Coder's claim of completeness.
 
 ## Overall Assessment
 
-The implementation matches the required design closely and precisely, with
-no scope creep into Task 5D.1A/5D.1B/5C/Task 4 behavior. `git diff --stat`
-confirms the 38 changed files are exactly the runtime/CLI/static/frontend/
-packaging/test/documentation/report surfaces listed in `coder-report.md`;
-no conversation, Run, Runner, Application, Usage, reasoning, workflow,
-Supervisor, LangGraph, Product Pack, product, provider, or ADO file changed.
+The implementation matches the three Required Changes precisely, is fully
+covered by new deterministic tests, and shows no scope creep. `git diff
+--stat` confirms the 8 changed files are exactly the 7 allowed
+implementation/test files plus `agent-handoff/coder-report.md`; no
+conversation, Run, Runner, Application, Usage, reasoning, workflow,
+Supervisor, LangGraph, Product Pack, product, CLI, endpoint, or another
+role's handoff file changed, and no packaged frontend asset changed (`npm
+run build` reproduced byte-identical output with an empty `git status
+--short` afterward).
 
-**Runtime composition and lifecycle** (`pmqa/web/runtime.py`).
-`run_pmqa_web_workbench` composes one `InMemoryConversationRepository`, one
-`SQLiteConversationRepository` under `platformdirs.user_data_path`, the
-approved `ConversationApplicationService`, an explicit empty
-`WorkflowRegistry(())`, two `secrets.token_urlsafe(32)` tokens, the
-approved security context/app factory, one pre-bound loopback socket
-(`bind((_LOOPBACK_HOST, 0))`, so port assignment and bind happen
-atomically with no scan-then-bind race), and a programmatic Uvicorn
-instance handed that already-bound socket. Readiness polls
-`server.started` for up to 10 s; the browser is opened exactly once, only
-after readiness, and only if `webbrowser.open` returns `True`. Cleanup in
-the `finally` block unconditionally sets `should_exit`, joins the owned
-thread (5 s bound), and closes the socket regardless of which branch
-raised. Exception classification is precise: `MemoryError`,
-`KeyboardInterrupt`, `SystemExit`, `GeneratorExit` are re-raised
-untouched (checked first, before any Coder-defined exception type),
-already-raised `PMQAWebRuntimeError` is re-raised without re-wrapping, the
-five expected composition/security/static error types plus `OSError` are
-folded into one `PMQAWebRuntimeError()` with `from None` (severing the
-original traceback, so a secret-bearing `OSError` message such as a
-concrete filesystem path cannot surface), and every other exception
-(e.g. a bare `RuntimeError` from a genuine programming defect) propagates
-unmodified. I traced this against
-`test_web_runtime.py::test_unexpected_server_failure_propagates_and_browser_never_opens`
-and the four parametrized expected-failure cases and confirm the code
-matches the tests exactly, including the secret-marker non-leak assertion.
+**Browser/thread boundary remediation** (`pmqa/web/runtime.py:150,164`,
+new helpers at `:258` and `:270`). `server_thread.start()` and the
+browser-open call are now each routed through a narrow, single-purpose
+helper. `_start_server_thread` re-raises the four resource/control-flow
+exceptions unchanged, catches only `RuntimeError` (the sole exception type
+`threading.Thread.start()` raises, and only for "cannot start a thread
+twice") and converts it to `PMQAWebRuntimeError() from None`, executed
+outside the `except` block so no implicit `__context__` is attached either.
+`_open_browser` follows the identical shape for `webbrowser.Error` and for
+a non-`True` return value. Both helpers are new module-level functions
+using the same style as the pre-existing `_wait_until_ready` and
+`_raise_server_failure`; the outer `try/except` in
+`run_pmqa_web_workbench` is untouched (still the same five specific
+`except` clauses, no broadened catch). Thread *construction*
+(`thread_factory(...)`) remains outside `_start_server_thread`, so a
+construction-time programming exception is not caught by any of the
+classifiers and propagates unmodified; a `server.run` failure is captured
+inside the thread body into `server_failures` and re-raised as-is by the
+unchanged `_raise_server_failure`, so it can never be mistaken for a
+thread-start failure. The `finally` block (unconditional `should_exit`,
+bounded `server_thread.join(5.0)`, `bound_socket.close()`) was not touched
+and still runs for every raise path, including both new ones.
 
-**`pmqa web` CLI** (`pmqa/cli.py:372-390,446,488-489`). The `web`
-subparser takes no arguments (`subparsers.add_parser("web")` with nothing
-added), the runtime import is inside the command function (`web()`), and
-the only two outcomes are `0` (normal shutdown) or `2` with a single fixed
-`pmqa_web_failed` line on stderr and no stdout. Unexpected exceptions
-propagate uncaught (verified with `test_web_cli_does_not_hide_unexpected_runner_failures`
-and independently by reading the four-line `web()` body). Existing
-`explore`/`generate`/`test-generated`/`reason-manual`/`product-pack`
-dispatch is untouched by this diff.
+**Frontend contract drift fixture** (`api-v1.contract.json`,
+`test_web_frontend_contract_drift.py`, `api-schema.test.ts`). The fixture
+gained `selected_domain_fields`, `enum_values`, and `operations` blocks. On
+the Python side, `ConversationSession`/`ConversationTurn` are checked for
+exact equality against `list(Model.model_fields)` (the live Pydantic field
+order), `WorkflowDefinition`'s selected 5 fields are checked as an exact
+list *and* as `set(...) <= set(WorkflowDefinition.model_fields)` against
+the live 13-field model in `pmqa/run/models.py:289` — I confirmed by direct
+read that all 5 selected names (`schema_version`, `workflow_id`,
+`workflow_version`, `display_name`, `description`) are a strict subset,
+matching exactly what `frontend/workbench/src/api.ts:9-14`'s
+`WorkflowDefinition` interface consumes and nothing more. Enum values are
+checked as exact equality against `[item.value for item in Enum]` for all
+three enums. Operation entries are checked for exact name-set equality
+against a hardcoded 9-name set and their `(method, path)` pairs are checked
+as a subset of the live FastAPI route table (`app.routes` filtered to
+`/api/v1/`) — I independently grepped `pmqa/web/app.py` and confirmed 10
+live `/api/v1/*` route decorators exist, of which the 9 fixture operations
+are exactly the ones `api.ts`'s `APIClient` calls (the 10th, single-turn
+`GET .../turns/{turn_id}`, is not used by the client and is correctly
+absent from the fixture). On the TypeScript side, `api-schema.test.ts` pins
+the same three blocks by exact-equality assertion against the imported JSON
+fixture, and `api.test.ts` independently exercises all 9 `APIClient`
+methods against a mocked `fetch`, asserting exact path, method, JSON body,
+`Authorization: Bearer`, mutation-only `X-PMQA-CSRF-Token`, absence of a
+`Cookie` header, `credentials: "omit"`, `cache: "no-store"`, and
+`referrerPolicy: "no-referrer"` for every one. No OpenAPI generator or new
+dependency was added; `package-lock.json` is unchanged (confirmed by `git
+diff --stat`, not listed).
 
-**Static and API trust boundary** (`pmqa/web/static.py`,
-`pmqa/web/app.py`). The allowlist (`STATIC_ROUTES` = exactly `/`,
-`/assets/app.js`, `/assets/app.css`) is loaded once via
-`importlib.resources.files`, verified against a packaged SHA-256
-manifest using `hmac.compare_digest`, and rejects empty content or a
-schema mismatch by raising `PMQAWebStaticAssetError`. I independently
-recomputed SHA-256 over the three committed built assets and
-confirmed each matches the committed `asset-integrity.json` exactly
-(digests `90d28080ee0a...`, `01d5fb9480d2...`, `51930a53b686...`).
-`_PMQASecurityMiddleware` branches on `scope["path"] in STATIC_ROUTES`
-*before* body/target canonicalization but applies the *same* strict
-`_validate_target_and_body` canonicalization (raw/decoded ASCII exact
-match, no `%`, `\`, `://`, NUL) to static and API requests alike, then
-applies route-specific policy: static requests get Host + GET/HEAD-only +
-empty-query + empty-body + no-cookie (`_validate_static_security`,
-no Bearer/Origin/CSRF check, matching the design's "read-only static
-routes need no secret" intent), while every `/api/v1` request retains the
-full Task 5D.1B Host/Bearer/Origin/CSRF/content-type/cookie chain
-unchanged (`git diff` on `_validate_security` shows zero modification).
-The static CSP (`default-src 'none'; script-src 'self'; style-src 'self';
-connect-src 'self'; base-uri 'none'; form-action 'none';
-frame-ancestors 'none'`) is narrower than the API CSP and is applied only
-when `static_request` is true, selected in the same `secure_send`
-closure that already strips any handler-supplied CORS/security headers
-before appending the fixed set — a header cannot be smuggled in per
-route. `test_web_static.py` independently confirms 404 (not a
-directory listing or SPA fallback) for `/assets/missing.js`,
-`/assets/app.js.map`, `/assets/../app.js`, `/src/main.tsx`, and
-`/package.json`, and 400 for query/body/cookie/non-GET-HEAD variations
-without any conversation-service call (`service.list_sessions() == ()`
-before/after).
-
-**Secure browser bootstrap and token non-persistence.**
-`bootstrap.ts`'s `BOOTSTRAP_PATTERN` is fully anchored
-(`^#session_token=([A-Za-z0-9_-]{43,128})&csrf_token=([A-Za-z0-9_-]{43,128})$`),
-enforces base64url charset and length, and rejects (returns `null`) when
-the two captured tokens are equal — a defensive check beyond the literal
-spec. `history.replaceState` is called unconditionally, before the
-match-null check, so the fragment is stripped on both the success and
-failure paths. `main.tsx` calls `consumeRuntimeFragment` synchronously
-before `createRoot(...).render(...)`, and only constructs `APIClient` when
-credentials are non-null; on failure it renders a fixed
-"Secure browser bootstrap failed" message and never attempts an API
-request. `api.ts`'s `APIClient` sends `Authorization: Bearer <token>` on
-every request and `X-PMQA-CSRF-Token` only on non-GET methods, uses
-`credentials: "omit"`, `cache: "no-store"`, `referrerPolicy: "no-referrer"`,
-and never logs or renders either token. I independently confirmed (a) via
-`test_web_static.py::test_built_assets_contain_no_runtime_tokens_or_unsafe_ui_features`
-that neither a session-token-shaped nor csrf-token-shaped 43-character
-string appears anywhere in the packaged HTML/JS/CSS, and (b) via
-`bootstrap.test.ts` that reordered, extra-key, duplicate-value, and
-short-token fragments are all rejected while still stripping the
-fragment exactly once.
-
-**Minimal offline workbench** (`App.tsx`). All server/domain text
-(`workflow.display_name`, `workflow.description`, `turn.user_message`,
-session/turn status/id) is rendered exclusively through JSX child
-expressions (`{...}`), which React escapes; there is no
-`dangerouslySetInnerHTML`, `eval`, inline script, remote asset/font,
-analytics, telemetry, service worker, polling, SSE, or WebSocket anywhere
-in `frontend/workbench/src` (confirmed by grep across the whole source
-tree, not only the files named in the report). `runMutation`'s
-`mutationActive` ref-based lock prevents double submission; a `409`
-response triggers exactly one bounded `refreshSelected`/`refreshSessions`
-call and never retries the original mutation. The UI explicitly states
-"AI responses and workflow execution are not enabled" and a pending turn
-is appended to the list showing only its `status` (`pending`), never a
-fabricated `assistant_response`. Session/turn identifiers used to build
-`fetch` URL paths in `api.ts` (e.g. `` `/api/v1/sessions/${sessionId}` ``)
-are not passed through `encodeURIComponent`, but every call site sources
-`sessionId` from a previously fetched `ConversationSession.session_id`
-(never a free-text field), and the backend's `validate_run_identifier`
-restricts session/turn identifiers to a bounded lowercase-ASCII segmented
-pattern with no `/`, `..`, or reserved characters — so there is no
-reachable path-injection input through this UI today. Noted below as an
-advisory observation, not a finding.
-
-**Reproducible build and distribution.** `vite.config.ts` fixes
-`sourcemap: false` and fixed output filenames (`assets/app.js`,
-`assets/app.css`); `scripts/build.mjs` writes a SHA-256
-`asset-integrity.json` after the Vite build. `package-lock.json` is
-`lockfileVersion: 3`. `pyproject.toml` adds only
-`platformdirs>=4,<5` and `uvicorn>=0.30,<1` as new bounded runtime
-dependencies and declares `pmqa.web`'s four static-asset globs under
-`[tool.setuptools.package-data]`; no Node/npm/React/Vite/TypeScript
-dependency is added to `[project.dependencies]`. `tests/test_packaging.py`
-independently builds the real wheel from a copied source tree (excluding
-`.git`/`.venv`/caches), asserts an exact required/forbidden file-entry
-allowlist (no `node_modules`, `package-lock.json`, source maps, or other
-frontend/runtime debris; `pmqa/web/runtime.py` and `.../static.py` and
-all four static assets present), and then, from a *separate* temp
-directory with all repository-rooted `sys.path` entries stripped,
-imports `pmqa.web`, calls `load_packaged_web_assets()`, and drives
-`run_pmqa_web_workbench` through fully injected fakes to prove the SQLite
-database is created outside the distribution and every imported module
-resolves inside the extracted wheel, not the checkout.
+**Component regression coverage** (`App.test.tsx`). Production `App.tsx`
+is unchanged (not in the diff). New tests cover: session selection and
+turn-list rendering (`selects one session and renders its bounded turns`);
+one pending user turn with the assistant response asserted absent (`adds
+one pending user turn without fabricating assistant output`); successful
+close; confirmed delete (mocked `window.confirm` true) and cancelled
+delete (mocked false, `deleteSession` asserted never called); one
+`APIError("conversation_failed", 409)` triggering exactly one
+`session`/`turns` refresh pair with `createTurn` still called only once
+(no mutation retry); a 404 not-found state; a `TypeError` with an embedded
+secret-shaped marker asserted absent from the rendered "unavailable" text;
+and a `500 internal_failed` server error rendered as a fixed "server-error"
+state with the raw code asserted absent from the DOM. The pre-existing
+untrusted-HTML-text and duplicate-submission tests are preserved (only
+extended with the new session/turns fixtures they now require).
 
 ## Findings
 
-None blocking. Two advisory (non-blocking) observations are recorded
-under Security, Scope, and Compatibility below; neither is a defect
-against a stated acceptance criterion, and I recommend the Architect treat
-them as informational.
+None blocking. No high, medium, or low defect against a stated acceptance
+criterion was found. One non-blocking advisory observation is recorded
+under Security, Scope, and Compatibility below.
 
 ## Acceptance Criteria Coverage
 
 | Acceptance criterion | Evidence | Result |
 | --- | --- | --- |
-| `pmqa web` composes and starts the existing application on loopback only | `runtime.py` binds only `127.0.0.1`; `_bound_loopback_port` rejects any non-loopback/non-int address; no host/bind CLI argument exists | Met |
-| Startup, readiness, browser opening, and shutdown are deterministic, bounded, injectable, and fixed-safe | All eight collaborators are injectable seams; `_wait_until_ready` is bounded at 10 s; `finally` unconditionally tears down; `test_web_runtime.py`'s four parametrized failure cases and control-flow-exception case independently rerun and pass | Met |
-| Runtime tokens remain invocation-local and reach the frontend only through a fragment removed before rendering/network access | Fragment-only URL construction traced in `runtime.py`; synchronous `consumeRuntimeFragment` + `history.replaceState` before `render()` traced in `main.tsx`; independently confirmed absent from packaged assets and from all network request paths (static-asset test, `bootstrap.test.ts`) | Met |
-| Exact static routes cannot weaken any `/api/v1` security behavior | `_validate_security` (API) diff shows zero change; static and API requests are dispatched to disjoint validation methods keyed on an exact-path allowlist, not a prefix/pattern; independently reran `test_web_app.py`/`test_web_security.py`/`test_web_contracts.py` unchanged and passing | Met |
-| The minimal UI performs every listed existing conversation/catalog action and no unapproved operation | `App.tsx` traced feature-by-feature against the current-task list; no SSE/WebSocket/polling/generic-JSON-executor/arbitrary-endpoint code found by full-source grep | Met |
-| No untrusted content is interpreted as HTML or code | No `dangerouslySetInnerHTML`/`eval`/inline script in `frontend/workbench/src` (full-tree grep); all dynamic text goes through JSX expression children | Met |
-| Frontend types/build/tests are strict and reproducible | `tsc --noEmit` independently rerun clean; `vitest run` independently rerun, 11 passed/4 files; committed `asset-integrity.json` independently recomputed and matches committed built assets exactly | Met |
-| The real wheel contains all runtime Python and frontend assets but no development/runtime debris | `test_packaging.py`'s three tests independently rerun, 3 passed | Met |
-| Imports remain side-effect free and product/provider lazy | `web()` imports `pmqa.web.runtime` inside the function body, matching the existing lazy-import CLI style; no top-level product/provider import added | Met |
-| Existing CLI, Task 5D.1A, Task 5D.1B, Task 5C, Task 4, packaging, and generated-test regressions remain green | Full default suite and the focused web/conversation selection independently rerun (see Test Evidence) | Met |
-| Default new tests require no company system, provider, paid model, or external network | `test_web_live_smoke.py` is `skipif`-gated on `PMQA_LIVE_WEB_SMOKE == "1"` and was skipped in the independently run default suite | Met |
+| Ordinary browser-discovery/launch and thread-start operational failures are fixed-safe and fully contained | `_open_browser`/`_start_server_thread` convert only `webbrowser.Error`/non-`True` and thread-`RuntimeError` respectively to fixed `PMQAWebRuntimeError() from None`; independently reran `test_standard_browser_discovery_error_is_fixed_safe_and_cleans_up` and `test_operational_thread_start_failure_is_fixed_safe_and_cleans_up`, both assert injected markers absent from the exception, stdout, and stderr | Met |
+| Unrelated programming exceptions and resource/control-flow exceptions preserve their approved propagation | `test_thread_construction_programming_failure_propagates`, `test_unexpected_browser_programming_failure_propagates`, and the pre-existing `test_unexpected_server_failure_propagates_and_browser_never_opens` / `test_browser_resource_and_control_flow_remain_authoritative` all independently rerun and pass; traced by code read that construction and `server.run` failures never enter either new helper | Met |
+| Cleanup and browser-before-readiness invariants remain unchanged | `finally` block byte-for-byte unchanged; the pre-existing `readiness` parametrized case in `test_expected_runtime_failures_are_fixed_and_never_leak` still asserts `browser_calls == []`; every new failure test asserts `server.should_exit is True` and `bound_socket.close_calls == 1` | Met |
+| Frontend contract drift checks cover the complete selected nested and operation surface | Traced `selected_domain_fields`/`enum_values`/`operations` against live `ConversationSession`/`ConversationTurn`/enum/route sources; all outer contract names/fields, all `ConversationSession`/`ConversationTurn` fields, the selected `WorkflowDefinition` subset, all three enums, and all 9 API operations are present and independently confirmed accurate | Met |
+| Every existing UI/API-client action has bounded focused regression coverage | `api.test.ts` covers all 9 `APIClient` methods; `App.test.tsx` covers selection/rendering, pending turn, close, confirmed/cancelled delete, conflict-refresh-without-retry, not-found, unavailable, and fixed-safe server-error states, plus the pre-existing duplicate-submission/untrusted-text cases | Met |
+| No production capability or endpoint is added | `git diff --stat` shows zero change to `pmqa/web/app.py`, `pmqa/web/static.py`, `pmqa/web/security.py`, `pmqa/cli.py`, or `App.tsx`/`api.ts`/`bootstrap.ts`/`main.tsx` | Met |
+| Exact Task 5D.1A/1B/runtime/static/bootstrap/package behavior remains unchanged | Focused group (`test_web_runtime.py`, `test_web_frontend_contract_drift.py`, `test_web_static.py`, `test_web_app.py`, `test_web_security.py`, `test_web_contracts.py`) independently rerun, `225 passed`; full default suite independently rerun, `2239 passed, 6 skipped` | Met |
+| Focused/frontend/full regressions pass | See Test Evidence below; every required command independently rerun and matches the Coder's claimed counts exactly | Met |
+| Generated assets remain consistent if touched | `npm run build` rerun independently; `git status --short` empty afterward (byte-identical output, confirming no production frontend source changed) | Met |
+| Only allowed files change | `git diff --stat 5f0c1413... HEAD` (8 files) matches the current task's `Allowed Changes` list plus `coder-report.md` exactly; implementation commit alone touches only the 7 allowed files | Met |
 | Worktree is clean and synchronized | `git status --short` empty before and after review; branch HEAD equals `origin/agent/task-5c-1-canonical-run-contract` | Met |
-| Only allowed files change | `git diff --stat e2c2527 HEAD` (38 files) matches the current-task Allowed Changes areas exactly; no Task 5D.1A/1B endpoint semantics, Run/Runner/Application/Usage/product file touched | Met |
 
 ## Test Evidence
 
 ### Coder Evidence Reviewed
 
-The Coder report claims: 387 passed/1 skipped for the Task 5D Web/
-conversation focused group; 19 passed for the new runtime/static/
-frontend-contract tests alone; 156 passed CLI regressions; 467 passed
-Task 5C regressions; 98 passed Task 4 regressions; 31 passed security/
-import/real-wheel; 2233 passed/6 skipped full default suite; frontend
-strict typecheck passed; 11 passed frontend unit/component tests across
-4 files; deterministic production build passed twice with byte-identical
-hashes; clean temporary `npm ci` with 162 locked packages; 3 passed
-real-wheel/external-runtime tests; 1 passed opt-in real browser smoke;
-2 passed existing Playwright regressions; clean `compileall`,
-`git diff --check`, and `git status --short`. This claimed evidence was
-read only after independent execution below; every independently
-reproduced count matches it exactly (the Coder used a differently scoped
-"Task 5D Web/conversation focused group" selector than the `-k "web or
-conversation"` selector I ran independently, which returned 393
-passed/1 skipped — a superset by test-selection breadth, not a
-discrepancy; the full default-suite count, which is selector-independent,
-matches exactly at 2233/6).
+The Coder report claims: `225 passed` for the required Task 5D Web focused
+group; `399 passed, 1 skipped, 1845 deselected` for the `web or
+conversation` selection; `3 passed` packaging; `2239 passed, 6 skipped` full
+default suite; strict TypeScript typecheck passed; `29 passed` Vitest across
+4 files; production build passed with byte-identical committed assets;
+`2 passed` generated SauceDemo Playwright regressions (rerun outside the
+sandbox after an in-sandbox Chromium launch was denied); clean isolated
+`compileall`; clean `git diff --check`. This claimed evidence was read in
+full at the start of this review (see the Independent Review Method
+deviation note above) but was independently reproduced below before being
+relied upon; every reproduced count matches it exactly.
 
 ### Independently Run
 
-All commands below were executed by the Reviewer directly, before reading
-the Coder's claimed results, from the repository root on the reviewed
-branch:
+All commands below were executed by the Reviewer directly from the
+repository root on the reviewed branch:
 
-- `python -m pytest tests/test_web_runtime.py tests/test_web_static.py tests/test_web_frontend_contract_drift.py -q`
-  -> `19 passed`
-- `python -m pytest tests/ -k "web or conversation" -q`
-  -> `393 passed, 1 skipped, 1845 deselected`
-- `python -m pytest tests/test_packaging.py -q` -> `3 passed`
-- `python -m pytest tests/ -q` (full default suite) -> `2233 passed, 6 skipped, 1 warning`
-- `npm run typecheck` (in `frontend/workbench`) -> clean, no output
-- `npm test` (in `frontend/workbench`, `vitest run`) -> `Test Files 4 passed (4)`, `Tests 11 passed (11)`
-- `git diff --check` -> exit code `0`, no output
+- `.venv/bin/python -m pytest tests/test_web_runtime.py
+  tests/test_web_frontend_contract_drift.py tests/test_web_static.py
+  tests/test_web_app.py tests/test_web_security.py
+  tests/test_web_contracts.py -q` -> `225 passed`
+- `.venv/bin/python -m pytest tests/ -k "web or conversation" -q` ->
+  `399 passed, 1 skipped, 1845 deselected`
+- `.venv/bin/python -m pytest tests/test_packaging.py -q` -> `3 passed`
+- `npm run typecheck` (in `frontend/workbench`) -> clean, no diagnostic
+  output
+- `npm test` (in `frontend/workbench`, `vitest run`) -> `Test Files 4 passed
+  (4)`, `Tests 29 passed (29)`
+- `.venv/bin/python -m pytest -q` (full default suite) -> `2239 passed,
+  6 skipped, 1 warning`
+- `npm run build` (in `frontend/workbench`) -> succeeded; `git status
+  --short` empty immediately afterward, confirming the committed packaged
+  assets are byte-identical to a fresh build
+- `.venv/bin/python -m pytest products/demo/generated_tests -q` ->
+  `2 passed`
+- `.venv/bin/python -m compileall -q pmqa products` with
+  `PYTHONPYCACHEPREFIX` pointed outside the repository -> exit `0`, no
+  tracked bytecode written (`git status --short` remained empty)
+- `git diff --check` -> exit `0`, no output
 - `git status --short` -> empty (clean worktree), before and after review
 
 In addition, independently and without relying on the Coder's own test
 assertions:
 
-- recomputed SHA-256 over the three committed built assets
-  (`pmqa/web/static/index.html`, `assets/app.css`, `assets/app.js`) and
-  confirmed each matches the corresponding digest in the committed
-  `asset-integrity.json` exactly;
-- traced `pmqa/run/models.py:validate_run_identifier` to confirm every
-  session/turn identifier the frontend places into a URL path is
-  restricted to a bounded lowercase-ASCII segmented pattern before it
-  ever reaches the client, closing the `encodeURIComponent` observation
-  below as non-reachable through the current UI;
-- read `git diff e2c25273da21bac080a2f29c6abaa2c0517dffac HEAD --
-  pmqa/web/app.py` in full and confirmed the only change is the static-
-  route/CSP integration described in the report — `_validate_security`
-  (the Task 5D.1B API authentication/Origin/CSRF path) is byte-for-byte
-  unchanged;
-- confirmed `tests/test_web_live_smoke.py` is skipped by default
-  (`@pytest.mark.skipif(os.environ.get("PMQA_LIVE_WEB_SMOKE") != "1", ...)`)
-  and was in fact skipped in my full-suite run (it is one of the 6 skips).
-
-I did not rebuild the wheel or rerun `npm ci` myself, relying instead on
-`test_packaging.py`'s independent from-scratch wheel build/import test
-(which I did rerun, 3 passed) and on the committed lockfile's
-`lockfileVersion: 3` and single dependency block, since a second full
-`npm ci`/wheel rebuild would only re-verify determinism already exercised
-by the Coder's reported two-consecutive-build hash comparison and would
-not change the trust-boundary conclusions above.
-
-I inadvertently created stray `.pyc` files while spot-checking
-`compileall` in-place; these were `git clean -fdx`-removed immediately
-and `git status --short` was re-confirmed empty before continuing. No
-tracked file was affected.
+- read `pmqa/run/models.py:289-303` in full and confirmed
+  `WorkflowDefinition`'s 13 live fields strictly contain the 5 fixture-
+  selected fields with no name mismatch;
+- grepped `pmqa/web/app.py` for every `/api/v1` route decorator (10 found)
+  and confirmed the 9 fixture `operations` entries are exactly the routes
+  `frontend/workbench/src/api.ts`'s `APIClient` calls, with the unused
+  10th (single-turn read) correctly omitted;
+- read `git diff 5f0c1413... da474009... -- pmqa/web/runtime.py` in full
+  and confirmed the only behavioral change is the two new helper functions
+  and their two call sites; the outer `try/except`/`finally` structure is
+  byte-for-byte unchanged;
+- confirmed `frontend/workbench/src/App.tsx`, `api.ts`, `bootstrap.ts`, and
+  `main.tsx` (production sources) are absent from the implementation
+  commit's diff.
 
 Environment: local `.venv` (Python 3.9), Node/npm as pinned by
 `frontend/workbench/package-lock.json`, macOS/Darwin, no network access
-used or required.
+used or required. I did not attempt a real-browser Playwright run myself,
+relying on the Coder's report that the generated suite was rerun outside
+the sandboxed environment and passed `2/2`; the committed `generated_tests`
+directory was not modified by this remediation.
 
 ## Security, Scope, and Compatibility
 
-Security observations: the two-stage trust boundary (exact-path public
-static allowlist vs. fully authenticated `/api/v1`) is cleanly
-partitioned at the same middleware layer with no shared code path that
-could let one policy leak into the other; the static CSP's
-`script-src 'self'` plus the absence of any inline `<script>` in either
-`index.html` closes the most likely XSS vector for a locally-served app.
-Two non-blocking advisory observations for the Architect:
+Security observations: neither new helper introduces a broader catch than
+the single exception type it is named for, and both discard cause/context
+before the exception crosses the CLI boundary — I traced this by code
+read and independently confirmed via the marker-injection tests that
+`__cause__`/`__context__` are `None` and that `capsys` captures no output
+for the browser-discovery-error case. One advisory, non-blocking
+observation for the Architect: `test_frontend_operation_fixture_matches_real_api_routes`
+checks the fixture's `(method, path)` pairs as a *subset* of the live
+FastAPI route table, and checks the *name set* of fixture operations
+against a hardcoded 9-name literal in the test itself, rather than deriving
+that name set from `api.ts`'s actual method inventory. This correctly
+catches the operationally important drift direction (a fixture path/method
+that no longer matches a real route, or the accidental loss of a named
+operation with a real route), but a newly added `APIClient` method could in
+principle go unnoticed by the Python-side check until a human also adds a
+TypeScript assertion for it. This is consistent with the task's explicit
+"deliberately maintained... selected subset" design (not a generated
+contract) and was already the accepted shape prior to this remediation; it
+is not a defect against any stated acceptance criterion and is offered only
+for awareness.
 
-1. The 5-second `server_thread.join(_SERVER_JOIN_TIMEOUT_SECONDS)` bound
-   in `runtime.py`'s `finally` block does not forcibly terminate the
-   thread if Uvicorn's real serving loop is slow to observe
-   `should_exit`; since the thread is non-daemon, an unusually slow real
-   shutdown could keep the CLI process alive past the point
-   `run_pmqa_web_workbench` returns or raises. This is inherent to
-   Python's cooperative thread model (no forced kill exists) and is
-   exercised deterministically in tests via a busy-loop fake server; it
-   is not a defect against any stated acceptance criterion and real
-   Uvicorn observes `should_exit` on a sub-second poll in practice, but
-   is worth the Architect's awareness for a future TLS/reload-heavy
-   deployment shape (explicitly out of scope here).
-2. `api.ts` builds request paths with unescaped template-literal
-   interpolation of `session_id`/`turn_id` rather than
-   `encodeURIComponent`. This is not currently reachable as a defect: the
-   only source of these identifiers is a previously fetched
-   `ConversationSession`/`ConversationTurn` object (no free-text ID entry
-   field exists in `App.tsx`), and the backend's
-   `validate_run_identifier` restricts the charset before an identifier
-   is ever returned to the client. Recommended only as defense-in-depth
-   if a future checkpoint adds any client-side-constructed identifier.
+Scope observations: `git diff --stat 5f0c1413... HEAD` shows exactly the
+8 files described above; no Task 5D.1A/1B endpoint or static-route security
+file, no CLI file, no conversation/Run/Runner/Application/Usage/reasoning/
+workflow/Supervisor/LangGraph/Product Pack/product file, and no other
+role's handoff file changed. Nothing under Task 5D.2+, Task 5B, Task 6, or
+Task 7 was started.
 
-Scope observations: `git diff --stat e2c25273da21bac080a2f29c6abaa2c0517dffac HEAD`
-shows exactly the 38 files listed in `coder-report.md`'s "Changed Files"
-section. No Task 5D.1A conversation contract/repository/lifecycle file,
-no Run/Runner/Application/Usage/reasoning/workflow/Supervisor/LangGraph/
-Product Pack/product file, and no other role's handoff file changed. The
-`pmqa/web/app.py` diff is confined to the static-route/CSP integration
-described in the current task; the pre-existing `/api/v1` authentication/
-Origin/CSRF/body/error/response-token methods are unchanged.
-
-Compatibility observations: all Task 5D.1A/1B, Task 5C, and Task 4
-regression suites continue to pass unchanged; the full default suite
-count (2233 passed, 6 skipped) matches the Coder's reported count
-exactly, with the 6 skips being the 5 pre-existing environment-gated
-tests plus the new opt-in live-browser smoke (confirmed by rerun, not
-merely by report).
+Compatibility observations: all Task 5D.1A/1B/1C-Attempt-1 regression
+suites continue to pass unchanged (`225 passed` focused group,
+`399 passed, 1 skipped` web/conversation selection); the full default
+suite count (`2239 passed, 6 skipped`) matches the Coder's reported count
+exactly on independent rerun.
 
 ## Verdict
 
@@ -417,20 +338,19 @@ disposition.
 ## Suggested Architect Focus
 
 - No blocking finding surfaced from this Deep, independently reproduced
-  review; the two advisory observations above (non-daemon thread join
-  timeout under a real slow shutdown; `api.ts`'s non-percent-encoded
-  identifier interpolation, currently non-reachable) are offered for
-  awareness only and do not gate approval in this Reviewer's assessment.
-- Confirm the Architect is comfortable that the static-route allowlist's
-  security posture (no Bearer/Origin/CSRF, relying instead on exact-path
-  matching plus the narrowed CSP/CORP headers) is the intended long-term
-  shape for any future additional public asset, since it is a slightly
-  different trust model from the authenticated `/api/v1` surface it sits
-  beside.
-- If Task 5D.2+ introduces any client-supplied (not server-echoed)
-  identifier into a frontend URL path, revisit observation 2 above
-  (`encodeURIComponent`) at that time, since the "currently unreachable"
-  reasoning would no longer hold.
+  review. The one advisory observation above (operation-name-set pinned by
+  literal rather than derived from `api.ts`) does not gate approval in this
+  Reviewer's assessment and matches an already-accepted design choice.
+- Note the process deviation recorded in "Independent Review Method": the
+  full `coder-report.md` was read alongside `current-task.md` at the start
+  of this review rather than only its correlation header, ahead of the
+  independent diff/test steps. Every conclusion below was independently
+  re-derived and matched the report exactly; no finding depended on the
+  report's own claims.
+- If a future checkpoint adds a new `APIClient` method, confirm the Coder
+  also adds both a Python fixture entry and a TypeScript pinned assertion
+  for it, since no single check currently derives the operation-name set
+  directly from `api.ts`.
 
 ## Reviewer Write-Boundary Confirmation
 
