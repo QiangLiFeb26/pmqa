@@ -15,6 +15,7 @@ purpose belongs in [Vision](Vision.md); implementation boundaries belong in
 | Task 4.8 — Closure cleanup | Complete | Consolidated prohibited-key policy and retired the misleading Task 1 graph entry point. |
 | Task 5 — Real agent composition | Complete | Checkpoints 5.1–5.9 provide the real workflow, strict verified-artifact handoff, supported SauceDemo demo application/CLI, and retired legacy bypasses; merged through PR #20. |
 | Task 5A — Product Pack Adoption Foundation | Complete | Task 5A.1–5A.6 establish the experimental manifest, explicit loading, protocol, bounded transport, scaffolding/conformance, and external SauceDemo architecture-validation slice; merged through PR #22. |
+| Task 5C — Local Application and Run Layer | Final PR ready | Task 5C.1–5C.7 passed checkpoint-level, cumulative closure, independent, and final architecture review; the isolated Task-5C-only branch is ready for its final PR, but remains unmerged. |
 | Task 5B — Company-side MDE Read-Only Pilot | Not started | Validate Product Pack assumptions in a company-managed, private, read-only pilot before API v1 stabilization. |
 
 ## Task 4 closure
@@ -156,6 +157,86 @@ validation example outside the PMQA wheel; it does not replace or redirect the
 public demo. Task 5A remains experimental and is not a stable Product Pack SDK
 v1. API v1 stabilization follows only after evidence from both SauceDemo and
 MDE.
+
+## Task 5C — Local Application and Run Layer
+
+**Task 5C.1–5C.7 status: checkpoint-level, cumulative closure, independent,
+and final architecture review passed.** The Task-5C-only release branch is based on
+main commit `d0186f2f8d37e3b52029a8c3195226e4432a6b43` and contains the
+approved Task 5C boundary through
+`9d2ba638c9692eb542bb6d1c023388d959573316`. It is ready for its final PR,
+but Task 5C remains unmerged and is
+not yet Complete on `main`. Task 5D is excluded from this release branch.
+
+Task 5C exists to establish the local
+application/run layer before the company-side Task 5B pilot. Its first
+checkpoint defines the versioned, provider-neutral contracts for requests,
+workflow metadata, safe run correlation, structured results, logical artifact
+references, safe errors, runner invocation lifecycle, and optional reliable
+outcome metrics.
+
+The Run Contract is application-level correlation. It does not replace
+LangGraph `WorkflowState`, absorb the separate runner boundary, or combine
+runner invocations with future model/provider usage records. Usage, cost, logs,
+feedback, evals, and reasoning traces remain separate records with independent
+retention and trust boundaries. The old `pmqa.core.RunContext` remains a legacy
+compatibility contract rather than the new application contract. See the
+[Run Contract architecture](architecture/run-contract.md).
+
+Task 5C.2 adds a synchronous `PMQARunner` interface, canonical correlated
+runner request/response contracts, runtime-only cancellation, and a
+deterministic in-process `MockRunner`. The runner executes only the supplied
+attempt. The mock validates the boundary and is not a production AI provider.
+See the
+[Runner boundary architecture](architecture/runner-boundary.md).
+
+Task 5C.3 adds explicit, bounded, immutable Workflow and Runner Registries and
+a synchronous `PMQAApplicationService`. The service performs one deterministic
+pre-execution policy sequence, executes only caller-supplied attempt one, and
+returns a canonical `RunRecord` correlated with exactly one terminal runner
+invocation. The registries are explicit local composition, not discovery.
+See the
+[Application Service architecture](architecture/application-service.md).
+
+Task 5C.4 adds a separate `pmqa.usage` contract layer for AI/model invocation
+correlation, explicit token-usage evidence, explicit cost evidence, immutable
+model-pricing records, and a read-only pricing catalog boundary. Reported,
+CLI-parsed, estimated, subscription-included, and unavailable evidence remain
+distinct; missing values never become zero. This checkpoint does not collect,
+calculate, persist, aggregate, summarize, or optimize usage and cost. See
+[Usage and cost contracts](architecture/usage-cost-contracts.md).
+
+Task 5C.5 adds an opaque runtime handle and provider-neutral synchronous
+collector for exactly-once success, failure, or cancellation. It validates
+canonical correlation before sampling clocks, snapshots caller-supplied usage
+and cost evidence, derives rounded duration only from monotonic evidence, and
+returns one canonical `AIInvocationRecord`. Caller-validation failures before
+terminal clock sampling leave a handle active; sampling consumes it even when
+later expected terminalization validation fails.
+
+Task 5C.6 adds the provider-neutral `UsageRepository` boundary and an explicit
+local JSON implementation. Each canonical terminal invocation is published
+once to a lowercase SHA-256 filename without replacement. Reads reconstruct
+the canonical record and deterministic session/run/recent queries order
+newest completion first with ascending invocation ID ties. The collector and
+repository remain decoupled.
+
+Task 5C.7 adds strict immutable usage summary contracts and a pure
+provider-neutral aggregator over an explicit caller-supplied bounded tuple of
+canonical invocation records. Session and run correlation is validated
+without silently filtering. Zero, partial, and unavailable token evidence
+remain distinct; reported and estimated monetary evidence stays separated by
+currency and pricing provenance; subscription-included and unavailable
+evidence remains non-monetary. Provider/model groups and all buckets have
+input-order-independent canonical ordering. The aggregator neither reads the
+repository nor claims the selection is complete.
+
+Task 5C remains unmerged. No automatic discovery, retry or
+fallback creation, approval execution, real provider adapter, subprocess
+runner, provider/CLI usage parser, cost calculator, pricing table,
+repository-backed selection/completeness, CLI summary, outcome-metric join,
+optimizer, UI, or Azure DevOps integration has been added.
+Task 5B remains Not started; Task 6 and Task 7 remain Not started.
 
 ## Task 5B — Company-side MDE Read-Only Pilot
 

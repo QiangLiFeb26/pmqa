@@ -270,6 +270,59 @@ Product Pack SDK v1. Task 5B is the not-started placeholder for the next
 evidence phase: a company-side, read-only MDE pilot. API v1 stabilization
 follows only after SauceDemo and MDE evidence. Task 5B implementation, Task 6,
 and Task 7 have not started.
+
+Task 5C establishes the local application/run layer before that company-side
+pilot. Task 5C.1–5C.7 passed checkpoint-level, cumulative closure,
+independent, and final architecture review on the isolated release branch.
+That branch
+is based on main commit `d0186f2f8d37e3b52029a8c3195226e4432a6b43`,
+contains the approved Task 5C boundary through
+`9d2ba638c9692eb542bb6d1c023388d959573316`, and is ready for its final PR.
+Task 5C remains unmerged and is not
+yet Complete on `main`; Task 5D is excluded from this release branch.
+
+Task 5C.1 passed architecture review and adds the provider-neutral,
+versioned contracts in `pmqa.run`
+for workflow requests and definitions, safe run correlation, structured
+results, logical artifacts, safe errors, runner-invocation correlation, and
+optional outcome metrics. Task 5C.2 passed architecture review and adds the
+synchronous `PMQARunner`
+boundary, canonical runner request/response contracts, runtime-only
+cancellation, and a deterministic in-process `MockRunner`. Task 5C.3 passed
+architecture review and adds
+explicit immutable Workflow and Runner Registries plus a synchronous
+single-attempt `PMQAApplicationService`. It validates exact workflow, schema,
+capability, approval, runner, identifier, and clock boundaries before
+execution, invokes one selected runner at most once, and assembles one
+canonical `ApplicationRunResult`. Task 5C.4 defines provider-neutral,
+versioned AI invocation, token-usage, cost-evidence, and model-pricing
+contracts plus a read-only pricing lookup boundary. Usage/cost remains beside,
+not inside, Run Contract, LangGraph `WorkflowState`, and reasoning traces. The
+existing
+`pmqa.core.RunContext` remains a legacy compatibility contract. Task 5C.4
+passed architecture review. Task 5C.5 adds a provider-neutral, exactly-once
+runtime collector that creates canonical `AIInvocationRecord` values from
+caller-supplied evidence and injected wall/monotonic clocks. Its opaque handle
+is runtime-only; invalid evidence remains correctable until terminal clock
+sampling begins, after which the handle is consumed. Task 5C.5 passed
+architecture review. Task 5C.6 adds an explicit append-only local JSON
+`UsageRepository`, with one digest-named canonical file per invocation,
+atomic no-replace publication, deterministic session/run/recent queries, and
+strict corruption detection. Task 5C.6 passed architecture review. Task 5C.7
+adds strict immutable summary contracts and a pure deterministic aggregator
+for an explicit bounded session- or run-scoped invocation selection. It keeps
+zero, partial, and unavailable token evidence distinct; separates reported,
+estimated, subscription-included, currency, and pricing-provenance cost
+buckets; and provides deterministic provider/model groups. Task 5C.7 passed
+architecture review. These checkpoints add no repository-backed summary,
+parser, calculator, CLI summary, optimizer, real provider integration, or
+pricing table. See the
+[Run Contract architecture](docs/architecture/run-contract.md) and
+[Runner boundary architecture](docs/architecture/runner-boundary.md), plus
+the
+[Application Service architecture](docs/architecture/application-service.md)
+and
+[Usage and cost contracts](docs/architecture/usage-cost-contracts.md).
 See the
 [authoritative roadmap](docs/Roadmap.md) for phase status and the
 [Product Pack adoption architecture](docs/architecture/product-pack-adoption.md)

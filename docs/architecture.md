@@ -167,6 +167,119 @@ present on `main`; the API remains experimental, and stabilization waits for
 evidence from both SauceDemo and the subsequent company-side, read-only MDE
 pilot. Task 5B, Task 6, and Task 7 have not started.
 
+### Canonical Run Contract
+
+Task 5C.1–5C.7 passed checkpoint-level, cumulative closure, independent, and
+final architecture review on the isolated Task-5C-only release branch. The branch
+is based on main commit `d0186f2f8d37e3b52029a8c3195226e4432a6b43`,
+contains the approved Task 5C boundary through
+`9d2ba638c9692eb542bb6d1c023388d959573316`, and is ready for its final PR.
+Task 5C remains unmerged and is not
+yet Complete on `main`; Task 5D is excluded from this release branch.
+
+Task 5C.1 passed architecture review and defines the application-level Run
+Contract in `pmqa.run`. It
+correlates a validated request, workflow metadata, one run lifecycle,
+structured results, logical artifact references, safe errors, and future
+runner-invocation attempts. It is above the existing LangGraph workflow:
+
+```text
+Interface / future CLI
+    -> explicit Application Service
+    -> canonical Run Contract
+    -> provider-neutral PMQARunner
+```
+
+`RunRecord` is not LangGraph `WorkflowState`: the former is a stable
+application record, while the latter remains checkpoint-safe agent-routing
+state. `RunnerInvocationRecord` describes a logical runner call and its
+retry/fallback correlation; it is not a future model/provider invocation or
+usage record. The Run Contract also does not replace `TraceRecord`, which
+continues to capture reasoning-boundary audit evidence.
+
+Usage, cost, structured logs, feedback, and eval results stay outside
+`RunRecord` so they can evolve, aggregate, and retain data under separate
+policies. The existing `pmqa.core.RunContext` remains unchanged as a legacy
+compatibility contract.
+
+Task 5C.2 passed architecture review and adds the provider-neutral synchronous
+`PMQARunner` boundary,
+canonical `RunnerRequest` and `RunnerResponse`, runtime-only cancellation, and
+a deterministic in-process `MockRunner`. The runner owns one supplied attempt,
+not retry/fallback policy; the mock is boundary-validation infrastructure, not
+a production provider.
+
+Task 5C.3 passed architecture review and adds bounded explicit Workflow and
+Runner Registries plus a
+synchronous single-attempt Application Service. Registry construction retains
+canonical identity snapshots without discovery; live definition or metadata
+drift fails before execution. The service validates the request, selected
+workflow and schema, workflow input, selected runner and capabilities,
+approval mode, caller IDs, and one application clock sample in a stable order.
+It invokes the runner at most once, authoritatively revalidates its response,
+validates a present workflow result, and returns a canonical
+`ApplicationRunResult`.
+
+Task 5C.4 adds `pmqa.usage` as a separate provider-neutral contract layer.
+`AIInvocationRecord` represents one terminal model call correlated with a
+session, run, and optional runner invocation. Its token and cost evidence
+preserves reported, CLI-parsed, estimated, subscription-included, and
+unavailable states without treating absence as zero. Immutable model-pricing
+records and the read-only `PricingCatalog` protocol provide versioned
+effective-date evidence without a built-in price table or cost calculation.
+
+Task 5C.5 adds `AIInvocationCollector` and its deterministic default
+implementation as a runtime lifecycle boundary. Starting an invocation returns
+an opaque collector-owned `AIInvocationHandle`, not persisted domain data.
+Exactly one success, failure, or cancellation path consumes the handle and
+returns a reconstructed `AIInvocationRecord`. Correlation and caller evidence
+are validated before terminal clocks; invalid caller evidence remains
+correctable until clock sampling begins. Once sampling begins, expected
+terminalization failures consume ownership to preserve at-most-once behavior.
+Wall time supplies canonical timestamps, while duration is derived only from
+monotonic samples using deterministic half-up millisecond rounding.
+
+Task 5C.6 adds a separate `UsageRepository` persistence boundary and explicit
+`LocalJSONUsageRepository`. It snapshots exact `AIInvocationRecord` values and
+publishes one compact canonical JSON file per invocation through atomic
+same-directory no-replace publication. Lowercase SHA-256 filenames keep
+domain identifiers out of paths. Reads reject corrupt matching records rather
+than silently returning partial query results. Session, run, and recent
+queries are newest-first with an ascending invocation-ID tie-breaker.
+
+Task 5C.7 adds strict immutable `UsageSummary` contracts and the pure
+`UsageAggregator` boundary. The default implementation independently
+reconstructs an explicit bounded caller selection, validates session or run
+correlation, and deterministically derives status, predecessor, duration,
+token-field, cost-bucket, and provider/model metrics. It does not read the
+repository or infer selection completeness. Numeric zero remains observed;
+partial and unavailable token coverage remains explicit. Monetary evidence is
+partitioned by type, currency, and complete pricing provenance, while
+subscription-included and unavailable evidence remains non-monetary.
+
+Usage/cost records are not fields on `RunRecord`,
+`RunnerInvocationRecord`, reasoning `TraceRecord`, or LangGraph
+`WorkflowState`. A future runner may correlate zero or more model calls to one
+runner attempt, while collection, persistence, pure aggregation, calculation,
+and optimization remain separate components.
+
+The collector performs no parsing, pricing lookup, calculation, persistence
+callback, provider execution, or workflow integration; callers explicitly
+choose if and when to save its returned record. The repository performs no
+collection, aggregation, retention, provider parsing, or cost calculation.
+The aggregator performs no repository access, pricing lookup, outcome join,
+provider execution, or completeness inference.
+No automatic discovery, retry/fallback creation, approval execution, provider
+adapter, subprocess runner, UI, Copilot integration, Azure DevOps access,
+cost calculator, or pricing table exists yet.
+See the [Run Contract architecture](architecture/run-contract.md) and
+[Runner boundary architecture](architecture/runner-boundary.md), plus the
+[Application Service architecture](architecture/application-service.md) and
+[Usage and cost contracts](architecture/usage-cost-contracts.md). Task
+5C.1–5C.7 passed checkpoint-level, cumulative closure, independent, and final
+architecture review. Task 5C remains unmerged and is ready for its final PR.
+Task 5B, Task 6, and Task 7 remain not started.
+
 ### Memory
 
 Memory is durable product knowledge represented by the JSON-compatible models

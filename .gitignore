@@ -13,3 +13,4 @@ traces/
 screenshots/
 .cache/
 *.sqlite3
+/artifacts/usage/

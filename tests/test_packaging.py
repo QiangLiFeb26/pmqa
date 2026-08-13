@@ -125,6 +125,22 @@ def test_actual_wheel_contains_product_pack_config_and_entry_point(
         assert "pmqa/product_pack/bridge_runner.py" in names
         assert "pmqa/product_pack/scaffold.py" in names
         assert "pmqa/product_pack/exploration_tool.py" in names
+        assert "pmqa/run/__init__.py" in names
+        assert "pmqa/run/models.py" in names
+        assert "pmqa/runners/__init__.py" in names
+        assert "pmqa/runners/base.py" in names
+        assert "pmqa/runners/contracts.py" in names
+        assert "pmqa/runners/mock.py" in names
+        assert "pmqa/application/__init__.py" in names
+        assert "pmqa/application/contracts.py" in names
+        assert "pmqa/application/registry.py" in names
+        assert "pmqa/application/service.py" in names
+        assert "pmqa/usage/__init__.py" in names
+        assert "pmqa/usage/contracts.py" in names
+        assert "pmqa/usage/collector.py" in names
+        assert "pmqa/usage/pricing.py" in names
+        assert "pmqa/usage/repository.py" in names
+        assert "pmqa/usage/summary.py" in names
         assert (
             "pmqa/product_pack/schemas/bridge_protocol_v1.schema.json" in names
         )
@@ -160,6 +176,8 @@ def test_actual_wheel_excludes_runtime_outputs_and_unrelated_files(
     assert not any(name.endswith("package-lock.json") for name in names)
     assert not any(name.endswith("product_backend.ts") for name in names)
     assert not any(name.endswith("main.js") for name in names)
+    assert not any("artifacts/usage" in name for name in names)
+    assert not any(".pmqa-usage-" in name for name in names)
     for name in names:
         path = PurePosixPath(name)
         root = path.parts[0]
@@ -220,6 +238,10 @@ sys.meta_path[:] = [
 
 import pmqa
 import pmqa.product_pack
+import pmqa.run
+import pmqa.runners
+import pmqa.application
+import pmqa.usage
 import products.demo
 import products.demo.application
 from products.demo.config import load_config, validate_config
@@ -227,7 +249,36 @@ from products.demo.config import load_config, validate_config
 assert pmqa.product_pack.ProductPackManifest
 assert pmqa.product_pack.ProductPackCapability
 assert pmqa.product_pack.ProductPackManifestValidationError
-modules = (pmqa, pmqa.product_pack, products.demo, products.demo.application)
+assert pmqa.run.RunRequest
+assert pmqa.run.RunRecord
+assert pmqa.run.WorkflowDefinition
+assert pmqa.runners.PMQARunner
+assert pmqa.runners.RunnerRequest
+assert pmqa.runners.MockRunner
+assert pmqa.application.PMQAApplicationService
+assert pmqa.application.WorkflowRegistry
+assert pmqa.application.RunnerRegistry
+assert pmqa.usage.AIInvocationRecord
+assert pmqa.usage.TokenUsageEvidence
+assert pmqa.usage.CostEvidence
+assert pmqa.usage.PricingCatalog
+assert pmqa.usage.AIInvocationCollector
+assert pmqa.usage.DefaultAIInvocationCollector
+assert pmqa.usage.UsageRepository
+assert pmqa.usage.LocalJSONUsageRepository
+assert pmqa.usage.UsageSummary
+assert pmqa.usage.UsageAggregator
+assert pmqa.usage.DefaultUsageAggregator
+modules = (
+    pmqa,
+    pmqa.product_pack,
+    pmqa.run,
+    pmqa.runners,
+    pmqa.application,
+    pmqa.usage,
+    products.demo,
+    products.demo.application,
+)
 for module in modules:
     module_path = Path(module.__file__).resolve()
     module_path.relative_to(distribution)

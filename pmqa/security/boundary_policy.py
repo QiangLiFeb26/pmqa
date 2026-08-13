@@ -50,6 +50,38 @@ WORKFLOW_STATE_PROHIBITED_KEYS = (
     COMMON_PROHIBITED_KEYS | WORKFLOW_STATE_PROHIBITED_KEY_EXTENSIONS
 )
 
+RUN_PAYLOAD_PROHIBITED_KEY_EXTENSIONS = frozenset(
+    {
+        "absolute_path",
+        "auth",
+        "authentication",
+        "cancellation_token",
+        "cause",
+        "command",
+        "environment",
+        "env",
+        "event_sink",
+        "exception",
+        "executable",
+        "executable_path",
+        "import_path",
+        "page",
+        "process_config",
+        "prompt",
+        "provider_client",
+        "raw_payload",
+        "response",
+        "stderr",
+        "stdout",
+        "storage_provider",
+        "terminal_output",
+        "traceback",
+    }
+)
+RUN_PAYLOAD_PROHIBITED_KEYS = (
+    WORKFLOW_STATE_PROHIBITED_KEYS | RUN_PAYLOAD_PROHIBITED_KEY_EXTENSIONS
+)
+
 
 def normalize_boundary_key(value: str) -> str:
     """Normalize case and separators before boundary-policy comparison."""
