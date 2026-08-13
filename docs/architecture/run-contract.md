@@ -2,11 +2,12 @@
 
 ## Status
 
-Task 5C.1–5C.7 have passed checkpoint-level, cumulative closure, independent,
-and final architecture review. The isolated Task-5C-only branch is ready for
-its final PR, but Task 5C remains
-unmerged and is not yet Complete on `main`. Task 5D is excluded from this
-release branch. Together the checkpoints establish the local application/run
+Task 5C.1–5C.7 passed checkpoint-level, cumulative closure, independent, and
+final architecture review and are Complete. They were merged into `main`
+through PR #24 using merge commit
+`cfc570d2fa926a05e4e7fffe995a9051312641e9`; the final branch head was
+`25ef184e367cf56d1278e5c8b06b913e211355a9`. Task 5D was excluded
+from the Task 5C release PR. Together the checkpoints establish the local application/run
 layer before the company-side Task 5B read-only pilot. They do not start Task
 5B, Task 6, or Task 7.
 

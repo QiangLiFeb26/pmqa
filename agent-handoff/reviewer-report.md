@@ -2,60 +2,63 @@
 
 Owner: Independent Reviewer
 
-Status: Executed for PMQA Task 5C Final PR Preparation, Attempt 1
+Status: Executed for PMQA Task 5C Post-Merge Documentation Closure, Attempt 1
 
 ## Task Correlation
 
-Task: PMQA Task 5C Final PR Preparation
+Task: PMQA Task 5C Post-Merge Documentation Closure
 
-Task ID: `PMQA-5C-PR`
+Task ID: `PMQA-5C-POST-MERGE-CLOSURE`
 
 Attempt: `1`
 
-Branch: `agent/task-5c-cumulative-closure`
+Branch: `agent/task-5c-post-merge-closure`
 
-Reviewed Starting HEAD: `35df5c9079bac1db59c64917e97e9428592fb4ec`
-("approve Task 5C cumulative release closure" — the Architect's
-`current-task.md` publication commit)
+Reviewed Starting Base / PR #24 Merge Commit:
+`cfc570d2fa926a05e4e7fffe995a9051312641e9`
+("Merge pull request #24 from QiangLiFeb26/agent/task-5c-cumulative-closure")
 
-Reviewed Implementation Commit: `0e96a9d3dc4043870c7bceee9401d66d7db2c544`
-("mark Task 5C ready for final PR")
+Reviewed Implementation Commit: `fec26295b45d916bf83915c531ef05c61a3af8c3`
+("close Task 5C documentation after merge")
 
-Derived Coder Report Commit: `bf7859465fe8cf300eaabccdf1fb7d4c72e5a9ab`
-("report Task 5C final PR preparation")
+Derived Coder Report Commit: `2d8bcac8286099f06261e7ea708a6f28efcab0f8`
+("report Task 5C post-merge documentation closure")
 
 Correlation Verification:
 
-- derived with `git log -1 --format=%H -- agent-handoff/coder-report.md` ->
-  `bf7859465fe8cf300eaabccdf1fb7d4c72e5a9ab`;
-- `git log -1 --format=%H -- agent-handoff/current-task.md` ->
-  `35df5c9079bac1db59c64917e97e9428592fb4ec`, matching the Coder's recorded
-  starting HEAD exactly;
-- `git merge-base --is-ancestor 35df5c90... 0e96a9d3...` succeeds and
-  `git merge-base --is-ancestor 0e96a9d3... bf785946...` succeeds; `git log
-  --oneline 35df5c90..bf785946` shows the exact linear sequence
-  `35df5c9 -> 0e96a9d -> bf78594`, and local `HEAD` equals
-  `origin/agent/task-5c-cumulative-closure`;
-- the approved Task 5C implementation boundary (`9d2ba638...`), approved
-  cumulative closure documentation (`e4cceed2...`), and this Reviewer's own
-  prior Attempt-1 closure report (`2432cd1a...`) are all confirmed ancestors
-  of the starting HEAD via `git merge-base --is-ancestor`;
-- `git show 35df5c90...:agent-handoff/current-task.md` names Task ID
-  `PMQA-5C-PR`, Attempt `1`, branch `agent/task-5c-cumulative-closure`,
-  the same main base, implementation boundary, closure documentation
-  commit, and Independent Reviewer report commit — matching the
-  correlation header of `coder-report.md` at the derived commit exactly;
-- the implementation commit `0e96a9d3...` alone touches exactly the 7 files
-  named in the current task's `Allowed Changes`; the report-only commit
-  `0e96a9d3...bf785946` touches only `agent-handoff/coder-report.md`, so
-  the derived commit is the report's latest authorized change with no
-  later unauthorized replacement;
-- live GitHub PR #24's `headRefOid` (queried directly via `gh pr view`,
-  independent of any local report) equals `bf7859465fe8cf300eaabccdf1fb7d4c72e5a9ab`
-  exactly — the same derived Coder report commit — confirming the report-only
-  commit already advanced the open PR's head as the Coder's report
-  predicted, and that this review is against the PR's actual current state,
-  not a stale snapshot.
+- derived with `git log -1 --format=%H origin/agent/task-5c-post-merge-closure
+  -- agent-handoff/coder-report.md` -> `2d8bcac8286099f06261e7ea708a6f28efcab0f8`,
+  and this equals the branch tip (`git rev-parse
+  origin/agent/task-5c-post-merge-closure` -> the same SHA), so the report is
+  the branch's latest commit, not a stale intermediate one;
+- `git show -s --format=%P fec26295...` -> exactly one parent,
+  `cfc570d2fa926a05e4e7fffe995a9051312641e9`; `git show -s --format=%P
+  2d8bcac8...` -> exactly one parent, `fec26295...`; `git log --oneline
+  cfc570d2..2d8bcac8` shows the exact linear two-commit sequence `fec2629 ->
+  2d8bcac` with no other commit in between, confirming the branch was created
+  directly from the merge commit and advanced by exactly the documentation
+  commit followed by the report commit;
+- `git show -s --format=%P cfc570d2...` -> two parents, `d0186f2f...` (first,
+  pre-merge `main`) and `25ef184e...` (second, the reviewed Task 5C final
+  branch head) — matching the report's claimed merge-parent identification
+  exactly;
+- `gh pr view 24` independently confirms PR #24's `mergeCommit.oid` equals
+  `cfc570d2fa926a05e4e7fffe995a9051312641e9`, `state: MERGED`, `baseRefName:
+  main`, `headRefName: agent/task-5c-cumulative-closure` — the same merge
+  commit the report and this branch are built from;
+- `git log -1 --format=%H origin/agent/task-5c-post-merge-closure --
+  agent-handoff/current-task.md` -> `25ef184e...` ("approve Task 5C final
+  pull request"), i.e. no `current-task.md` has been republished for
+  `PMQA-5C-POST-MERGE-CLOSURE` on this branch. This is not a stale/missed
+  correlation: `current-task.md` at `25ef184e...` itself states "Do not start
+  a post-merge task until the actual merge commit is known," and the merge
+  commit `cfc570d2...` could not exist before the Human performed the actual
+  GitHub merge, so no Architect publication naming that exact SHA could have
+  preceded it. The Coder report's correlation section transparently
+  substitutes merge-commit-based correlation for the usual
+  `current-task.md`-based correlation for this reason, and I verified that
+  substitution directly against Git and GitHub rather than accepting it
+  unread (see Findings for the resulting advisory note).
 
 This Reviewer report does not contain or predict its own commit SHA. The
 Architect derives the Reviewer report commit from Git and records it in
@@ -63,270 +66,240 @@ Architect derives the Reviewer report commit from Git and records it in
 
 ## Independent Review Method
 
-Performed in this branch's own isolated worktree, reusing the dedicated
-`.venv` created for the prior PMQA-5C-CLOSURE Attempt 1 review (verified
-still resolving `pmqa.__file__` inside this worktree, not the primary Task
-5D checkout, before use).
+Performed by deriving evidence directly from Git objects and the
+authenticated `gh` CLI (both available from the primary checkout, since Git
+history and GitHub state are identical regardless of working directory), then
+verified inside this task's own dedicated worktree
+(`/Users/qiangli/Documents/Codex/pmqa-5c-closure`, `agent/task-5c-post-merge-closure`,
+confirmed clean before and after review).
 
 Inspection order:
 
-1. `current-task.md` and its acceptance criteria (document wording
-   transition, PR base/scope/mergeability requirements, validation and
-   branch-synchronization requirements);
-2. the named baseline-to-implementation diff (`35df5c90..0e96a9d3`, the
-   full one-commit wording transition) and the live GitHub PR #24 state,
-   queried directly via the authenticated `gh` CLI rather than accepted
-   from the report — full line-by-line read of the 7-file documentation
-   diff, an independent whole-tree grep for stale status wording, and an
-   independent `gh pr view`/`gh pr diff --name-only`/`gh pr checks`/`gh run
-   list` inspection of PR #24's base/head/mergeability/checks/file list;
+1. `current-task.md` history for this branch and the prior task's final
+   disposition (`25ef184e...`), to understand why no fresh publication names
+   `PMQA-5C-POST-MERGE-CLOSURE`;
+2. the named baseline-to-implementation diff (`cfc570d2..fec2629`, the
+   one-commit documentation closure) and the live GitHub PR #24 record,
+   queried directly via `gh pr view` rather than accepted from the report —
+   full per-file read of all seven changed documents, an independent
+   whole-tree stale-wording search scoped to the commit content (not the
+   working tree of an unrelated branch), and independent parent-commit
+   checks for both branch commits;
 3. independently selected and independently executed validation (see Test
-   Evidence), including a from-scratch relative-Markdown-link check and a
-   byte-for-byte diff between GitHub's own PR file list and the local `git
-   diff --name-only` output;
+   Evidence), including a from-scratch relative-Markdown-link check across
+   all 18 tracked files and independent `git diff --check`/`gh pr
+   list`/`gh pr checks` queries;
 4. full `coder-report.md`.
 
 Active-task `architect-review.md` read before publication: No.
 
-Prior closed review or architecture material consulted, with reason: this
-Reviewer's own prior report at this file's path (PMQA-5C-CLOSURE Attempt 1,
-commit `2432cd1a...`, superseded by this report) was read only to confirm
-the exact main base, approved boundary, and 47-file cumulative inventory
-this attempt's PR must still match; no PMQA-5C-PR-specific finding was
-taken from it. `docs/architecture/*.md` and `README.md`/`docs/Roadmap.md`
-were consulted as the existing status documentation this task transitions,
-which the review procedure permits.
+Prior closed review or architecture material consulted, with reason: the
+prior Deep review of `PMQA-5C-PR` Attempt 1 (`reviewer-report.md` at
+`05b73e52...`, superseded by this report) was read only to confirm the report
+format and the already-established PR #24 base/head/scope facts this
+post-merge task's documentation restates; no new finding was taken from it.
+`docs/architecture/*.md`, `README.md`, and `docs/Roadmap.md` were consulted
+as the existing status documentation this task transitions, which the review
+procedure permits.
 
 ## Review Depth
 
-Actual Review Depth: Deep
+Actual Review Depth: Light
 
-Review Depth Reason: this attempt's implementation commit is small (a
-seven-file wording transition), but the object under review is materially
-different from the prior closure attempt — it is now a live, open,
-non-draft GitHub pull request (#24) proposing to merge 60 commits and 47
-files into `main`, the last gate before Human-authorized merge. A defect
-here (a stale status claim, an unnoticed Task 5D file, a base drift, or an
-unmergeable/conflicted state) would directly misinform the Human's merge
-decision. The Coder's own recommendation was Deep for the same reason. I
-independently queried GitHub directly (not solely the local Git history)
-for the PR's base/head/mergeability/checks/commit list/file list/reviews/
-labels, byte-diffed GitHub's file list against the local diff, and
-independently re-derived every commit/file count rather than trusting the
-report.
+Review Depth Reason: the implementation commit is a seven-file,
+documentation-only status transition on an already-merged PR — it changes no
+production code, test, schema, packaging, or runtime behavior, and the
+factual claims under review (parent-commit identity, changed-file set, status
+wording, PR #24's merged state and merge-commit SHA) are all directly and
+cheaply verifiable with `git log`/`git show`/`git diff --name-only`/`gh pr
+view`, with no complex behavioral or multi-system verification required. I
+concur with the Coder's own Light recommendation for the same reason.
 
 ## Overall Assessment
 
-The remediation is documentation-only, correctly scoped, and the resulting
-PR accurately reflects the approved Task 5C release boundary with no scope
-creep. `git diff --stat 35df5c90..0e96a9d3` confirms the implementation
-commit touches exactly the 7 files the current task's `Allowed Changes`
-lists — the same seven product documents as the prior closure attempt, no
-production, test, fixture, schema, packaging, generated-asset, or handoff
-file changed.
+The closure is documentation-only, correctly scoped, and every SHA and status
+claim in `coder-report.md` matches independently derived Git and GitHub
+facts.
 
-**Documentation wording transition.** I read the full diff of all 7 files
-line-by-line: every occurrence of "ready for independent cumulative review
-and a later final PR" (or the equivalent "cumulative review ready") was
-replaced with "ready for its final PR", and "checkpoint-level architecture
-review and cumulative closure verification" was extended to "checkpoint-
-level, cumulative closure, independent, and final architecture review" —
-precisely the wording transition the task specifies. I independently
-`grep`-searched the *entire* `README.md` and `docs/` tree (not only the 7
-changed files) for `"ready for independent cumulative review"`, `"later
-final PR"`, `"cumulative review ready"`, `"Ready for architecture review"`,
-and `"remains in progress"` and found zero remaining matches anywhere in
-tracked documentation — confirming no stale status wording survives the
-transition. Every document still accurately states Task 5C remains
-unmerged and not yet `Complete` on `main`, still names the exact main base
-(`d0186f2f...`) and approved boundary (`9d2ba638...`) unchanged, still
-excludes Task 5D, and the "no live provider adapter/parser/calculator/
-optimizer/CLI summary/usage UI" Usage/Cost limitation language was
-correctly left untouched (already accurate, not requiring an edit under
-the task's "change only genuinely stale" instruction).
+**Branch and commit structure.** `git log --oneline cfc570d2..2d8bcac8`
+confirms the branch contains exactly two commits beyond the merge commit —
+`fec2629` (documentation) then `2d8bcac` (report) — each with exactly one
+parent, so no history was amended, rebased, squashed, or cherry-picked, and
+the branch was created directly from the merge commit as claimed.
+
+**Changed-file scope.** `git diff --name-only cfc570d2 fec2629` returns
+exactly the seven files the report lists (`README.md`, `docs/Roadmap.md`,
+`docs/architecture.md`, `docs/architecture/application-service.md`,
+`docs/architecture/run-contract.md`, `docs/architecture/runner-boundary.md`,
+`docs/architecture/usage-cost-contracts.md`) — no more, no fewer.
+`git diff --name-only fec2629 2d8bcac` returns only
+`agent-handoff/coder-report.md`. The combined range
+`git diff --name-only cfc570d2 2d8bcac` is exactly those eight files, with no
+production, test, fixture, schema, packaging, generated-asset, Product Pack,
+Web, conversation, frontend, or other role's handoff file touched.
+
+**Status-wording accuracy.** I read all seven documents' Task 5C sections at
+`fec2629` directly (`git show fec2629:<path>`). Each one states Task 5C.1–5C.7
+passed checkpoint, cumulative closure, independent, and final architecture
+review and are Complete; each cites PR #24, final branch head
+`25ef184e367cf56d1278e5c8b06b913e211355a9`, and merge commit
+`cfc570d2fa926a05e4e7fffe995a9051312641e9` consistently; each states Task 5D
+was excluded from the release PR; and the Usage/Cost foundation-only
+limitation language is preserved unchanged. A `git grep` scoped to the
+`fec2629` commit content (not the working tree, which sits on an unrelated
+branch) for `ready for independent cumulative review`, `later final PR`,
+`cumulative review ready`, `Ready for architecture review`, `Task 5C remains
+in progress`, `final PR ready`, `ready for its final PR`, `not yet Complete`,
+and `unmerged` across the seven files returned zero matches, confirming no
+stale pre-merge status wording survives the closure.
 
 **Live PR #24 verification (queried directly, not from the report).**
-`gh pr view 24` independently confirms: state `OPEN`, `isDraft: false`,
-`baseRefName: main`, `baseRefOid` exactly `d0186f2f8d37e3b52029a8c3195226e4432a6b43`,
-`headRefName: agent/task-5c-cumulative-closure`, `headRefOid` exactly
-`bf7859465fe8cf300eaabccdf1fb7d4c72e5a9ab` (the derived Coder report
-commit — the PR head already reflects the report-only commit), `mergeable:
-MERGEABLE`, `mergeStateStatus: CLEAN`, `statusCheckRollup: []` (zero
-checks), `changedFiles: 47`, `additions: 16477`, `deletions: 1` — the
-last two matching the local `git diff --stat` totals exactly. `gh pr diff
-24 --name-only`, sorted and byte-diffed against a locally computed `git
-diff --name-only d0186f2f...HEAD` (also sorted), produced zero differences
-— GitHub's own file list is identical to the local diff, file-for-file,
-with no `pmqa/web`, `frontend/`, or conversation file in either. The PR's
-61-commit list (retrieved via `gh pr view --json commits`) was
-cross-checked against the known Task 5C.1–5C.7 and AI-team-protocol commit
-messages from this branch's own history; every commit message is a
-recognized Task 5C/closure/PR-preparation commit, and none matches a known
-Task 5D commit (e.g. no "conversation foundation", "Web boundary", or
-"browser workbench" message appears). `.github/workflows/` does not exist
-in this repository at all, confirming "zero configured checks" is the
-structurally correct state rather than a masked CI failure. `gh pr checks
-24` independently confirms no checks are reported, and `gh run list`
-independently confirms zero workflow runs on this branch. `gh pr view
-24 --json mergedAt,closedAt,closed,state` confirms `mergedAt: null,
-closed: false, state: OPEN` — not merged, not closed. `gh pr view 24
---json labels,milestone,reviews,reviewRequests,comments,autoMergeRequest`
-returned all-empty/null, confirming no label, milestone, review, comment,
-or auto-merge mutation occurred beyond PR creation itself. `git ls-remote
---heads origin agent/task-5c-cumulative-closure main` confirms both
-branches still exist on the remote, with `main`'s remote head still
-exactly the recorded base SHA — `main` was not advanced or merged into.
+`gh pr view 24 --repo QiangLiFeb26/pmqa` independently confirms: `state:
+MERGED`, `mergedAt: 2026-08-13T13:55:56Z`, `baseRefName: main`,
+`headRefName: agent/task-5c-cumulative-closure`, `title: "Add Task 5C
+application and usage foundations"`, and `mergeCommit.oid` exactly
+`cfc570d2fa926a05e4e7fffe995a9051312641e9` — the same commit this branch and
+report are built from. `gh pr list --repo QiangLiFeb26/pmqa --head
+agent/task-5c-post-merge-closure --state all` returns zero results,
+confirming the report's "PR lookup for `agent/task-5c-post-merge-closure`:
+zero PRs" claim and that this closure created no new PR. `gh pr checks 24`
+reports no checks, consistent with the report's "no configured checks"
+statement.
 
-**Non-circular self-check on the report-only commit.** `git diff --stat
-0e96a9d3...bf785946` (the range from the documentation/PR-creation head to
-the current Coder report commit / current PR head) touches only
-`agent-handoff/coder-report.md`, confirming the report publication
-advanced the branch and the open PR by exactly the one Coder-owned Markdown
-commit the report itself predicted, and nothing else.
+**Non-circular self-check on the report-only commit.** `git diff --name-only
+fec2629 2d8bcac` touches only `agent-handoff/coder-report.md`, confirming the
+report publication is the sole difference between the documentation commit
+and the current branch tip.
 
 ## Findings
 
-None blocking, and none advisory. No defect against any stated acceptance
-criterion was found; the live PR state independently queried from GitHub
-matches the Coder's report exactly in every field checked.
+None blocking. One advisory/process note (not a defect in this attempt's
+execution):
+
+- **Advisory — `current-task.md` not yet republished for this task.**
+  `agent-handoff/current-task.md` on this branch still reflects the prior
+  `PMQA-5C-PR` task (last touched at `25ef184e...`) rather than
+  `PMQA-5C-POST-MERGE-CLOSURE`. This is structurally unavoidable — the merge
+  commit this task is keyed to did not exist until the Human performed the
+  actual GitHub merge, which happened after the Architect's last
+  `current-task.md` publication — and the Coder report transparently
+  compensates with merge-commit-based correlation instead. It does not affect
+  the correctness of the documentation closure itself, but the Architect
+  should republish `current-task.md` (or explicitly close it out) so the
+  sequential-lifecycle file stops naming a superseded task ID.
 
 ## Acceptance Criteria Coverage
 
 | Acceptance criterion | Evidence | Result |
 | --- | --- | --- |
-| Only the seven allowed product documents change in the status-transition commit | `git diff --stat 35df5c90..0e96a9d3` shows exactly the 7 files | Met |
-| All seven documents say cumulative architecture review passed and final PR ready, while still unmerged and not Complete on main | Full line-by-line diff read; each file states "checkpoint-level, cumulative closure, independent, and final architecture review" and "ready for its final PR" alongside unchanged "remains unmerged... not yet Complete on `main`" wording | Met |
-| No stale "ready for independent cumulative review" status remains in the active Task 5C documentation | Whole-tree `grep` of `README.md` and `docs/` for five stale-wording variants -> zero remaining matches | Met |
-| Exact Task 5C boundaries and capability limitations remain accurate | Main base and approved boundary SHAs unchanged and correctly cited in all seven files; Usage/Cost foundation-only language unchanged and still accurate | Met |
-| The PR targets exact `main` base `d0186f2...` and contains no Task 5D file | `gh pr view 24` independently confirms `baseRefOid == d0186f2f8d37e3b52029a8c3195226e4432a6b43`; `gh pr diff --name-only` byte-identical to local diff, no Task 5D path present | Met |
-| The cumulative PR diff remains the known 47-file Task 5C inventory plus authorized handoff history, with no runtime change after the approved boundary | `changedFiles: 47` from GitHub matches local count; `git diff --stat 9d2ba638...HEAD -- pmqa products tests pyproject.toml` is empty, confirming no runtime/test/packaging change after the boundary | Met |
-| Focused, packaging, full and generated-test regressions pass | `685 passed` focused, `3 passed` packaging, `1840 passed, 5 skipped` full, `2 passed` generated — all independently rerun from the dedicated environment and matching the Coder's claims exactly | Met |
-| Markdown links and `git diff --check` pass | Independent from-scratch relative-link check across all 18 tracked `.md` files (34 real link targets checked; one incidental literal-syntax match inside this Reviewer's own prior report text is not a real link — see Test Evidence); `git diff --check` independently rerun, exit `0` | Met |
-| Local, upstream and GitHub branch heads agree | `git log -1 HEAD` == `git log -1 origin/agent/task-5c-cumulative-closure` == `bf785946...` == PR #24's live `headRefOid` | Met |
-| One non-draft PR exists and is not merged | `gh pr view 24` confirms `number: 24, state: OPEN, isDraft: false, mergedAt: null, closed: false` | Met |
-| The worktree is clean | `git status --short` empty before and after review | Met |
+| Documentation branch created directly from PR #24's merge commit, no history rewritten | `git log --oneline cfc570d2..2d8bcac8` shows exactly `fec2629 -> 2d8bcac`, each with a single parent | Met |
+| Merge-commit parent identification (`main` SHA, Task 5C final head SHA) is correct | `git show -s --format=%P cfc570d2...` -> `d0186f2f...` then `25ef184e...`, matching the report exactly | Met |
+| Implementation commit changes exactly the seven named documents | `git diff --name-only cfc570d2 fec2629` -> exactly the 7 listed paths | Met |
+| Report commit changes only `agent-handoff/coder-report.md` | `git diff --name-only fec2629 2d8bcac` -> exactly that one file | Met |
+| All seven documents consistently state Task 5C Complete, merged via PR #24, with correct final-head and merge-commit SHAs, Task 5D excluded | Full per-file read at `fec2629`; all seven match | Met |
+| No stale pre-merge status wording remains | `git grep` scoped to `fec2629` for nine stale-wording variants -> zero matches | Met |
+| PR #24 is merged, with the recorded merge commit | `gh pr view 24` -> `state: MERGED`, `mergeCommit.oid == cfc570d2...` | Met |
+| No new PR was created by this closure task | `gh pr list --head agent/task-5c-post-merge-closure --state all` -> empty | Met |
+| Tracked Markdown relative links resolve | Independent from-scratch script over `git ls-tree -r 2d8bcac8` (18 `.md` files, matching the Coder's count) resolving every relative link -> 35 candidate targets, 33 genuine links all resolve; 2 flagged matches are the literal `[text](target)` example syntax inside `reviewer-report.md` prose, not real links | Met |
+| `git diff --check` passes | Independently rerun over `cfc570d2..2d8bcac8` -> exit `0`, no output | Met |
+| Worktree is clean | `git status --short` empty in the dedicated worktree before and after review | Met |
 
 ## Test Evidence
 
 ### Coder Evidence Reviewed
 
-The Coder report claims: `685 passed` focused Run/Runner/Application/Usage/
-security group; `3 passed` real-wheel packaging; `1840 passed, 5 skipped`
-full default offline suite; `2 passed` generated SauceDemo Playwright
-regressions; clean isolated `compileall`; all `18` tracked Markdown files
-passing relative-link validation; clean `git diff --check`; clean `pip
-check`; PR #24 open/non-draft/exact-base/mergeable-clean/zero-checks. This
-claimed evidence was read only after independent execution below (see
-Independent Review Method); every independently reproduced count and every
-independently queried GitHub field matches it exactly.
+The Coder report claims: exact starting HEAD `cfc570d2...` and merge parents
+`d0186f2...`/`25ef184e...` verified; changed-file inventory exactly the seven
+documents; zero stale-wording matches; PR #24/final-head/merge-commit SHA
+presence verified in every updated surface; all 18 tracked Markdown files
+passing relative-link validation; clean `git diff --check`; local/remote
+branch synchronization at `fec2629...` before the report; clean worktree; and
+zero PRs found for the closure branch. A full test suite was explicitly not
+run because the change is documentation-only. This claimed evidence was read
+only after independent execution below (see Independent Review Method); every
+independently reproduced fact matches it exactly, and no test-suite claim
+needed reproduction since none was made.
 
 ### Independently Run
 
-All commands below were executed by the Reviewer directly, from this
-worktree's own dedicated `.venv`:
+- `git log --oneline -20 origin/agent/task-5c-post-merge-closure` and
+  `git show -s --format=%P` on both branch commits and the merge commit ->
+  confirmed the exact linear structure and merge-parent identity above;
+- `git diff --name-only cfc570d2 fec2629`, `git diff --name-only fec2629
+  2d8bcac`, and `git diff --name-only cfc570d2 2d8bcac` -> confirmed the
+  7-file, 1-file, and combined 8-file scopes exactly;
+- `git grep -niE` for nine stale-wording variants scoped to the `fec2629`
+  commit content across the seven documents -> zero matches;
+- `git show fec2629:<path>` read in full for each of the seven documents'
+  Task 5C sections -> consistent Complete/PR #24/SHA/Task-5D-exclusion
+  wording confirmed in every file;
+- `gh pr view 24 --repo QiangLiFeb26/pmqa --json
+  number,state,mergedAt,mergeCommit,baseRefName,headRefName,title,mergeStateStatus`
+  -> independently confirmed `state: MERGED`, `mergeCommit.oid ==
+  cfc570d2fa926a05e4e7fffe995a9051312641e9`, base `main`;
+- `gh pr checks 24` -> no checks reported; `gh pr list --repo QiangLiFeb26/pmqa
+  --head agent/task-5c-post-merge-closure --state all` -> empty;
+- `git diff --check cfc570d2 fec2629` and `git diff --check cfc570d2 2d8bcac`
+  -> both exit `0`, no output;
+- wrote and ran a from-scratch Python script enumerating `git ls-tree -r
+  --name-only 2d8bcac8` (18 `.md` files, matching the Coder's count) and
+  resolving every `[text](target)` relative link found in each file's
+  content at that commit: 35 candidate targets found; 2 are the literal
+  `[text](target)` example syntax inside `reviewer-report.md`'s own prose
+  (not real documentation links — confirmed by reading the source line
+  directly); the remaining 33 genuine links all resolve to tracked paths;
+- `git status --short` in the dedicated worktree
+  (`/Users/qiangli/Documents/Codex/pmqa-5c-closure`) -> empty, before and
+  after review.
 
-- `.venv/bin/python -m pytest tests/test_run_contracts.py
-  tests/test_run_imports.py tests/test_runner_contracts.py
-  tests/test_runner_imports.py tests/test_mock_runner.py
-  tests/test_application_contracts.py tests/test_application_imports.py
-  tests/test_application_registry.py tests/test_application_service.py
-  tests/test_usage_contracts.py tests/test_usage_imports.py
-  tests/test_usage_pricing.py tests/test_usage_collector.py
-  tests/test_usage_repository.py tests/test_usage_summary.py
-  tests/test_boundary_policy.py -q` -> `685 passed`
-- `.venv/bin/python -m pytest tests/test_packaging.py -q` -> `3 passed`
-- `.venv/bin/python -m pytest -q` (full default suite) -> `1840 passed,
-  5 skipped, 1 warning` (pre-existing `LangChainPendingDeprecationWarning`,
-  unrelated)
-- `.venv/bin/python -m pytest products/demo/generated_tests -q` ->
-  `2 passed`
-- `.venv/bin/python -m compileall -q pmqa products` with
-  `PYTHONPYCACHEPREFIX` pointed outside the worktree -> exit `0`, no
-  tracked bytecode written (`git status --short` remained empty)
-- `.venv/bin/pip check` -> "No broken requirements found."
-- `git diff --check` -> exit `0`, no output
-- `git status --short` -> empty (clean worktree), before and after review
+No test suite was independently rerun. The change is documentation-only
+(confirmed above: the full `cfc570d2..2d8bcac8` diff touches only Markdown
+files, none of them source, test, schema, packaging, or generated-asset
+paths), so no runtime regression surface exists for this attempt to verify
+beyond the documentation and Git/GitHub facts above, consistent with a Light
+depth.
 
-In addition, independently and without relying on the Coder's own claims:
-
-- wrote and ran a from-scratch Python script enumerating `git ls-files
-  '*.md'` (18 files, matching the Coder's count) and resolving every
-  `[text](target)` relative link: 34 real link targets were checked and
-  resolved; one additional match was flagged
-  (`agent-handoff/reviewer-report.md -> target`), which on inspection is
-  the literal example syntax `` `[text](target)` `` inside this Reviewer's
-  own prior report's prose describing the check methodology, not an actual
-  broken documentation link — confirmed by reading the source line
-  directly. All genuine relative links resolve;
-- `gh pr view 24 --repo QiangLiFeb26/pmqa --json number,title,state,isDraft,baseRefName,headRefName,baseRefOid,headRefOid,mergeable,mergeStateStatus,url,statusCheckRollup,changedFiles,additions,deletions,commits`
-  -> independently confirmed every field cited above;
-- `gh pr diff 24 --repo QiangLiFeb26/pmqa --name-only`, sorted and diffed
-  against a locally computed sorted `git diff --name-only
-  d0186f2f...HEAD` -> zero differences;
-- `gh pr checks 24` -> "no checks reported"; `gh run list --repo
-  QiangLiFeb26/pmqa --branch agent/task-5c-cumulative-closure` -> empty;
-- `gh pr view 24 --json mergedAt,closedAt,closed,state` ->
-  `{"closed":false,"closedAt":null,"mergedAt":null,"state":"OPEN"}`;
-- `gh pr view 24 --json labels,milestone,reviews,reviewRequests,comments,autoMergeRequest`
-  -> all empty/null;
-- `git ls-remote --heads origin agent/task-5c-cumulative-closure main` ->
-  both branches present, `main` still at exactly `d0186f2f...`;
-- `git diff --stat 0e96a9d3...bf785946` -> only
-  `agent-handoff/coder-report.md`, confirming the report-only commit is
-  the sole difference between the PR's creation head and its current head;
-- confirmed `.github/workflows/` does not exist in this repository,
-  explaining the zero-checks state structurally rather than by omission.
-
-Environment: this worktree's own dedicated `.venv` (Python 3.9, reused from
-the prior closure review and re-verified to resolve `pmqa` inside this
-worktree), `gh` CLI authenticated as `QiangLiFeb26` with `repo` scope,
-macOS/Darwin. GitHub queries used the authenticated `gh` CLI only to read
-PR/commit/check state; no write, comment, review, label, or merge action
-was taken against GitHub.
+Environment: primary checkout plus this task's dedicated worktree
+(`/Users/qiangli/Documents/Codex/pmqa-5c-closure`,
+`agent/task-5c-post-merge-closure`), `gh` CLI authenticated as
+`QiangLiFeb26` with `repo` scope, macOS/Darwin. GitHub queries used the
+authenticated `gh` CLI only to read PR state; no write, comment, review,
+label, or merge action was taken against GitHub.
 
 ## Security, Scope, and Compatibility
 
-Security observations: none specific to this attempt — it is a
-documentation-only change plus one authorized, non-mutating PR-state
-observation. No credential, token, or secret was read or written during
-the `gh` queries beyond the already-configured local CLI authentication.
+Security observations: none — this is a documentation-only change plus
+read-only PR-state queries. No credential, token, or secret was read or
+written beyond the already-configured local `gh` authentication.
 
-Scope observations: `git diff --stat 35df5c90...0e96a9d3` shows exactly the
-7 files the current task's `Allowed Changes` lists; the report-only commit
-touches only `agent-handoff/coder-report.md`. No GitHub write beyond the
-already-created PR #24 occurred — no label, milestone, review, comment,
-merge, or branch deletion.
+Scope observations: `git diff --name-only cfc570d2 2d8bcac` shows exactly the
+seven authorized documents plus the Coder's own report file, each changed in
+its own commit. No GitHub write occurred — no PR was created, merged, or
+modified, and no branch was deleted.
 
-Compatibility observations: the full default suite (`1840 passed, 5
-skipped`) and the focused Task 5C group (`685 passed`) both independently
-reproduced exactly, and GitHub's own PR diff confirms no runtime file
-changed after the approved implementation boundary — consistent with this
-attempt being a pure documentation/status and PR-publication task.
+Compatibility observations: not applicable — no source, test, schema,
+dependency, packaging, or generated-asset file changed in this attempt.
 
 ## Verdict
 
 Verdict: Pass
 
 This verdict is advisory. The Architect makes the final technical
-disposition. Merge remains a Human-authorized action; nothing in this
-review authorizes or recommends an automatic merge.
+disposition.
 
 ## Suggested Architect Focus
 
-- No blocking finding surfaced from this Deep, independently reproduced
-  review of both the Git history and the live GitHub PR state. PR #24 is
-  open, non-draft, exact-base, mergeable/clean, zero-checks (structurally,
-  not by omission), and contains exactly the known 47-file Task 5C
-  inventory with no Task 5D file.
-- This review queried GitHub directly via `gh` rather than relying on the
-  Coder's report for PR state, and independently byte-diffed GitHub's own
-  file list against the local Git diff; both matched exactly, so PR #24's
-  actual current state (head `bf785946...`, which already includes the
-  Coder's report-only commit) is confirmed rather than assumed.
-- The final decision to authorize merge belongs to the Human per the
-  approved two-PR release strategy (Task 5C first, Task 5D separately).
-  Nothing found in this review should block that authorization, but this
-  Reviewer's verdict is advisory only and does not itself authorize merge.
+- No blocking finding surfaced from this Light, independently reproduced
+  review. The seven-document status transition, PR #24's merged state and
+  merge-commit SHA, and the report-only commit's isolated scope all match the
+  Coder's claims exactly against directly derived Git and GitHub evidence.
+- Republish (or explicitly close) `agent-handoff/current-task.md`, which
+  still names the superseded `PMQA-5C-PR` task rather than
+  `PMQA-5C-POST-MERGE-CLOSURE` — see Findings. This is advisory only and does
+  not block accepting this closure.
+- Task 5C is now Complete and merged into `main`; per the two-PR release
+  strategy, Task 5D work on its separate preserved branch is unaffected by
+  and independent of this closure.
 
 ## Reviewer Write-Boundary Confirmation
 
@@ -336,6 +309,6 @@ Repository files changed by Reviewer:
 
 Confirmation: I changed no production code, tests, configuration, schemas,
 packaging, scripts, product documentation, or another role's handoff file.
-No GitHub write action (merge, comment, review, label, milestone, or
-branch deletion) was taken against PR #24 or the repository; all `gh`
-invocations were read-only queries.
+No GitHub write action (merge, comment, review, label, milestone, or branch
+deletion) was taken against PR #24 or the repository; all `gh` invocations
+were read-only queries.

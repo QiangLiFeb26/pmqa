@@ -170,12 +170,11 @@ pilot. Task 5B, Task 6, and Task 7 have not started.
 ### Canonical Run Contract
 
 Task 5C.1–5C.7 passed checkpoint-level, cumulative closure, independent, and
-final architecture review on the isolated Task-5C-only release branch. The branch
-is based on main commit `d0186f2f8d37e3b52029a8c3195226e4432a6b43`,
-contains the approved Task 5C boundary through
-`9d2ba638c9692eb542bb6d1c023388d959573316`, and is ready for its final PR.
-Task 5C remains unmerged and is not
-yet Complete on `main`; Task 5D is excluded from this release branch.
+final architecture review and are Complete. They were merged into `main`
+through PR #24 using a merge commit. The final implementation branch head was
+`25ef184e367cf56d1278e5c8b06b913e211355a9`, and the `main` merge
+commit is `cfc570d2fa926a05e4e7fffe995a9051312641e9`. Task 5D was
+excluded from the Task 5C release PR.
 
 Task 5C.1 passed architecture review and defines the application-level Run
 Contract in `pmqa.run`. It
@@ -277,7 +276,7 @@ See the [Run Contract architecture](architecture/run-contract.md) and
 [Application Service architecture](architecture/application-service.md) and
 [Usage and cost contracts](architecture/usage-cost-contracts.md). Task
 5C.1–5C.7 passed checkpoint-level, cumulative closure, independent, and final
-architecture review. Task 5C remains unmerged and is ready for its final PR.
+architecture review and were merged through PR #24.
 Task 5B, Task 6, and Task 7 remain not started.
 
 ### Memory
